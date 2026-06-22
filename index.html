@@ -1,0 +1,2323 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>homeOS</title>
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --ink: #1d1b18;
+    --muted: #7a7268;
+    --line: #d9d2c5;
+    --paper: #fffdf8;
+    --accent: #c2592a;
+    --accent-soft: #f1d9c5;
+    --room: #efe6d3;
+    --room-stroke: #b8a988;
+    --room-selected: #f7d9b8;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.06);
+    --danger: #a02020;
+    --danger-soft: #fbe7e7;
+  }
+  html[data-theme="dark"] {
+    --bg: #181613;
+    --ink: #ece7dd;
+    --muted: #8c8478;
+    --line: #2f2a23;
+    --paper: #221e1a;
+    --accent: #e07a47;
+    --accent-soft: #3a2618;
+    --room: #2b2620;
+    --room-stroke: #4a4036;
+    --room-selected: #4a311e;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.5);
+    --danger: #e57b7b;
+    --danger-soft: #3a1f1f;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  /* App shell — só aparece quando autenticado */
+  #app-shell {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    grid-template-rows: 56px 1fr;
+    grid-template-areas:
+      "top top"
+      "map side";
+    height: 100%;
+    transition: grid-template-columns .2s ease;
+  }
+  #app-shell:not(.has-selection) { grid-template-columns: 1fr 0; }
+  #app-shell:not(.has-selection) aside { display: none; }
+  #app-shell[hidden] { display: none; }
+
+  header {
+    grid-area: top;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: .2px;
+  }
+  header .sub { color: var(--muted); font-size: 12px; }
+  header .spacer { flex: 1; }
+
+  button, .btn {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font: inherit;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  button:hover { background: var(--accent-soft); border-color: var(--accent); }
+  button.primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  button.primary:hover { background: #a64a22; }
+  button.primary:disabled { opacity: .6; cursor: not-allowed; }
+  button.ghost { background: transparent; }
+  button.danger { color: var(--danger); border-color: var(--danger); }
+  button.danger:hover { background: var(--danger-soft); }
+
+  #map-wrap {
+    grid-area: map;
+    position: relative;
+    overflow: hidden;
+    --vp-x: 0px;
+    --vp-y: 0px;
+    background:
+      linear-gradient(var(--line) 1px, transparent 1px) var(--vp-x) var(--vp-y) / 40px 40px,
+      linear-gradient(90deg, var(--line) 1px, transparent 1px) var(--vp-x) var(--vp-y) / 40px 40px,
+      var(--bg);
+  }
+  #svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+    cursor: grab;
+  }
+  #svg.panning { cursor: grabbing; }
+  .hint {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--muted);
+    box-shadow: var(--shadow);
+    pointer-events: none;
+    max-width: 280px;
+  }
+  .sync-pill {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: var(--muted);
+    box-shadow: var(--shadow);
+  }
+  .sync-pill.error { color: var(--danger); border-color: var(--danger); }
+
+  aside {
+    grid-area: side;
+    background: var(--paper);
+    border-left: 1px solid var(--line);
+    overflow-y: auto;
+    padding: 16px;
+  }
+  aside h2 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    font-weight: 600;
+  }
+  .empty {
+    color: var(--muted);
+    font-size: 13px;
+    padding: 24px 8px;
+    text-align: center;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+  }
+  .field { display: block; margin-bottom: 12px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .field input, .field textarea {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font: inherit;
+    resize: vertical;
+  }
+  .field input:focus, .field textarea:focus {
+    outline: 2px solid var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .items { list-style: none; padding: 0; margin: 0 0 8px; }
+  .items li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+  }
+  .items li:hover { background: var(--bg); }
+  .items input[type="checkbox"] { accent-color: var(--accent); }
+  .items .text { flex: 1; }
+  .items .text.done { text-decoration: line-through; color: var(--muted); }
+  .items button.x {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1;
+    padding: 2px 6px;
+  }
+  .items button.x:hover { color: var(--accent); }
+  .add-item-row { display: flex; gap: 6px; }
+  .add-item-row input { flex: 1; }
+  .row-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+
+  /* Profile chip */
+  .profile {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px 4px 4px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--paper);
+    cursor: pointer;
+  }
+  .profile:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .profile .avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: grid; place-items: center;
+    font-size: 16px;
+    border: 1px solid var(--line);
+  }
+  .profile .pname { font-weight: 600; font-size: 13px; }
+
+  /* Modal */
+  .modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.45);
+    display: grid; place-items: center;
+    z-index: 50;
+    padding: 16px;
+  }
+  .modal-bg[hidden] { display: none; }
+  .modal {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+    width: min(440px, 100%);
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow);
+  }
+  .modal h3 { margin: 0 0 4px; font-size: 16px; }
+  .modal .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+  .avatar-picker {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 12px;
+  }
+  .avatar-picker button {
+    width: 36px; height: 36px;
+    font-size: 18px;
+    padding: 0;
+    display: grid; place-items: center;
+  }
+  .avatar-picker button.selected {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+  /* Devices */
+  .devices {
+    list-style: none; margin: 0 0 8px; padding: 0;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .devices li {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--bg);
+  }
+  .dev-icon {
+    width: 26px; height: 26px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    background: var(--line);
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .dev-icon.on { background: #fde68a; color: #92400e; }
+  html[data-theme="dark"] .dev-icon.on { background: #5b3d10; color: #fde68a; }
+  .dev-icon.cool { background: #c7e3fb; color: #1e6ea3; }
+  html[data-theme="dark"] .dev-icon.cool { background: #1e3a5f; color: #c7e3fb; }
+  .dev-icon.heat { background: #fbd1c2; color: #a04020; }
+  html[data-theme="dark"] .dev-icon.heat { background: #5a2a18; color: #fbd1c2; }
+  .dev-name { flex: 1; font-size: 13px; font-weight: 600; }
+  .dev-state { font-size: 12px; color: var(--muted); }
+  .dev-remove {
+    border: none; background: transparent; color: var(--muted);
+    cursor: pointer; padding: 2px 6px; font-size: 16px; line-height: 1;
+  }
+  .dev-remove:hover { color: var(--accent); background: transparent; }
+  .add-device {
+    width: 100%;
+    border: 1px dashed var(--line);
+    background: transparent;
+    color: var(--muted);
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .add-device:hover { border-color: var(--accent); color: var(--accent); background: transparent; }
+
+  /* Device controls */
+  .dev-ctrl {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font: inherit;
+    color: var(--ink);
+    transition: background .15s, border-color .15s;
+  }
+  .dev-ctrl:hover { background: var(--accent-soft); border-color: var(--accent); }
+  .dev-ctrl:disabled { opacity: .5; cursor: wait; }
+  .dev-ctrl.power { width: 28px; height: 28px; padding: 0; display: grid; place-items: center; font-size: 13px; }
+  .dev-ctrl.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .dev-ctrl.on:hover { background: #a64a22; }
+
+  .devices li.climate-card { flex-direction: column; align-items: stretch; gap: 10px; padding: 8px; }
+  .climate-card .row1 { display: flex; align-items: center; gap: 8px; }
+  .climate-modes { display: flex; gap: 4px; }
+  .climate-modes .dev-ctrl { flex: 1; text-transform: capitalize; font-size: 11px; }
+  .climate-temp { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .climate-temp .display { font-size: 18px; font-weight: 700; }
+  .climate-temp .display small { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+  .climate-temp .dev-ctrl { width: 36px; height: 32px; padding: 0; font-size: 16px; }
+
+  /* Picker modal */
+  .picker-search { width: 100%; margin-bottom: 8px; }
+  .picker-list {
+    list-style: none; margin: 0; padding: 0;
+    max-height: 50vh; overflow-y: auto;
+    border: 1px solid var(--line); border-radius: 6px;
+  }
+  .picker-list li {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .picker-list li:hover { background: var(--bg); }
+  .picker-list li:last-child { border-bottom: none; }
+  .picker-list li.assigned { opacity: .5; cursor: not-allowed; }
+  .picker-list li.assigned:hover { background: transparent; }
+  .picker-empty { padding: 20px; color: var(--muted); text-align: center; font-size: 13px; }
+  .picker-dom { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+  .sync-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .sync-row:last-child { border-bottom: none; }
+  .sync-row .body { flex: 1; min-width: 0; }
+  .sync-row .body .name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sync-row select {
+    border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px;
+    background: var(--bg); color: var(--ink); font: inherit; font-size: 12px;
+  }
+  .sync-row button { padding: 4px 8px; font-size: 12px; }
+  .sync-suggested { font-size: 11px; color: var(--accent); }
+
+  /* SVG room stats (inline readings) */
+  .room-stats {
+    font-size: 11px;
+    font-weight: 500;
+    fill: var(--muted);
+    pointer-events: none;
+    user-select: none;
+  }
+  .room-stats .stat-on   { fill: #c2592a; font-weight: 600; }
+  html[data-theme="dark"] .room-stats .stat-on   { fill: #f4a572; }
+  .room-stats .stat-cool { fill: #1e6ea3; font-weight: 600; }
+  html[data-theme="dark"] .room-stats .stat-cool { fill: #7fb9e5; }
+  .room-stats .stat-heat { fill: #a04020; font-weight: 600; }
+  html[data-theme="dark"] .room-stats .stat-heat { fill: #f2a98c; }
+
+  /* Activity log */
+  .activity {
+    list-style: none; margin: 0; padding: 0;
+    max-height: 60vh;
+    overflow-y: auto;
+    border-top: 1px solid var(--line);
+  }
+  .activity li {
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .activity li:last-child { border-bottom: none; }
+  .activity .when { color: var(--muted); font-size: 11px; }
+  .activity .what b { color: var(--accent); }
+  .activity-empty { color: var(--muted); font-size: 13px; padding: 8px 4px; font-style: italic; }
+  .clear-history {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    padding: 4px 0;
+    cursor: pointer;
+  }
+  .clear-history:hover { color: var(--accent); background: transparent; }
+
+  /* SVG room styles */
+  .room rect.body {
+    fill: var(--room);
+    stroke: var(--room-stroke);
+    stroke-width: 1.5;
+    cursor: grab;
+  }
+  .room.selected rect.body {
+    fill: var(--room-selected);
+    stroke: var(--accent);
+    stroke-width: 2;
+  }
+  .room text {
+    fill: var(--ink);
+    font-size: 14px;
+    font-weight: 600;
+    pointer-events: none;
+    user-select: none;
+  }
+  .room .meta { fill: var(--muted); font-size: 11px; font-weight: 400; }
+  .handle {
+    fill: var(--paper);
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    cursor: nwse-resize;
+  }
+  .room:not(.selected) .handle { display: none; }
+
+  /* Auth screen */
+  #auth-screen {
+    position: fixed; inset: 0;
+    display: grid; place-items: center;
+    background: var(--bg);
+    z-index: 100;
+    padding: 16px;
+  }
+  #auth-screen[hidden] { display: none; }
+  .auth-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 28px;
+    width: min(420px, 100%);
+    box-shadow: var(--shadow);
+  }
+  .auth-card h2 {
+    margin: 0 0 4px;
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .auth-card .lede {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 20px;
+  }
+  .auth-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .auth-tabs button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    border-radius: 0;
+    padding: 8px 0;
+    font-weight: 600;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .auth-tabs button:hover { background: transparent; border-color: transparent transparent var(--line); }
+  .auth-tabs button.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .auth-error {
+    color: var(--danger);
+    font-size: 13px;
+    margin-top: 8px;
+    min-height: 18px;
+  }
+  .auth-footer {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    line-height: 1.5;
+  }
+  .auth-top {
+    position: absolute;
+    top: 16px; right: 16px;
+  }
+
+  @media (max-width: 760px) {
+    #app-shell {
+      grid-template-columns: 1fr;
+      grid-template-rows: 56px 1fr auto;
+      grid-template-areas: "top" "map" "side";
+    }
+    aside { max-height: 50vh; border-left: none; border-top: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================ AUTH SCREEN ============================ -->
+<div id="auth-screen" hidden>
+  <button id="theme-toggle-auth" class="ghost auth-top" title="Alternar tema">🌙</button>
+  <div class="auth-card">
+    <h2>homeOS</h2>
+    <p class="lede">Entre ou crie uma conta para salvar o mapa da sua casa.</p>
+
+    <div class="auth-tabs" role="tablist">
+      <button type="button" class="active" data-tab="login">Entrar</button>
+      <button type="button" data-tab="signup">Criar conta</button>
+    </div>
+
+    <form id="auth-form" autocomplete="on">
+      <div class="field">
+        <label for="auth-username">Usuário</label>
+        <input id="auth-username" name="username" type="text" autocomplete="username" required minlength="3" maxlength="32" placeholder="ex: gui" />
+      </div>
+      <div class="field" id="signup-displayname-field" hidden>
+        <label for="auth-displayname">Nome de exibição</label>
+        <input id="auth-displayname" name="displayName" type="text" maxlength="60" placeholder="opcional" autocomplete="name" />
+      </div>
+      <div class="field">
+        <label for="auth-password">Senha</label>
+        <input id="auth-password" name="password" type="password" autocomplete="current-password" required minlength="6" maxlength="200" placeholder="ao menos 6 caracteres" />
+      </div>
+      <button type="submit" class="primary" id="auth-submit" style="width: 100%;">Entrar</button>
+      <div id="auth-error" class="auth-error" role="alert"></div>
+    </form>
+
+    <p class="auth-footer">
+      ⚠️ Aviso: este é um MVP. As senhas ficam protegidas por hash <code>scrypt</code> no servidor,
+      mas o sistema não tem recuperação de senha, 2FA nem HTTPS por padrão — não use uma senha que você reaproveita em outros serviços.
+    </p>
+  </div>
+</div>
+
+<!-- ============================ APP SHELL ============================ -->
+<div id="app-shell" hidden>
+  <header>
+    <h1>homeOS</h1>
+    <span class="sub" id="status">— monte o mapa da sua casa</span>
+    <div class="spacer"></div>
+    <button id="profile-btn" class="profile" title="Conta">
+      <span class="avatar" id="profile-avatar">🏠</span>
+      <span class="pname" id="profile-name">…</span>
+    </button>
+    <button id="sync-btn" class="ghost" title="Sincronizar dispositivos do Home Assistant" aria-label="Sincronizar dispositivos">🔄</button>
+    <button id="history-btn" class="ghost" title="Histórico" aria-label="Histórico">🕘</button>
+    <button id="theme-toggle" class="ghost" title="Alternar tema" aria-label="Alternar tema">🌙</button>
+    <button id="add-room" class="primary">+ Cômodo</button>
+    <button id="center-view" class="ghost" title="Centralizar o mapa">Centrar</button>
+  </header>
+
+  <div id="map-wrap">
+    <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="hint" id="hint">
+      Clique em <b>+ Cômodo</b> para adicionar. Arraste para mover, use o canto inferior direito para redimensionar. Clique num cômodo para editar.
+    </div>
+    <div class="sync-pill" id="sync-pill" hidden></div>
+  </div>
+
+  <aside id="side">
+    <div id="detail" hidden>
+      <h2>Cômodo</h2>
+      <div class="field">
+        <label for="name">Nome</label>
+        <input id="name" type="text" placeholder="ex: Cozinha" />
+      </div>
+      <div class="field">
+        <label for="notes">Notas</label>
+        <textarea id="notes" rows="3" placeholder="Lembretes, projetos, manutenção..."></textarea>
+      </div>
+      <h2>Itens / Tarefas</h2>
+      <ul class="items" id="items"></ul>
+      <form id="add-item" class="add-item-row" autocomplete="off">
+        <input id="new-item" type="text" placeholder="Adicionar item ou tarefa..." />
+        <button type="submit">Adicionar</button>
+      </form>
+
+      <h2 id="devices-heading" hidden>Dispositivos (Home Assistant)</h2>
+      <ul class="devices" id="devices" hidden></ul>
+      <button id="open-device-picker" class="add-device" type="button" hidden>+ Adicionar dispositivo</button>
+
+      <div class="row-actions">
+        <button id="delete-room" class="danger">Excluir cômodo</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- ============================ DEVICE PICKER MODAL ============================ -->
+<div id="device-modal" class="modal-bg" hidden>
+  <div class="modal">
+    <h3>Adicionar dispositivo</h3>
+    <p class="sub" id="device-modal-sub">Vínculos aparecem como pins no mapa e na sidebar do cômodo.</p>
+    <input id="picker-search" class="picker-search" type="text" placeholder="Buscar por nome ou tipo..." />
+    <ul class="picker-list" id="picker-list"></ul>
+    <div class="actions">
+      <button id="device-modal-close" class="ghost" type="button">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ SYNC MODAL ============================ -->
+<div id="sync-modal" class="modal-bg" hidden>
+  <div class="modal" style="width: min(560px, 100%);">
+    <h3>Sincronizar dispositivos</h3>
+    <p class="sub" id="sync-summary">Detectando…</p>
+
+    <div id="sync-new-section" hidden>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin: 4px 0 8px;">
+        <h4 style="margin: 0; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px;">Novos dispositivos</h4>
+        <button id="sync-add-all" class="ghost" type="button">Adicionar todos automaticamente</button>
+      </div>
+      <ul class="picker-list" id="sync-new-list"></ul>
+    </div>
+
+    <div id="sync-orphan-section" hidden style="margin-top: 16px;">
+      <h4 style="margin: 0 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px;">Sumidos do Home Assistant</h4>
+      <ul class="picker-list" id="sync-orphan-list"></ul>
+      <button id="sync-clean-orphans" class="ghost" type="button" style="margin-top: 8px;">Remover todos os órfãos</button>
+    </div>
+
+    <div class="actions">
+      <button id="sync-refresh" class="ghost" type="button">Atualizar lista</button>
+      <button id="sync-close" class="primary" type="button">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ HISTORY MODAL ============================ -->
+<div id="history-modal" class="modal-bg" hidden>
+  <div class="modal">
+    <h3>Atividade recente</h3>
+    <p class="sub">As últimas alterações na sua casa.</p>
+    <ul class="activity" id="activity"></ul>
+    <div class="actions">
+      <button id="clear-history" class="ghost" type="button" hidden>Limpar histórico</button>
+      <button id="history-close" class="primary" type="button">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ PROFILE MODAL ============================ -->
+<div id="profile-modal" class="modal-bg" hidden>
+  <div class="modal">
+    <h3>Sua conta</h3>
+    <p class="sub" id="profile-username-sub">@…</p>
+
+    <div class="field">
+      <label for="profile-name-input">Nome de exibição</label>
+      <input id="profile-name-input" type="text" maxlength="60" />
+    </div>
+    <div class="field">
+      <label>Avatar</label>
+      <div class="avatar-picker" id="avatar-picker"></div>
+    </div>
+
+    <h3 style="margin-top: 20px; font-size: 14px;">Home Assistant</h3>
+    <p class="sub" id="ha-config-status">…</p>
+    <div class="field">
+      <label for="ha-url-input">URL do servidor</label>
+      <input id="ha-url-input" type="text" placeholder="http://localhost:8123" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="ha-token-input">Long-Lived Access Token</label>
+      <input id="ha-token-input" type="password" placeholder="cole aqui (deixe vazio para manter o atual)" autocomplete="off" />
+    </div>
+
+    <div class="actions">
+      <button id="open-change-password" class="ghost" type="button">Trocar senha</button>
+      <button id="logout-btn" class="ghost" type="button">Sair</button>
+      <button id="profile-cancel" class="ghost" type="button">Cancelar</button>
+      <button id="profile-save" class="primary" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ CHANGE PASSWORD MODAL ============================ -->
+<div id="password-modal" class="modal-bg" hidden>
+  <div class="modal">
+    <h3>Trocar senha</h3>
+    <p class="sub">Sua sessão atual continua válida; as outras serão encerradas.</p>
+    <form id="password-form" autocomplete="off">
+      <div class="field">
+        <label for="current-password">Senha atual</label>
+        <input id="current-password" type="password" required />
+      </div>
+      <div class="field">
+        <label for="new-password">Nova senha</label>
+        <input id="new-password" type="password" required minlength="6" />
+      </div>
+      <div id="password-error" class="auth-error" role="alert"></div>
+      <div class="actions">
+        <button type="button" id="password-cancel" class="ghost">Cancelar</button>
+        <button type="submit" class="primary">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ===== Constantes =====
+  const THEME_KEY = "casa-organizada/theme";
+  const MAX_HISTORY = 100;
+  const AVATARS = ["🏠","🏡","🌿","🪴","🛋️","🛏️","🍳","📚","🎨","🐱","🐶","☕","🌞","🌙","⭐","🦊","🐢","🌸"];
+
+  // ===== Tema (independente de auth) =====
+  function applyTheme(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    const icon = t === "dark" ? "☀️" : "🌙";
+    const title = t === "dark" ? "Tema claro" : "Tema escuro";
+    for (const btn of document.querySelectorAll("#theme-toggle, #theme-toggle-auth")) {
+      btn.textContent = icon;
+      btn.title = title;
+    }
+  }
+  const savedTheme = localStorage.getItem(THEME_KEY)
+    || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  applyTheme(savedTheme);
+  function bindThemeToggle(btn) {
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      localStorage.setItem(THEME_KEY, next);
+      applyTheme(next);
+    });
+  }
+  bindThemeToggle(document.getElementById("theme-toggle"));
+  bindThemeToggle(document.getElementById("theme-toggle-auth"));
+
+  // ===== Helpers =====
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+  function timeAgo(iso) {
+    const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (diff < 5) return "agora";
+    if (diff < 60) return `${Math.floor(diff)}s atrás`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}min atrás`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h atrás`;
+    const d = Math.floor(diff / 86400);
+    if (d < 7) return `${d}d atrás`;
+    return new Date(iso).toLocaleDateString("pt-BR");
+  }
+
+  // ===== API client =====
+  async function api(method, path, body) {
+    const opts = {
+      method,
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+    };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    let res;
+    try {
+      res = await fetch("/api" + path, opts);
+    } catch (e) {
+      return { ok: false, status: 0, data: { error: "rede indisponível" } };
+    }
+    let data = null;
+    if (res.status !== 204) {
+      try { data = await res.json(); } catch { data = null; }
+    }
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  // ===== Auth screen =====
+  const authScreen = document.getElementById("auth-screen");
+  const appShell = document.getElementById("app-shell");
+  const authForm = document.getElementById("auth-form");
+  const authError = document.getElementById("auth-error");
+  const authSubmit = document.getElementById("auth-submit");
+  const authUsername = document.getElementById("auth-username");
+  const authPassword = document.getElementById("auth-password");
+  const authDisplayName = document.getElementById("auth-displayname");
+  const signupDisplayNameField = document.getElementById("signup-displayname-field");
+  const tabBtns = document.querySelectorAll(".auth-tabs button");
+
+  let authMode = "login";
+  function setAuthMode(mode) {
+    authMode = mode;
+    for (const b of tabBtns) b.classList.toggle("active", b.dataset.tab === mode);
+    signupDisplayNameField.hidden = mode !== "signup";
+    authSubmit.textContent = mode === "signup" ? "Criar conta" : "Entrar";
+    authPassword.autocomplete = mode === "signup" ? "new-password" : "current-password";
+    authError.textContent = "";
+  }
+  tabBtns.forEach(b => b.addEventListener("click", () => setAuthMode(b.dataset.tab)));
+
+  authForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    authError.textContent = "";
+    authSubmit.disabled = true;
+    const username = authUsername.value.trim();
+    const password = authPassword.value;
+    const displayName = authDisplayName.value.trim();
+    const path = authMode === "signup" ? "/auth/signup" : "/auth/login";
+    const body = authMode === "signup"
+      ? { username, password, displayName: displayName || undefined }
+      : { username, password };
+    const r = await api("POST", path, body);
+    authSubmit.disabled = false;
+    if (!r.ok) {
+      authError.textContent = (r.data && r.data.error) || "falha ao autenticar";
+      return;
+    }
+    user = r.data;
+    authPassword.value = "";
+    await loadState();
+    showApp();
+  });
+
+  function showAuth() {
+    authScreen.hidden = false;
+    appShell.hidden = true;
+    setTimeout(() => authUsername.focus(), 0);
+  }
+  function showApp() {
+    authScreen.hidden = true;
+    appShell.hidden = false;
+    renderProfileChip();
+    render();
+    haInit();
+  }
+
+  // ===== Estado do app =====
+  let user = null;
+  let state = null;
+  let saveTimer = null;
+  let savingInFlight = false;
+  let pendingDirty = false;
+  const syncPill = document.getElementById("sync-pill");
+
+  function emptyState() {
+    return { rooms: [], selectedId: null, seq: 1, history: [], view: { tx: 0, ty: 0 } };
+  }
+  function normalizeState(s) {
+    if (!s || typeof s !== "object") return emptyState();
+    const v = s.view && typeof s.view === "object" ? s.view : {};
+    const rooms = (Array.isArray(s.rooms) ? s.rooms : []).map(r => ({
+      ...r,
+      devices: Array.isArray(r.devices) ? r.devices.filter(d => typeof d === "string") : [],
+    }));
+    return {
+      rooms,
+      selectedId: s.selectedId || null,
+      seq: typeof s.seq === "number" ? s.seq : 1,
+      history: Array.isArray(s.history) ? s.history : [],
+      view: { tx: Number(v.tx) || 0, ty: Number(v.ty) || 0 },
+    };
+  }
+  async function loadState() {
+    const r = await api("GET", "/state");
+    state = normalizeState(r.ok ? r.data : null);
+  }
+
+  function showSync(text, isError = false) {
+    syncPill.textContent = text;
+    syncPill.hidden = false;
+    syncPill.classList.toggle("error", isError);
+    if (!isError) {
+      clearTimeout(showSync._t);
+      showSync._t = setTimeout(() => { syncPill.hidden = true; }, 1500);
+    }
+  }
+
+  async function flushSave() {
+    if (savingInFlight) { pendingDirty = true; return; }
+    savingInFlight = true;
+    showSync("salvando…");
+    const r = await api("PUT", "/state", { state });
+    savingInFlight = false;
+    if (!r.ok) {
+      if (r.status === 401) { showSync("sessão expirada", true); user = null; showAuth(); return; }
+      showSync("erro ao salvar", true);
+      return;
+    }
+    showSync("salvo");
+    if (pendingDirty) {
+      pendingDirty = false;
+      scheduleSave(0);
+    }
+  }
+  function scheduleSave(delay = 400) {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(flushSave, delay);
+  }
+
+  function logActivity(text) {
+    state.history.unshift({ at: new Date().toISOString(), text });
+    if (state.history.length > MAX_HISTORY) state.history.length = MAX_HISTORY;
+  }
+  function uid() { return "r" + (state.seq++); }
+  function currentRoom() {
+    return state.rooms.find(r => r.id === state.selectedId) || null;
+  }
+
+  // ===== Home Assistant integration =====
+  const haEntities = new Map(); // entity_id -> entity object
+  let haEnabled = false;
+  let haPollTimer = null;
+  const HA_POLL_MS = 7000;
+
+  const DOMAIN_ICON = {
+    light: "💡", switch: "🔌", climate: "❄️", fan: "🌀",
+    cover: "🪟", media_player: "📺", lock: "🔒", vacuum: "🤖",
+    humidifier: "💧", sensor: "📊", binary_sensor: "📍",
+  };
+  function entityDomain(id) { return (id || "").split(".")[0]; }
+  function entityIcon(id) { return DOMAIN_ICON[entityDomain(id)] || "🔘"; }
+
+  // Returns { label, status, kind } where kind ∈ on|off|cool|heat|neutral
+  function entityDisplay(id) {
+    const e = haEntities.get(id);
+    const dom = entityDomain(id);
+    const fallbackName = id.split(".").slice(1).join(".").replace(/_/g, " ");
+    if (!e) return { name: fallbackName, status: "—", kind: "neutral", missing: true };
+    const name = e.attributes.friendly_name || fallbackName;
+    const s = e.state;
+    if (dom === "light" || dom === "switch" || dom === "fan" || dom === "media_player") {
+      const on = s === "on" || s === "playing";
+      return { name, status: on ? "ligado" : (s === "unavailable" ? "indisponível" : "desligado"), kind: on ? "on" : "off" };
+    }
+    if (dom === "climate") {
+      const action = e.attributes.hvac_action || s;
+      const t = e.attributes.current_temperature ?? e.attributes.temperature;
+      const tempStr = t != null ? `${t}°` : "";
+      const kind = (action === "cooling" || s === "cool") ? "cool"
+                : (action === "heating" || s === "heat") ? "heat"
+                : (s === "off") ? "off" : "on";
+      return { name, status: `${s}${tempStr ? " · " + tempStr : ""}`, kind };
+    }
+    if (dom === "binary_sensor") {
+      return { name, status: s, kind: s === "on" ? "on" : "off" };
+    }
+    if (dom === "cover" || dom === "lock") {
+      return { name, status: s, kind: s === "open" || s === "unlocked" ? "on" : "off" };
+    }
+    if (dom === "sensor") {
+      const unit = e.attributes.unit_of_measurement || "";
+      return { name, status: `${s}${unit ? " " + unit : ""}`, kind: "neutral" };
+    }
+    return { name, status: s, kind: s === "on" ? "on" : "off" };
+  }
+
+  async function haPoll() {
+    if (!haEnabled) return;
+    try {
+      const r = await api("GET", "/ha/states");
+      if (!r.ok) return;
+      haEntities.clear();
+      for (const e of (r.data.entities || [])) haEntities.set(e.entity_id, e);
+      // re-render the affected bits without disturbing inputs/scroll
+      renderDevicesPanel(currentRoom());
+      renderRoomPins();
+    } catch {}
+  }
+  async function haCall(domain, service, body, btn) {
+    if (btn) btn.disabled = true;
+    try {
+      const r = await api("POST", `/ha/services/${domain}/${service}`, body);
+      if (!r.ok) {
+        alert((r.data && r.data.error) || `Erro chamando ${domain}.${service}`);
+        return false;
+      }
+      // Re-poll after a short delay so HA has time to update
+      await new Promise(res => setTimeout(res, 300));
+      await haPoll();
+      return true;
+    } catch (e) {
+      alert("Erro de rede ao chamar HA");
+      return false;
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function haInit() {
+    const r = await api("GET", "/ha/status");
+    haEnabled = !!(r.ok && r.data && r.data.configured && r.data.ok);
+    if (haEnabled) {
+      await haPoll();
+      clearInterval(haPollTimer);
+      haPollTimer = setInterval(haPoll, HA_POLL_MS);
+      // Refresh immediately when the user returns to the tab
+      window.addEventListener("focus", haPoll);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") haPoll();
+      });
+    }
+  }
+
+  // ===== DOM refs (app) =====
+  const svg = document.getElementById("svg");
+  const status = document.getElementById("status");
+  const nameInput = document.getElementById("name");
+  const notesInput = document.getElementById("notes");
+  const itemsList = document.getElementById("items");
+  const addItemForm = document.getElementById("add-item");
+  const newItemInput = document.getElementById("new-item");
+  const detail = document.getElementById("detail");
+  const hint = document.getElementById("hint");
+  const activityList = document.getElementById("activity");
+  const clearHistoryBtn = document.getElementById("clear-history");
+  const historyModal = document.getElementById("history-modal");
+
+  // ===== Render =====
+  function applyBgOffset() {
+    const wrap = document.getElementById("map-wrap");
+    wrap.style.setProperty("--vp-x", state.view.tx + "px");
+    wrap.style.setProperty("--vp-y", state.view.ty + "px");
+  }
+  function updateViewportOnly() {
+    const vp = svg.querySelector("g.viewport");
+    if (vp) vp.setAttribute("transform", `translate(${state.view.tx},${state.view.ty})`);
+    applyBgOffset();
+  }
+
+  function render() {
+    if (!state) return;
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    const viewport = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    viewport.setAttribute("class", "viewport");
+    viewport.setAttribute("transform", `translate(${state.view.tx},${state.view.ty})`);
+    svg.appendChild(viewport);
+    applyBgOffset();
+
+    for (const room of state.rooms) {
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.setAttribute("class", "room" + (room.id === state.selectedId ? " selected" : ""));
+      g.setAttribute("data-id", room.id);
+      g.setAttribute("transform", `translate(${room.x},${room.y})`);
+
+      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("class", "body");
+      rect.setAttribute("width", room.w);
+      rect.setAttribute("height", room.h);
+      rect.setAttribute("rx", 6);
+      g.appendChild(rect);
+
+      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      label.setAttribute("x", 12);
+      label.setAttribute("y", 22);
+      label.textContent = room.name || "Sem nome";
+      g.appendChild(label);
+
+      const meta = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      meta.setAttribute("class", "meta");
+      meta.setAttribute("x", 12);
+      meta.setAttribute("y", 40);
+      const done = (room.items || []).filter(i => i.done).length;
+      const total = (room.items || []).length;
+      meta.textContent = total ? `${done}/${total} concluído${total === 1 ? "" : "s"}` : "sem itens";
+      g.appendChild(meta);
+
+      const handle = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      handle.setAttribute("class", "handle");
+      handle.setAttribute("x", room.w - 10);
+      handle.setAttribute("y", room.h - 10);
+      handle.setAttribute("width", 12);
+      handle.setAttribute("height", 12);
+      handle.setAttribute("rx", 2);
+      handle.setAttribute("data-handle", "1");
+      g.appendChild(handle);
+
+      viewport.appendChild(g);
+    }
+
+    const selected = currentRoom();
+    appShell.classList.toggle("has-selection", !!selected);
+    if (!selected) {
+      detail.hidden = true;
+    } else {
+      detail.hidden = false;
+      if (document.activeElement !== nameInput) nameInput.value = selected.name || "";
+      if (document.activeElement !== notesInput) notesInput.value = selected.notes || "";
+      renderItems(selected);
+      renderDevicesPanel(selected);
+    }
+    renderRoomPins();
+
+    if (state.rooms.length === 0) {
+      status.textContent = "— monte o mapa da sua casa";
+      hint.style.display = "";
+    } else {
+      const totalItems = state.rooms.reduce((n, r) => n + (r.items || []).length, 0);
+      const doneItems = state.rooms.reduce((n, r) => n + (r.items || []).filter(i => i.done).length, 0);
+      status.textContent = `${state.rooms.length} cômodo${state.rooms.length === 1 ? "" : "s"} · ${doneItems}/${totalItems} itens`;
+      hint.style.display = "none";
+    }
+  }
+
+  function renderItems(room) {
+    itemsList.innerHTML = "";
+    const items = room.items || [];
+    if (items.length === 0) {
+      const li = document.createElement("li");
+      li.style.color = "var(--muted)";
+      li.style.fontStyle = "italic";
+      li.textContent = "Nenhum item ainda.";
+      itemsList.appendChild(li);
+      return;
+    }
+    for (const it of items) {
+      const li = document.createElement("li");
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = !!it.done;
+      cb.addEventListener("change", () => {
+        it.done = cb.checked;
+        logActivity(`${cb.checked ? "Concluído" : "Reaberto"} em <b>${escapeHtml(room.name)}</b>: "${escapeHtml(it.text)}"`);
+        scheduleSave();
+        render();
+      });
+
+      const span = document.createElement("span");
+      span.className = "text" + (it.done ? " done" : "");
+      span.textContent = it.text;
+      span.contentEditable = "true";
+      span.spellcheck = false;
+      const prevText = it.text;
+      span.addEventListener("blur", () => {
+        const t = span.textContent.trim();
+        if (!t) {
+          room.items = room.items.filter(x => x.id !== it.id);
+          logActivity(`Item removido de <b>${escapeHtml(room.name)}</b>: "${escapeHtml(prevText)}"`);
+        } else if (t !== prevText) {
+          it.text = t;
+          logActivity(`Item editado em <b>${escapeHtml(room.name)}</b>: "${escapeHtml(prevText)}" → "${escapeHtml(t)}"`);
+        } else {
+          return;
+        }
+        scheduleSave();
+        render();
+      });
+      span.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); span.blur(); }
+      });
+
+      const x = document.createElement("button");
+      x.className = "x";
+      x.title = "Remover";
+      x.textContent = "×";
+      x.addEventListener("click", () => {
+        room.items = room.items.filter(i => i.id !== it.id);
+        logActivity(`Item removido de <b>${escapeHtml(room.name)}</b>: "${escapeHtml(it.text)}"`);
+        scheduleSave();
+        render();
+      });
+
+      li.appendChild(cb);
+      li.appendChild(span);
+      li.appendChild(x);
+      itemsList.appendChild(li);
+    }
+  }
+
+  function renderDevicesPanel(room) {
+    const heading = document.getElementById("devices-heading");
+    const list = document.getElementById("devices");
+    const addBtn = document.getElementById("open-device-picker");
+    if (!room || !haEnabled) {
+      heading.hidden = true; list.hidden = true; addBtn.hidden = true;
+      return;
+    }
+    heading.hidden = false; list.hidden = false; addBtn.hidden = false;
+    list.innerHTML = "";
+    const devs = room.devices || [];
+    if (devs.length === 0) {
+      const li = document.createElement("li");
+      li.style.color = "var(--muted)";
+      li.style.fontStyle = "italic";
+      li.style.justifyContent = "center";
+      li.textContent = "Nenhum dispositivo vinculado.";
+      list.appendChild(li);
+    } else {
+      for (const id of devs) {
+        const dom = entityDomain(id);
+        const li = (dom === "climate" && haEntities.has(id))
+          ? buildClimateRow(id, room)
+          : buildSimpleDeviceRow(id, room);
+        list.appendChild(li);
+      }
+    }
+  }
+
+  function makeRemoveBtn(id, room, name) {
+    const rm = document.createElement("button");
+    rm.className = "dev-remove";
+    rm.type = "button";
+    rm.title = "Desvincular";
+    rm.textContent = "×";
+    rm.addEventListener("click", () => {
+      room.devices = room.devices.filter(x => x !== id);
+      logActivity(`Dispositivo <b>${escapeHtml(name)}</b> desvinculado de <b>${escapeHtml(room.name)}</b>`);
+      scheduleSave();
+      render();
+    });
+    return rm;
+  }
+
+  function buildSimpleDeviceRow(id, room) {
+    const d = entityDisplay(id);
+    const dom = entityDomain(id);
+    const li = document.createElement("li");
+    const ic = document.createElement("div");
+    ic.className = "dev-icon " + d.kind;
+    ic.textContent = entityIcon(id);
+    const nm = document.createElement("div");
+    nm.className = "dev-name";
+    nm.textContent = d.name;
+    const st = document.createElement("div");
+    st.className = "dev-state";
+    st.textContent = d.status;
+    li.appendChild(ic);
+    li.appendChild(nm);
+    li.appendChild(st);
+
+    // Inline controls per domain
+    const e = haEntities.get(id);
+    if (e) {
+      const ctrl = buildInlineControl(id, dom, e);
+      if (ctrl) li.appendChild(ctrl);
+    }
+
+    li.appendChild(makeRemoveBtn(id, room, d.name));
+    return li;
+  }
+
+  function buildInlineControl(id, dom, e) {
+    const s = e.state;
+    if (dom === "light" || dom === "switch" || dom === "fan" || dom === "humidifier") {
+      const on = s === "on";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "dev-ctrl power" + (on ? " on" : "");
+      btn.title = on ? "Desligar" : "Ligar";
+      btn.textContent = "⏻";
+      btn.addEventListener("click", (ev) => { ev.stopPropagation(); haCall(dom, "toggle", { entity_id: id }, btn); });
+      return btn;
+    }
+    if (dom === "media_player") {
+      const on = s === "on" || s === "playing" || s === "paused" || s === "idle";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "dev-ctrl power" + (on ? " on" : "");
+      btn.title = on ? "Desligar" : "Ligar";
+      btn.textContent = "⏻";
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        haCall("media_player", on ? "turn_off" : "turn_on", { entity_id: id }, btn);
+      });
+      return btn;
+    }
+    if (dom === "lock") {
+      const locked = s === "locked";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "dev-ctrl power" + (locked ? " on" : "");
+      btn.title = locked ? "Destrancar" : "Trancar";
+      btn.textContent = locked ? "🔒" : "🔓";
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        haCall("lock", locked ? "unlock" : "lock", { entity_id: id }, btn);
+      });
+      return btn;
+    }
+    if (dom === "cover") {
+      const wrap = document.createElement("div");
+      wrap.style.display = "flex"; wrap.style.gap = "4px";
+      const mk = (label, service, title) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "dev-ctrl";
+        b.textContent = label; b.title = title;
+        b.addEventListener("click", (ev) => { ev.stopPropagation(); haCall("cover", service, { entity_id: id }, b); });
+        return b;
+      };
+      wrap.appendChild(mk("▲", "open_cover", "Abrir"));
+      wrap.appendChild(mk("■", "stop_cover", "Parar"));
+      wrap.appendChild(mk("▼", "close_cover", "Fechar"));
+      return wrap;
+    }
+    if (dom === "vacuum") {
+      const cleaning = s === "cleaning";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "dev-ctrl" + (cleaning ? " on" : "");
+      btn.textContent = cleaning ? "Voltar" : "Limpar";
+      btn.title = cleaning ? "Retornar à base" : "Iniciar limpeza";
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        haCall("vacuum", cleaning ? "return_to_base" : "start", { entity_id: id }, btn);
+      });
+      return btn;
+    }
+    return null; // sensors / binary_sensors have no controls
+  }
+
+  function buildClimateRow(id, room) {
+    const e = haEntities.get(id);
+    const d = entityDisplay(id);
+    const a = e.attributes || {};
+    const li = document.createElement("li");
+    li.className = "climate-card";
+
+    // Header row
+    const row1 = document.createElement("div");
+    row1.className = "row1";
+    const ic = document.createElement("div");
+    ic.className = "dev-icon " + d.kind;
+    ic.textContent = entityIcon(id);
+    const nm = document.createElement("div");
+    nm.className = "dev-name";
+    nm.textContent = d.name;
+    const st = document.createElement("div");
+    st.className = "dev-state";
+    st.textContent = d.status;
+    row1.appendChild(ic);
+    row1.appendChild(nm);
+    row1.appendChild(st);
+    row1.appendChild(makeRemoveBtn(id, room, d.name));
+    li.appendChild(row1);
+
+    // Mode buttons (off / cool / heat / auto / heat_cool / dry / fan_only)
+    const allModes = Array.isArray(a.hvac_modes) && a.hvac_modes.length
+      ? a.hvac_modes
+      : ["off", "cool", "heat", "auto"];
+    const showModes = allModes.filter(m => ["off","cool","heat","auto","heat_cool","dry","fan_only"].includes(m));
+    if (showModes.length) {
+      const modes = document.createElement("div");
+      modes.className = "climate-modes";
+      for (const m of showModes) {
+        const mb = document.createElement("button");
+        mb.type = "button";
+        mb.className = "dev-ctrl" + (e.state === m ? " on" : "");
+        mb.textContent = m.replace("_", " ");
+        mb.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          haCall("climate", "set_hvac_mode", { entity_id: id, hvac_mode: m }, mb);
+        });
+        modes.appendChild(mb);
+      }
+      li.appendChild(modes);
+    }
+
+    // Setpoint temperature ± (only if a setpoint exists and mode isn't 'off')
+    const setp = a.temperature;
+    if (setp != null && e.state !== "off") {
+      const trow = document.createElement("div");
+      trow.className = "climate-temp";
+      const minus = document.createElement("button");
+      minus.type = "button";
+      minus.className = "dev-ctrl";
+      minus.textContent = "−";
+      minus.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        haCall("climate", "set_temperature", { entity_id: id, temperature: Math.max(16, setp - 1) }, minus);
+      });
+      const display = document.createElement("div");
+      display.className = "display";
+      const curT = a.current_temperature;
+      display.innerHTML = `${setp}°<small>setpoint${curT != null ? ` · ambiente ${curT}°` : ""}</small>`;
+      const plus = document.createElement("button");
+      plus.type = "button";
+      plus.className = "dev-ctrl";
+      plus.textContent = "+";
+      plus.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        haCall("climate", "set_temperature", { entity_id: id, temperature: Math.min(32, setp + 1) }, plus);
+      });
+      trow.appendChild(minus);
+      trow.appendChild(display);
+      trow.appendChild(plus);
+      li.appendChild(trow);
+    }
+
+    return li;
+  }
+
+  // Build a short, room-card-friendly readout for a given entity.
+  // Returns { text, kind } or null when nothing useful to show.
+  function statForEntity(id) {
+    const e = haEntities.get(id);
+    if (!e) return null;
+    const dom = entityDomain(id);
+    const a = e.attributes || {};
+    const s = e.state;
+    if (dom === "sensor") {
+      if (s == null || s === "unknown" || s === "unavailable") return null;
+      const unit = a.unit_of_measurement || "";
+      const dc = a.device_class;
+      let value = s;
+      // numeric formatting (1 decimal max)
+      const n = Number(s);
+      if (!Number.isNaN(n)) {
+        value = Number.isInteger(n) ? String(n) : n.toFixed(1);
+      }
+      const sym = unit === "°C" || unit === "°F" ? `${value}${unit}`
+                : unit === "%" ? `${value}%`
+                : unit ? `${value} ${unit}`
+                : value;
+      const prefix = dc === "temperature" ? "🌡️ "
+                   : dc === "humidity"    ? "💧 "
+                   : dc === "illuminance" ? "💡 "
+                   : dc === "power"       ? "⚡ "
+                   : dc === "energy"      ? "🔋 "
+                   : "";
+      return { text: prefix + sym, kind: "neutral" };
+    }
+    if (dom === "climate") {
+      const action = a.hvac_action || s;
+      const t = a.current_temperature ?? a.temperature;
+      const tempStr = t != null ? `${t}°` : "";
+      const icon = action === "cooling" || s === "cool" ? "❄️"
+                : action === "heating" || s === "heat"  ? "🔥"
+                : s === "off" || action === "off"       ? "❄️"
+                : "❄️";
+      const kind = (action === "cooling" || s === "cool") ? "cool"
+                : (action === "heating" || s === "heat")  ? "heat"
+                : (s === "off" || action === "off")       ? "off"
+                : "on";
+      const label = s === "off" ? "off" : (a.hvac_action || s);
+      return { text: `${icon} ${label}${tempStr ? " " + tempStr : ""}`, kind };
+    }
+    if (dom === "media_player") {
+      const on = s === "on" || s === "playing";
+      return { text: `📺 ${on ? "on" : (s === "off" ? "off" : s)}`, kind: on ? "on" : "off" };
+    }
+    if (dom === "light") {
+      const on = s === "on";
+      return { text: `💡 ${on ? "on" : "off"}`, kind: on ? "on" : "off" };
+    }
+    if (dom === "switch") {
+      const on = s === "on";
+      return { text: `🔌 ${on ? "on" : "off"}`, kind: on ? "on" : "off" };
+    }
+    if (dom === "fan") {
+      const on = s === "on";
+      return { text: `🌀 ${on ? "on" : "off"}`, kind: on ? "on" : "off" };
+    }
+    if (dom === "cover") return { text: `🪟 ${s}`, kind: s === "open" ? "on" : "off" };
+    if (dom === "lock")  return { text: s === "locked" ? "🔒 ok" : "🔓 aberto", kind: s === "locked" ? "off" : "on" };
+    if (dom === "binary_sensor") return { text: `📍 ${s}`, kind: s === "on" ? "on" : "off" };
+    if (dom === "humidifier") return { text: `💨 ${s}`, kind: s === "on" ? "on" : "off" };
+    if (dom === "vacuum") return { text: `🤖 ${s}`, kind: s === "cleaning" ? "on" : "off" };
+    return null;
+  }
+
+  function renderRoomPins() {
+    // Renders an inline status line at the bottom of each room with sensor readouts.
+    for (const room of state.rooms) {
+      const g = svg.querySelector(`g.room[data-id="${room.id}"]`);
+      if (!g) continue;
+      const existing = g.querySelector("g.room-stats");
+      if (existing) existing.remove();
+
+      const stats = (room.devices || [])
+        .map(id => ({ id, stat: statForEntity(id) }))
+        .filter(x => x.stat);
+      if (!stats.length) continue;
+
+      const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      group.setAttribute("class", "room-stats");
+
+      // Wrap items into lines that fit room width
+      const pad = 12;
+      const maxWidth = Math.max(0, room.w - pad * 2);
+      const sep = "  ·  ";
+      // crude width estimate: 6.2px per character (font-size 11px)
+      const charW = 6.2;
+      const lines = [];
+      let cur = [];
+      let curWidth = 0;
+      for (const { id, stat } of stats) {
+        const w = stat.text.length * charW;
+        const sepW = cur.length ? sep.length * charW : 0;
+        if (curWidth + sepW + w > maxWidth && cur.length) {
+          lines.push(cur);
+          cur = [];
+          curWidth = 0;
+        }
+        cur.push({ id, stat });
+        curWidth += (cur.length > 1 ? sepW : 0) + w;
+      }
+      if (cur.length) lines.push(cur);
+
+      // Limit lines to fit vertically (max 2 lines, or 3 if room is taller than 120)
+      const maxLines = room.h >= 120 ? 3 : 2;
+      const visibleLines = lines.slice(0, maxLines);
+      const lineH = 14;
+      const baseY = room.h - pad - (visibleLines.length - 1) * lineH;
+
+      visibleLines.forEach((line, li) => {
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", pad);
+        text.setAttribute("y", baseY + li * lineH);
+        line.forEach((item, i) => {
+          if (i > 0) {
+            const sepEl = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+            sepEl.textContent = sep;
+            sepEl.setAttribute("fill", "var(--line)");
+            text.appendChild(sepEl);
+          }
+          const sp = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+          sp.setAttribute("class", "stat-" + item.stat.kind);
+          sp.textContent = item.stat.text;
+          const tt = document.createElementNS("http://www.w3.org/2000/svg", "title");
+          const d = entityDisplay(item.id);
+          tt.textContent = `${d.name} — ${d.status}`;
+          sp.appendChild(tt);
+          text.appendChild(sp);
+        });
+        group.appendChild(text);
+      });
+
+      // Overflow indicator
+      if (lines.length > maxLines) {
+        const extra = lines.slice(maxLines).reduce((n, l) => n + l.length, 0);
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", pad);
+        text.setAttribute("y", baseY + visibleLines.length * lineH);
+        text.textContent = `+${extra} mais`;
+        text.setAttribute("opacity", "0.7");
+        group.appendChild(text);
+      }
+
+      g.appendChild(group);
+    }
+  }
+
+  // ===== Sync screen =====
+  const syncModal = document.getElementById("sync-modal");
+  const syncSummary = document.getElementById("sync-summary");
+  const syncNewSection = document.getElementById("sync-new-section");
+  const syncNewList = document.getElementById("sync-new-list");
+  const syncOrphanSection = document.getElementById("sync-orphan-section");
+  const syncOrphanList = document.getElementById("sync-orphan-list");
+
+  function normalize(s) {
+    return (s || "").toString().toLowerCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[_-]+/g, " ");
+  }
+  function suggestRoomFor(entity) {
+    const nameTokens = normalize(entity.entity_id + " " + (entity.attributes.friendly_name || ""));
+    let best = null, bestLen = 0;
+    for (const r of state.rooms) {
+      const room = normalize(r.name);
+      if (!room || room.length < 3) continue;
+      if (nameTokens.includes(room) && room.length > bestLen) {
+        best = r;
+        bestLen = room.length;
+      }
+    }
+    return best;
+  }
+  function assignedMap() {
+    const m = new Map();
+    for (const r of state.rooms) for (const id of (r.devices || [])) m.set(id, r);
+    return m;
+  }
+
+  async function refreshSync() {
+    syncSummary.textContent = "Atualizando…";
+    syncNewSection.hidden = true;
+    syncOrphanSection.hidden = true;
+    syncNewList.innerHTML = "";
+    syncOrphanList.innerHTML = "";
+
+    if (!haEnabled) {
+      await haInit();
+    } else {
+      await haPoll();
+    }
+
+    if (!haEnabled) {
+      syncSummary.textContent = "Home Assistant não está configurado. Abra seu perfil para conectar.";
+      return;
+    }
+
+    const assigned = assignedMap();
+    const newDevs = [];
+    for (const e of haEntities.values()) {
+      if (!assigned.has(e.entity_id)) newDevs.push(e);
+    }
+    newDevs.sort((a, b) => {
+      const an = (a.attributes.friendly_name || a.entity_id).toLowerCase();
+      const bn = (b.attributes.friendly_name || b.entity_id).toLowerCase();
+      return an.localeCompare(bn);
+    });
+
+    const orphans = [];
+    for (const r of state.rooms) for (const id of (r.devices || [])) {
+      if (!haEntities.has(id)) orphans.push({ id, room: r });
+    }
+
+    syncSummary.textContent =
+      `${haEntities.size} no Home Assistant · `
+      + `${assigned.size} já vinculado${assigned.size === 1 ? "" : "s"} · `
+      + `${newDevs.length} novo${newDevs.length === 1 ? "" : "s"}`
+      + (orphans.length ? ` · ${orphans.length} órfão${orphans.length === 1 ? "" : "s"}` : "");
+
+    if (newDevs.length) {
+      syncNewSection.hidden = false;
+      for (const e of newDevs) {
+        const suggested = suggestRoomFor(e);
+        const li = document.createElement("li");
+        li.className = "sync-row";
+        li.dataset.entityId = e.entity_id;
+        const ic = document.createElement("div");
+        ic.className = "dev-icon " + entityDisplay(e.entity_id).kind;
+        ic.textContent = entityIcon(e.entity_id);
+        const body = document.createElement("div");
+        body.className = "body";
+        const name = document.createElement("div");
+        name.className = "name";
+        name.textContent = e.attributes.friendly_name || e.entity_id;
+        const sub = document.createElement("div");
+        sub.className = "picker-dom";
+        sub.textContent = `${entityDomain(e.entity_id)} · ${entityDisplay(e.entity_id).status}`;
+        body.appendChild(name);
+        body.appendChild(sub);
+        if (suggested) {
+          const sug = document.createElement("div");
+          sug.className = "sync-suggested";
+          sug.textContent = `→ sugerido: ${suggested.name}`;
+          body.appendChild(sug);
+        }
+        const sel = document.createElement("select");
+        const optNone = document.createElement("option");
+        optNone.value = "";
+        optNone.textContent = "Escolher cômodo…";
+        sel.appendChild(optNone);
+        for (const r of state.rooms) {
+          const opt = document.createElement("option");
+          opt.value = r.id;
+          opt.textContent = r.name;
+          if (suggested && suggested.id === r.id) opt.selected = true;
+          sel.appendChild(opt);
+        }
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "primary";
+        btn.textContent = "Adicionar";
+        btn.addEventListener("click", () => {
+          const roomId = sel.value;
+          if (!roomId) return;
+          const room = state.rooms.find(r => r.id === roomId);
+          if (!room) return;
+          room.devices = room.devices || [];
+          room.devices.push(e.entity_id);
+          logActivity(`Dispositivo <b>${escapeHtml(e.attributes.friendly_name || e.entity_id)}</b> vinculado a <b>${escapeHtml(room.name)}</b>`);
+          scheduleSave();
+          render();
+          li.remove();
+          // Re-summarize
+          updateSummary();
+          if (!syncNewList.children.length) syncNewSection.hidden = true;
+        });
+        li.appendChild(ic);
+        li.appendChild(body);
+        li.appendChild(sel);
+        li.appendChild(btn);
+        syncNewList.appendChild(li);
+      }
+    }
+
+    if (orphans.length) {
+      syncOrphanSection.hidden = false;
+      for (const { id, room } of orphans) {
+        const li = document.createElement("li");
+        li.className = "sync-row";
+        li.dataset.entityId = id;
+        const ic = document.createElement("div");
+        ic.className = "dev-icon";
+        ic.textContent = "⚠️";
+        const body = document.createElement("div");
+        body.className = "body";
+        const name = document.createElement("div");
+        name.className = "name";
+        name.textContent = id;
+        const sub = document.createElement("div");
+        sub.className = "picker-dom";
+        sub.textContent = `em "${room.name}" · não existe mais no HA`;
+        body.appendChild(name);
+        body.appendChild(sub);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "danger";
+        btn.textContent = "Remover";
+        btn.addEventListener("click", () => {
+          room.devices = (room.devices || []).filter(d => d !== id);
+          logActivity(`Dispositivo órfão <b>${escapeHtml(id)}</b> removido de <b>${escapeHtml(room.name)}</b>`);
+          scheduleSave();
+          render();
+          li.remove();
+          updateSummary();
+          if (!syncOrphanList.children.length) syncOrphanSection.hidden = true;
+        });
+        li.appendChild(ic);
+        li.appendChild(body);
+        li.appendChild(btn);
+        syncOrphanList.appendChild(li);
+      }
+    }
+  }
+
+  function updateSummary() {
+    const newCount = syncNewList.children.length;
+    const orphanCount = syncOrphanList.children.length;
+    const assigned = assignedMap();
+    syncSummary.textContent =
+      `${haEntities.size} no Home Assistant · `
+      + `${assigned.size} já vinculado${assigned.size === 1 ? "" : "s"} · `
+      + `${newCount} novo${newCount === 1 ? "" : "s"}`
+      + (orphanCount ? ` · ${orphanCount} órfão${orphanCount === 1 ? "" : "s"}` : "");
+  }
+
+  document.getElementById("sync-btn").addEventListener("click", () => {
+    syncModal.hidden = false;
+    refreshSync();
+  });
+  document.getElementById("sync-close").addEventListener("click", () => { syncModal.hidden = true; });
+  document.getElementById("sync-refresh").addEventListener("click", refreshSync);
+  syncModal.addEventListener("click", (e) => { if (e.target === syncModal) syncModal.hidden = true; });
+
+  document.getElementById("sync-add-all").addEventListener("click", () => {
+    const rows = [...syncNewList.querySelectorAll("li.sync-row")];
+    let added = 0, skipped = 0;
+    for (const li of rows) {
+      const sel = li.querySelector("select");
+      const id = li.dataset.entityId;
+      if (!sel || !sel.value) { skipped++; continue; }
+      const room = state.rooms.find(r => r.id === sel.value);
+      const e = haEntities.get(id);
+      if (!room || !e) { skipped++; continue; }
+      room.devices = room.devices || [];
+      if (!room.devices.includes(id)) {
+        room.devices.push(id);
+        added++;
+      }
+      li.remove();
+    }
+    if (added) {
+      logActivity(`<b>${added}</b> dispositivo${added === 1 ? "" : "s"} vinculado${added === 1 ? "" : "s"} automaticamente`);
+      scheduleSave();
+      render();
+    }
+    if (skipped) alert(`${skipped} dispositivo${skipped === 1 ? "" : "s"} sem cômodo sugerido — escolha manualmente.`);
+    updateSummary();
+    if (!syncNewList.children.length) syncNewSection.hidden = true;
+  });
+
+  document.getElementById("sync-clean-orphans").addEventListener("click", () => {
+    if (!confirm("Remover todos os dispositivos órfãos dos cômodos?")) return;
+    const rows = [...syncOrphanList.querySelectorAll("li.sync-row")];
+    let removed = 0;
+    for (const li of rows) {
+      const id = li.dataset.entityId;
+      for (const r of state.rooms) {
+        if (r.devices) {
+          const before = r.devices.length;
+          r.devices = r.devices.filter(d => d !== id);
+          if (r.devices.length < before) removed++;
+        }
+      }
+      li.remove();
+    }
+    if (removed) {
+      logActivity(`<b>${removed}</b> vínculo${removed === 1 ? "" : "s"} órfão${removed === 1 ? "" : "s"} removido${removed === 1 ? "" : "s"}`);
+      scheduleSave();
+      render();
+    }
+    updateSummary();
+    if (!syncOrphanList.children.length) syncOrphanSection.hidden = true;
+  });
+
+  // ===== Device picker =====
+  const deviceModal = document.getElementById("device-modal");
+  const pickerSearch = document.getElementById("picker-search");
+  const pickerList = document.getElementById("picker-list");
+  const deviceModalSub = document.getElementById("device-modal-sub");
+
+  function assignedEntityRoomMap() {
+    const m = new Map();
+    for (const r of state.rooms) for (const id of (r.devices || [])) m.set(id, r);
+    return m;
+  }
+  function renderPickerList() {
+    const q = (pickerSearch.value || "").trim().toLowerCase();
+    const assigned = assignedEntityRoomMap();
+    const room = currentRoom();
+    pickerList.innerHTML = "";
+    const entries = Array.from(haEntities.values()).sort((a, b) => {
+      const an = (a.attributes.friendly_name || a.entity_id).toLowerCase();
+      const bn = (b.attributes.friendly_name || b.entity_id).toLowerCase();
+      return an.localeCompare(bn);
+    });
+    let shown = 0;
+    for (const e of entries) {
+      const dom = entityDomain(e.entity_id);
+      const name = e.attributes.friendly_name || e.entity_id;
+      if (q && !(name.toLowerCase().includes(q) || dom.includes(q) || e.entity_id.includes(q))) continue;
+      shown++;
+      const owner = assigned.get(e.entity_id);
+      const isMine = owner && room && owner.id === room.id;
+      const blocked = !!owner && !isMine;
+      const li = document.createElement("li");
+      if (blocked || isMine) li.classList.add("assigned");
+      const ic = document.createElement("div");
+      ic.className = "dev-icon " + entityDisplay(e.entity_id).kind;
+      ic.textContent = entityIcon(e.entity_id);
+      const body = document.createElement("div");
+      body.style.flex = "1";
+      const top = document.createElement("div");
+      top.textContent = name;
+      top.style.fontSize = "13px";
+      top.style.fontWeight = "600";
+      const sub = document.createElement("div");
+      sub.className = "picker-dom";
+      sub.textContent = isMine ? `${dom} · já neste cômodo`
+        : blocked ? `${dom} · em "${owner.name}"`
+        : `${dom} · ${entityDisplay(e.entity_id).status}`;
+      body.appendChild(top);
+      body.appendChild(sub);
+      li.appendChild(ic);
+      li.appendChild(body);
+      if (!blocked && !isMine) {
+        li.addEventListener("click", () => {
+          if (!room) return;
+          room.devices = room.devices || [];
+          room.devices.push(e.entity_id);
+          logActivity(`Dispositivo <b>${escapeHtml(name)}</b> vinculado a <b>${escapeHtml(room.name)}</b>`);
+          scheduleSave();
+          closeDeviceModal();
+          render();
+        });
+      }
+      pickerList.appendChild(li);
+    }
+    if (shown === 0) {
+      const empty = document.createElement("li");
+      empty.className = "picker-empty";
+      empty.textContent = haEnabled
+        ? (haEntities.size ? "Nenhum resultado para essa busca." : "Nenhuma entidade no Home Assistant ainda.")
+        : "Home Assistant não configurado.";
+      pickerList.appendChild(empty);
+    }
+  }
+
+  async function openDeviceModal() {
+    if (!currentRoom()) return;
+    deviceModalSub.textContent = `Atualizando lista do Home Assistant…`;
+    pickerSearch.value = "";
+    pickerList.innerHTML = "";
+    deviceModal.hidden = false;
+    setTimeout(() => pickerSearch.focus(), 0);
+    await haPoll(); // force fresh fetch so newly-paired devices show up immediately
+    deviceModalSub.textContent = `Vinculando ao cômodo "${currentRoom().name}". ${haEntities.size} dispositivo${haEntities.size === 1 ? "" : "s"} disponíveis.`;
+    renderPickerList();
+  }
+  function closeDeviceModal() { deviceModal.hidden = true; }
+  document.getElementById("open-device-picker").addEventListener("click", openDeviceModal);
+  document.getElementById("device-modal-close").addEventListener("click", closeDeviceModal);
+  deviceModal.addEventListener("click", (e) => { if (e.target === deviceModal) closeDeviceModal(); });
+  pickerSearch.addEventListener("input", renderPickerList);
+
+  function renderActivity() {
+    activityList.innerHTML = "";
+    if (!state.history.length) {
+      const li = document.createElement("li");
+      li.className = "activity-empty";
+      li.textContent = "Nada por aqui ainda. Suas alterações vão aparecer aqui.";
+      activityList.appendChild(li);
+      clearHistoryBtn.hidden = true;
+      return;
+    }
+    clearHistoryBtn.hidden = false;
+    for (const h of state.history.slice(0, 30)) {
+      const li = document.createElement("li");
+      const what = document.createElement("span");
+      what.className = "what";
+      what.innerHTML = h.text;
+      const when = document.createElement("span");
+      when.className = "when";
+      when.textContent = timeAgo(h.at);
+      li.appendChild(what);
+      li.appendChild(when);
+      activityList.appendChild(li);
+    }
+  }
+
+  // ===== Map interactions =====
+  function svgPoint(evt) {
+    const rect = svg.getBoundingClientRect();
+    return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+  }
+  function svgWorld(evt) {
+    const p = svgPoint(evt);
+    return { x: p.x - state.view.tx, y: p.y - state.view.ty };
+  }
+  function snap(v) { return Math.round(v / 10) * 10; }
+
+  let drag = null;
+  svg.addEventListener("pointerdown", (e) => {
+    const target = e.target.closest("g.room");
+    const p = svgPoint(e);
+    if (!target) {
+      // Empty area: start pan; deselects on click without movement.
+      drag = {
+        mode: "pan",
+        startX: p.x, startY: p.y,
+        origTx: state.view.tx, origTy: state.view.ty,
+        moved: false,
+      };
+      svg.classList.add("panning");
+      svg.setPointerCapture(e.pointerId);
+      return;
+    }
+    const id = target.getAttribute("data-id");
+    const room = state.rooms.find(r => r.id === id);
+    if (!room) return;
+    state.selectedId = id;
+    const w = svgWorld(e);
+    if (e.target.getAttribute("data-handle") === "1") {
+      drag = { mode: "resize", id, startX: w.x, startY: w.y, startW: room.w, startH: room.h };
+    } else {
+      drag = { mode: "move", id, dx: w.x - room.x, dy: w.y - room.y, origX: room.x, origY: room.y };
+    }
+    svg.setPointerCapture(e.pointerId);
+    render();
+  });
+  svg.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    if (drag.mode === "pan") {
+      const p = svgPoint(e);
+      const ndx = p.x - drag.startX;
+      const ndy = p.y - drag.startY;
+      if (Math.abs(ndx) + Math.abs(ndy) > 2) drag.moved = true;
+      state.view.tx = drag.origTx + ndx;
+      state.view.ty = drag.origTy + ndy;
+      updateViewportOnly();
+      return;
+    }
+    const room = state.rooms.find(r => r.id === drag.id);
+    if (!room) return;
+    const w = svgWorld(e);
+    if (drag.mode === "move") {
+      room.x = snap(w.x - drag.dx);
+      room.y = snap(w.y - drag.dy);
+    } else {
+      room.w = Math.max(80, snap(drag.startW + (w.x - drag.startX)));
+      room.h = Math.max(60, snap(drag.startH + (w.y - drag.startY)));
+    }
+    render();
+  });
+  function stopDrag(e) {
+    if (!drag) return;
+    if (drag.mode === "pan") {
+      svg.classList.remove("panning");
+      if (!drag.moved) {
+        // treated as click on empty area → deselect
+        state.selectedId = null;
+        render();
+        scheduleSave();
+      } else {
+        scheduleSave();
+      }
+    } else {
+      const room = state.rooms.find(r => r.id === drag.id);
+      if (room) {
+        if (drag.mode === "move" && (room.x !== drag.origX || room.y !== drag.origY)) {
+          logActivity(`Cômodo <b>${escapeHtml(room.name)}</b> movido`);
+        } else if (drag.mode === "resize" && (room.w !== drag.startW || room.h !== drag.startH)) {
+          logActivity(`Cômodo <b>${escapeHtml(room.name)}</b> redimensionado`);
+        }
+      }
+      scheduleSave();
+      render();
+    }
+    drag = null;
+    try { svg.releasePointerCapture(e.pointerId); } catch {}
+  }
+  svg.addEventListener("pointerup", stopDrag);
+  svg.addEventListener("pointercancel", stopDrag);
+
+  // ===== Botões header =====
+  function defaultRoomName() {
+    const used = new Set(state.rooms.map(r => (r.name || "").toLowerCase()));
+    const suggestions = ["Sala", "Cozinha", "Quarto", "Banheiro", "Lavanderia", "Escritório", "Varanda", "Garagem", "Cômodo"];
+    for (const s of suggestions) if (!used.has(s.toLowerCase())) return s;
+    return "Cômodo " + (state.rooms.length + 1);
+  }
+
+  document.getElementById("add-room").addEventListener("click", () => {
+    const wrap = document.getElementById("map-wrap");
+    const w = 180, h = 120;
+    // place at the world coords corresponding to the visible center
+    const cx = wrap.clientWidth / 2 - state.view.tx;
+    const cy = wrap.clientHeight / 2 - state.view.ty;
+    const x = snap(cx - w / 2 + (Math.random() - 0.5) * 80);
+    const y = snap(cy - h / 2 + (Math.random() - 0.5) * 80);
+    const room = { id: uid(), name: defaultRoomName(), notes: "", items: [], devices: [], x, y, w, h };
+    state.rooms.push(room);
+    state.selectedId = room.id;
+    logActivity(`Cômodo <b>${escapeHtml(room.name)}</b> adicionado`);
+    scheduleSave();
+    render();
+    setTimeout(() => nameInput.focus(), 0);
+  });
+
+  document.getElementById("center-view").addEventListener("click", () => {
+    const wrap = document.getElementById("map-wrap");
+    if (state.rooms.length === 0) {
+      state.view.tx = 0;
+      state.view.ty = 0;
+    } else {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const r of state.rooms) {
+        if (r.x < minX) minX = r.x;
+        if (r.y < minY) minY = r.y;
+        if (r.x + r.w > maxX) maxX = r.x + r.w;
+        if (r.y + r.h > maxY) maxY = r.y + r.h;
+      }
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      state.view.tx = wrap.clientWidth / 2 - cx;
+      state.view.ty = wrap.clientHeight / 2 - cy;
+    }
+    scheduleSave();
+    render();
+  });
+
+  clearHistoryBtn.addEventListener("click", () => {
+    if (!confirm("Limpar todo o histórico de atividade?")) return;
+    state.history = [];
+    scheduleSave();
+    renderActivity();
+  });
+
+  function openHistoryModal() {
+    renderActivity();
+    historyModal.hidden = false;
+  }
+  function closeHistoryModal() { historyModal.hidden = true; }
+  document.getElementById("history-btn").addEventListener("click", openHistoryModal);
+  document.getElementById("history-close").addEventListener("click", closeHistoryModal);
+  historyModal.addEventListener("click", (e) => {
+    if (e.target === historyModal) closeHistoryModal();
+  });
+
+  // ===== Detail edits =====
+  let nameTimer = null, prevName = null;
+  nameInput.addEventListener("focus", () => {
+    const r = currentRoom(); prevName = r ? r.name : null;
+  });
+  nameInput.addEventListener("input", () => {
+    const r = currentRoom(); if (!r) return;
+    r.name = nameInput.value;
+    scheduleSave();
+    render();
+    clearTimeout(nameTimer);
+    nameTimer = setTimeout(() => {
+      if (prevName != null && prevName !== r.name) {
+        logActivity(`Cômodo renomeado: <b>${escapeHtml(prevName || "Sem nome")}</b> → <b>${escapeHtml(r.name || "Sem nome")}</b>`);
+        prevName = r.name;
+        scheduleSave();
+      }
+    }, 800);
+  });
+
+  let notesTimer = null, prevNotes = null;
+  notesInput.addEventListener("focus", () => {
+    const r = currentRoom(); prevNotes = r ? (r.notes || "") : null;
+  });
+  notesInput.addEventListener("input", () => {
+    const r = currentRoom(); if (!r) return;
+    r.notes = notesInput.value;
+    scheduleSave();
+    clearTimeout(notesTimer);
+    notesTimer = setTimeout(() => {
+      if (prevNotes != null && prevNotes !== r.notes) {
+        logActivity(`Notas de <b>${escapeHtml(r.name)}</b> atualizadas`);
+        prevNotes = r.notes;
+        scheduleSave();
+      }
+    }, 1200);
+  });
+
+  addItemForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const r = currentRoom(); if (!r) return;
+    const t = newItemInput.value.trim();
+    if (!t) return;
+    r.items = r.items || [];
+    r.items.push({ id: uid(), text: t, done: false });
+    logActivity(`Item adicionado em <b>${escapeHtml(r.name)}</b>: "${escapeHtml(t)}"`);
+    newItemInput.value = "";
+    scheduleSave();
+    render();
+  });
+
+  document.getElementById("delete-room").addEventListener("click", () => {
+    const r = currentRoom(); if (!r) return;
+    if (!confirm(`Excluir "${r.name || "este cômodo"}"?`)) return;
+    state.rooms = state.rooms.filter(x => x.id !== r.id);
+    state.selectedId = null;
+    logActivity(`Cômodo <b>${escapeHtml(r.name)}</b> excluído`);
+    scheduleSave();
+    render();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Delete" && e.key !== "Backspace") return;
+    const tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || e.target.isContentEditable) return;
+    const r = currentRoom(); if (!r) return;
+    e.preventDefault();
+    state.rooms = state.rooms.filter(x => x.id !== r.id);
+    state.selectedId = null;
+    logActivity(`Cômodo <b>${escapeHtml(r.name)}</b> excluído`);
+    scheduleSave();
+    render();
+  });
+
+  // ===== Profile modal =====
+  const profileBtn = document.getElementById("profile-btn");
+  const profileAvatar = document.getElementById("profile-avatar");
+  const profileName = document.getElementById("profile-name");
+  const profileModal = document.getElementById("profile-modal");
+  const profileUsernameSub = document.getElementById("profile-username-sub");
+  const profileNameInput = document.getElementById("profile-name-input");
+  const avatarPicker = document.getElementById("avatar-picker");
+  const haUrlInput = document.getElementById("ha-url-input");
+  const haTokenInput = document.getElementById("ha-token-input");
+  const haConfigStatus = document.getElementById("ha-config-status");
+  let pendingAvatar = null;
+
+  function renderProfileChip() {
+    if (!user) return;
+    profileAvatar.textContent = user.avatar || "🏠";
+    profileName.textContent = user.displayName || user.username;
+  }
+  function openProfileModal() {
+    if (!user) return;
+    pendingAvatar = user.avatar || "🏠";
+    profileUsernameSub.textContent = "@" + user.username;
+    profileNameInput.value = user.displayName || "";
+    haUrlInput.value = user.haUrl || "";
+    haTokenInput.value = "";
+    haConfigStatus.textContent = user.haConfigured
+      ? `Conectado · token salvo. Deixe o campo vazio para manter; cole um novo para substituir.`
+      : `Cole a URL e o Long-Lived Token para mostrar dispositivos no mapa.`;
+    avatarPicker.innerHTML = "";
+    for (const a of AVATARS) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = a;
+      if (a === pendingAvatar) b.classList.add("selected");
+      b.addEventListener("click", () => {
+        pendingAvatar = a;
+        avatarPicker.querySelectorAll("button").forEach(x => x.classList.toggle("selected", x.textContent === a));
+      });
+      avatarPicker.appendChild(b);
+    }
+    profileModal.hidden = false;
+  }
+  function closeProfileModal() { profileModal.hidden = true; }
+
+  profileBtn.addEventListener("click", openProfileModal);
+  document.getElementById("profile-cancel").addEventListener("click", closeProfileModal);
+  profileModal.addEventListener("click", (e) => {
+    if (e.target === profileModal) closeProfileModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (!profileModal.hidden) closeProfileModal();
+      if (!passwordModal.hidden) closePasswordModal();
+      if (!historyModal.hidden) closeHistoryModal();
+      if (!deviceModal.hidden) closeDeviceModal();
+      if (!syncModal.hidden) syncModal.hidden = true;
+    }
+  });
+
+  document.getElementById("profile-save").addEventListener("click", async () => {
+    const newName = profileNameInput.value.trim() || user.username;
+    const oldName = user.displayName, oldAvatar = user.avatar;
+    const oldHaConfigured = !!user.haConfigured;
+    const oldHaUrl = user.haUrl || "";
+
+    const patch = { displayName: newName, avatar: pendingAvatar };
+    const newUrl = haUrlInput.value.trim();
+    if (newUrl !== oldHaUrl) patch.haUrl = newUrl;
+    if (haTokenInput.value.length > 0) patch.haToken = haTokenInput.value;
+
+    const r = await api("PATCH", "/me", patch);
+    if (!r.ok) { alert((r.data && r.data.error) || "erro ao salvar perfil"); return; }
+    user = r.data;
+    renderProfileChip();
+
+    if (oldName !== user.displayName || oldAvatar !== user.avatar) {
+      logActivity(`Perfil atualizado para <b>${escapeHtml(user.displayName)}</b> ${user.avatar}`);
+      scheduleSave();
+    }
+    // If HA config changed, re-init the integration
+    const haChanged = (patch.haUrl !== undefined) || (patch.haToken !== undefined);
+    if (haChanged) {
+      logActivity(user.haConfigured ? `Home Assistant conectado` : `Home Assistant desconectado`);
+      scheduleSave();
+      clearInterval(haPollTimer);
+      haEntities.clear();
+      haEnabled = false;
+      await haInit();
+    }
+    render();
+    closeProfileModal();
+  });
+
+  document.getElementById("logout-btn").addEventListener("click", async () => {
+    if (!confirm("Sair da conta?")) return;
+    // Flush antes de sair
+    if (saveTimer) { clearTimeout(saveTimer); await flushSave(); }
+    await api("POST", "/auth/logout");
+    user = null; state = null;
+    closeProfileModal();
+    setAuthMode("login");
+    authForm.reset();
+    showAuth();
+  });
+
+  // ===== Password modal =====
+  const passwordModal = document.getElementById("password-modal");
+  const passwordForm = document.getElementById("password-form");
+  const passwordError = document.getElementById("password-error");
+  const currentPasswordInput = document.getElementById("current-password");
+  const newPasswordInput = document.getElementById("new-password");
+
+  function openPasswordModal() {
+    passwordError.textContent = "";
+    currentPasswordInput.value = "";
+    newPasswordInput.value = "";
+    passwordModal.hidden = false;
+    setTimeout(() => currentPasswordInput.focus(), 0);
+  }
+  function closePasswordModal() { passwordModal.hidden = true; }
+
+  document.getElementById("open-change-password").addEventListener("click", openPasswordModal);
+  document.getElementById("password-cancel").addEventListener("click", closePasswordModal);
+  passwordModal.addEventListener("click", (e) => {
+    if (e.target === passwordModal) closePasswordModal();
+  });
+
+  passwordForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    passwordError.textContent = "";
+    const r = await api("POST", "/auth/change-password", {
+      currentPassword: currentPasswordInput.value,
+      newPassword: newPasswordInput.value,
+    });
+    if (!r.ok) {
+      passwordError.textContent = (r.data && r.data.error) || "erro ao trocar senha";
+      return;
+    }
+    closePasswordModal();
+    logActivity("Senha alterada");
+    scheduleSave();
+    render();
+  });
+
+  // ===== Boot =====
+  (async function boot() {
+    const me = await api("GET", "/me");
+    if (me.ok) {
+      user = me.data;
+      await loadState();
+      showApp();
+    } else {
+      showAuth();
+    }
+  })();
+})();
+</script>
+</body>
+</html>

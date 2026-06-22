@@ -1,0 +1,15 @@
+{
+  "name": "homeos",
+  "version": "0.2.0",
+  "private": true,
+  "description": "homeOS — mapa customizável da casa com autenticação e persistência",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --env-file=.env server.js",
+    "dev": "node --env-file=.env --watch server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0",
+    "express": "^4.21.1"
+  }
+}
