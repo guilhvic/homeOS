@@ -641,7 +641,43 @@
   .items li.drag-over {
     border-top-color: var(--accent);
   }
-  .items input[type="checkbox"] { accent-color: var(--accent); }
+  .items .custom-cb {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 2px solid var(--line);
+    background: var(--paper);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .2s ease;
+    flex-shrink: 0;
+    padding: 0;
+  }
+  .items .custom-cb:hover {
+    border-color: var(--accent);
+  }
+  .items .custom-cb.checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .items .custom-cb svg {
+    width: 11px;
+    height: 11px;
+    stroke: #fff;
+    stroke-width: 4.5;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0;
+    transform: scale(0.6);
+    transition: all .2s cubic-bezier(0.12, 0.4, 0.29, 1.46);
+  }
+  .items .custom-cb.checked svg {
+    opacity: 1;
+    transform: scale(1);
+  }
   .items .text { flex: 1; }
   .items .text.done { text-decoration: line-through; color: var(--muted); }
   .items button.x {
@@ -2242,12 +2278,20 @@
         }
       );
 
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.checked = !!it.done;
-      cb.addEventListener("change", () => {
-        it.done = cb.checked;
-        logActivity(`${cb.checked ? "Concluído" : "Reaberto"} em <b>${escapeHtml(room.name)}</b>: "${escapeHtml(it.text)}"`);
+      const cb = document.createElement("button");
+      cb.type = "button";
+      cb.className = "custom-cb" + (it.done ? " checked" : "");
+      cb.title = it.done ? "Marcar como pendente" : "Marcar como concluído";
+      cb.innerHTML = `
+        <svg viewBox="0 0 24 24">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      `;
+      cb.addEventListener("click", () => {
+        it.done = !it.done;
+        cb.classList.toggle("checked", it.done);
+        cb.title = it.done ? "Marcar como pendente" : "Marcar como concluído";
+        logActivity(`${it.done ? "Concluído" : "Reaberto"} em <b>${escapeHtml(room.name)}</b>: "${escapeHtml(it.text)}"`);
         scheduleSave();
         render();
       });
