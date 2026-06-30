@@ -58,6 +58,201 @@
   #app-shell:not(.has-selection) aside { display: none; }
   #app-shell[hidden] { display: none; }
 
+  /* Grocery view replaces map+aside */
+  #app-shell.view-grocery {
+    grid-template-columns: 1fr;
+    grid-template-areas: "top" "grocery";
+  }
+  #app-shell.view-grocery #map-wrap,
+  #app-shell.view-grocery aside { display: none; }
+  #app-shell:not(.view-grocery) #grocery-view { display: none; }
+  #app-shell.view-grocery .map-only { display: none; }
+  #grocery-view {
+    grid-area: grocery;
+    overflow-y: auto;
+    background: var(--bg);
+    padding: 24px 16px 64px;
+  }
+
+  .view-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 2px;
+    margin-left: 6px;
+  }
+  .view-tab {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .view-tab:hover { color: var(--ink); background: transparent; border-color: transparent; }
+  .view-tab.active {
+    background: var(--paper);
+    color: var(--ink);
+    border-color: var(--line);
+  }
+
+  .grocery-shell {
+    max-width: 760px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .grocery-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .grocery-head h2 { margin: 0; font-size: 22px; }
+  .grocery-summary { color: var(--muted); font-size: 13px; }
+  .grocery-add {
+    display: grid;
+    grid-template-columns: 1fr 120px 180px auto;
+    gap: 8px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px;
+  }
+  .grocery-add input,
+  .grocery-add select {
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font: inherit;
+  }
+  .grocery-add input:focus,
+  .grocery-add select:focus {
+    outline: 2px solid var(--accent-soft);
+    border-color: var(--accent);
+  }
+  @media (max-width: 640px) {
+    .grocery-add { grid-template-columns: 1fr 1fr; }
+    .grocery-add button { grid-column: 1 / -1; }
+  }
+
+  .grocery-list { display: flex; flex-direction: column; gap: 18px; }
+  .grocery-cat {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .grocery-cat-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+  }
+  .grocery-cat-head .count {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .grocery-items { list-style: none; margin: 0; padding: 0; }
+  .grocery-items li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .grocery-items li:last-child { border-bottom: none; }
+  .grocery-items input[type=checkbox] {
+    accent-color: var(--accent);
+    width: 18px; height: 18px;
+    cursor: pointer;
+  }
+  .grocery-items .it-name { flex: 1; font-size: 14px; }
+  .grocery-items .it-qty {
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+  }
+  .grocery-items li.bought .it-name { text-decoration: line-through; color: var(--muted); }
+  .grocery-items button.it-rm {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0 4px;
+    line-height: 1;
+  }
+  .grocery-items button.it-rm:hover { color: var(--accent); background: transparent; }
+
+  .grocery-empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 32px;
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    font-size: 13px;
+  }
+
+  /* Priority indicator (used in both room tasks and groceries) */
+  .prio-btn {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid var(--line);
+    background: var(--paper);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 0;
+    flex-shrink: 0;
+    color: var(--muted);
+    transition: background .15s, border-color .15s, color .15s, transform .1s;
+    line-height: 1;
+  }
+  .prio-btn:hover { border-color: var(--accent); transform: scale(1.08); }
+  .prio-btn.prio-alta {
+    background: #ef4444;
+    border-color: #b91c1c;
+    color: #ffffff;
+  }
+  html[data-theme="dark"] .prio-btn.prio-alta {
+    background: #dc2626;
+    border-color: #fecaca;
+  }
+  .prio-btn.prio-baixa { color: var(--muted); }
+  .prio-btn.prio-normal { color: var(--muted); opacity: 0.35; }
+
+  .items li.prio-alta,
+  .grocery-items li.prio-alta { box-shadow: inset 3px 0 0 0 #ef4444; }
+  .grocery-footer {
+    display: flex;
+    justify-content: center;
+    padding: 12px 0;
+  }
+
   header {
     grid-area: top;
     display: flex;
@@ -151,7 +346,7 @@
     background: var(--paper);
     border-left: 1px solid var(--line);
     overflow-y: auto;
-    padding: 16px;
+    padding: 0;
   }
   aside h2 {
     margin: 0 0 8px;
@@ -160,6 +355,173 @@
     text-transform: uppercase;
     letter-spacing: .5px;
     font-weight: 600;
+  }
+
+  /* ===== Modern room detail panel ===== */
+  #detail { padding: 20px 16px 24px; }
+
+  .detail-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .room-title {
+    flex: 1;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--ink);
+    font: inherit;
+    font-size: 20px;
+    font-weight: 700;
+    padding: 6px 8px;
+    border-radius: 8px;
+    min-width: 0;
+    letter-spacing: -0.01em;
+  }
+  .room-title:hover { background: var(--bg); }
+  .room-title:focus {
+    outline: none;
+    background: var(--bg);
+    border-color: var(--accent);
+  }
+
+  .icon-btn {
+    width: 32px; height: 32px;
+    padding: 0;
+    display: grid; place-items: center;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    border-radius: 8px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .icon-btn:hover { background: var(--bg); color: var(--ink); border-color: transparent; }
+
+  .detail-menu-wrap { position: relative; }
+  .detail-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    padding: 4px;
+    min-width: 180px;
+    z-index: 10;
+  }
+  .menu-item {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font: inherit;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .menu-item:hover { background: var(--bg); border-color: transparent; }
+  .menu-item.danger { color: var(--danger); }
+  .menu-item.danger:hover { background: var(--danger-soft); }
+
+  .detail-meta {
+    color: var(--muted);
+    font-size: 12px;
+    padding: 0 8px;
+    margin-bottom: 14px;
+    min-height: 18px;
+  }
+
+  .detail-tabs {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 14px;
+    padding: 0 4px;
+  }
+  .detail-tab {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 10px;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+    border-radius: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .detail-tab:hover { color: var(--ink); background: transparent; border-color: transparent transparent var(--line); }
+  .detail-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab-count {
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-weight: 600;
+    min-width: 18px;
+    text-align: center;
+  }
+  .detail-tab.active .tab-count { background: var(--accent-soft); color: var(--accent); }
+  .tab-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+  }
+
+  .detail-panel { display: block; }
+  .detail-panel[hidden] { display: none; }
+  .panel-empty {
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+    padding: 16px 8px;
+    margin: 0;
+  }
+
+  .quick-add { margin-bottom: 10px; }
+  .quick-add input {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font: inherit;
+  }
+  .quick-add input:focus {
+    outline: 2px solid var(--accent-soft);
+    border-color: var(--accent);
+  }
+
+  .detail-panel[data-panel="notes"] textarea {
+    width: 100%;
+    min-height: 220px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 8px;
+    padding: 12px;
+    font: inherit;
+    resize: vertical;
+    line-height: 1.5;
+  }
+  .detail-panel[data-panel="notes"] textarea:focus {
+    outline: 2px solid var(--accent-soft);
+    border-color: var(--accent);
   }
   .empty {
     color: var(--muted);
@@ -283,37 +645,94 @@
 
   /* Devices */
   .devices {
-    list-style: none; margin: 0 0 8px; padding: 0;
-    display: flex; flex-direction: column; gap: 6px;
+    list-style: none; margin: 0 0 12px; padding: 0;
+    display: flex; flex-direction: column; gap: 8px;
   }
   .devices li {
-    display: flex; align-items: center; gap: 8px;
-    padding: 6px 8px;
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px;
     border: 1px solid var(--line);
-    border-radius: 6px;
-    background: var(--bg);
+    border-radius: 12px;
+    background: var(--paper);
+    transition: border-color .15s, box-shadow .15s, transform .12s;
+    position: relative;
+  }
+  .devices li:hover {
+    border-color: var(--accent-soft);
+    box-shadow: 0 4px 12px rgba(0,0,0,.06);
+  }
+  html[data-theme="dark"] .devices li:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,.4);
   }
   .dev-icon {
-    width: 26px; height: 26px;
+    width: 42px; height: 42px;
     display: grid; place-items: center;
-    border-radius: 50%;
-    background: var(--line);
+    border-radius: 12px;
+    background: var(--bg);
     color: var(--muted);
-    font-size: 14px;
+    font-size: 20px;
+    flex-shrink: 0;
+    border: 1px solid var(--line);
+    transition: background .15s, color .15s, border-color .15s;
   }
-  .dev-icon.on { background: #fde68a; color: #92400e; }
-  html[data-theme="dark"] .dev-icon.on { background: #5b3d10; color: #fde68a; }
-  .dev-icon.cool { background: #c7e3fb; color: #1e6ea3; }
-  html[data-theme="dark"] .dev-icon.cool { background: #1e3a5f; color: #c7e3fb; }
-  .dev-icon.heat { background: #fbd1c2; color: #a04020; }
-  html[data-theme="dark"] .dev-icon.heat { background: #5a2a18; color: #fbd1c2; }
-  .dev-name { flex: 1; font-size: 13px; font-weight: 600; }
-  .dev-state { font-size: 12px; color: var(--muted); }
+  .dev-icon.on   { background: #fef3c7; color: #b45309; border-color: transparent; }
+  html[data-theme="dark"] .dev-icon.on   { background: #422006; color: #fbbf24; }
+  .dev-icon.cool { background: #dbeafe; color: #1e6ea3; border-color: transparent; }
+  html[data-theme="dark"] .dev-icon.cool { background: #172d4a; color: #93c5fd; }
+  .dev-icon.heat { background: #fee2e2; color: #b91c1c; border-color: transparent; }
+  html[data-theme="dark"] .dev-icon.heat { background: #450a0a; color: #fca5a5; }
+
+  .dev-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .dev-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    letter-spacing: -0.005em;
+  }
+  .dev-state {
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dev-state::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    opacity: 0.6;
+  }
+  .dev-state.is-on::before  { background: #22c55e; opacity: 1; }
+  .dev-state.is-off::before { background: #a3a3a3; opacity: 0.6; }
+  .dev-state.is-cool::before { background: #3b82f6; opacity: 1; }
+  .dev-state.is-heat::before { background: #ef4444; opacity: 1; }
+  .dev-state.is-na::before { background: var(--line); opacity: 0.6; }
+
   .dev-remove {
     border: none; background: transparent; color: var(--muted);
-    cursor: pointer; padding: 2px 6px; font-size: 16px; line-height: 1;
+    cursor: pointer; padding: 4px 8px; font-size: 18px; line-height: 1;
+    border-radius: 6px;
+    opacity: 0;
+    transition: opacity .15s, color .15s, background .15s;
   }
-  .dev-remove:hover { color: var(--accent); background: transparent; }
+  .devices li:hover .dev-remove,
+  .devices li:focus-within .dev-remove { opacity: 1; }
+  .dev-remove:hover { color: var(--danger); background: var(--danger-soft); }
   .add-device {
     width: 100%;
     border: 1px dashed var(--line);
@@ -624,18 +1043,22 @@
 <div id="app-shell" hidden>
   <header>
     <h1>homeOS</h1>
+    <div class="view-tabs" role="tablist">
+      <button class="view-tab active" data-view="map" type="button">🏠 Casa</button>
+      <button class="view-tab" data-view="grocery" type="button">🛒 Mercado</button>
+    </div>
     <span class="sub" id="status">— monte o mapa da sua casa</span>
     <div class="spacer"></div>
     <button id="profile-btn" class="profile" title="Conta">
       <span class="avatar" id="profile-avatar">🏠</span>
       <span class="pname" id="profile-name">…</span>
     </button>
-    <button id="sync-btn" class="ghost" title="Sincronizar dispositivos do Home Assistant" aria-label="Sincronizar dispositivos">🔄</button>
+    <button id="sync-btn" class="ghost map-only" title="Sincronizar dispositivos do Home Assistant" aria-label="Sincronizar dispositivos">🔄</button>
     <button id="history-btn" class="ghost" title="Histórico" aria-label="Histórico">🕘</button>
-    <button id="routines-btn" class="ghost" title="Rotinas" aria-label="Rotinas">📅</button>
+    <button id="routines-btn" class="ghost map-only" title="Rotinas" aria-label="Rotinas">📅</button>
     <button id="theme-toggle" class="ghost" title="Alternar tema" aria-label="Alternar tema">🌙</button>
-    <button id="add-room" class="primary">+ Cômodo</button>
-    <button id="center-view" class="ghost" title="Centralizar o mapa">Centrar</button>
+    <button id="add-room" class="primary map-only">+ Cômodo</button>
+    <button id="center-view" class="ghost map-only" title="Centralizar o mapa">Centrar</button>
   </header>
 
   <div id="map-wrap">
@@ -648,31 +1071,77 @@
 
   <aside id="side">
     <div id="detail" hidden>
-      <h2>Cômodo</h2>
-      <div class="field">
-        <label for="name">Nome</label>
-        <input id="name" type="text" placeholder="ex: Cozinha" />
-      </div>
-      <div class="field">
-        <label for="notes">Notas</label>
-        <textarea id="notes" rows="3" placeholder="Lembretes, projetos, manutenção..."></textarea>
-      </div>
-      <h2>Itens / Tarefas</h2>
-      <ul class="items" id="items"></ul>
-      <form id="add-item" class="add-item-row" autocomplete="off">
-        <input id="new-item" type="text" placeholder="Adicionar item ou tarefa..." />
-        <button type="submit">Adicionar</button>
-      </form>
+      <header class="detail-head">
+        <input id="name" class="room-title" type="text" placeholder="Sem nome" maxlength="40" />
+        <div class="detail-menu-wrap">
+          <button id="detail-menu-btn" type="button" class="icon-btn" title="Mais opções" aria-haspopup="true">⋯</button>
+          <div id="detail-menu" class="detail-menu" hidden>
+            <button id="delete-room" type="button" class="menu-item danger">Excluir cômodo</button>
+          </div>
+        </div>
+      </header>
 
-      <h2 id="devices-heading" hidden>Dispositivos (Home Assistant)</h2>
-      <ul class="devices" id="devices" hidden></ul>
-      <button id="open-device-picker" class="add-device" type="button" hidden>+ Adicionar dispositivo</button>
+      <div class="detail-meta" id="detail-meta"></div>
 
-      <div class="row-actions">
-        <button id="delete-room" class="danger">Excluir cômodo</button>
-      </div>
+      <nav class="detail-tabs" role="tablist">
+        <button class="detail-tab active" data-tab="tasks" type="button" role="tab">
+          Tarefas <span class="tab-count" id="tab-count-tasks" hidden></span>
+        </button>
+        <button class="detail-tab" data-tab="devices" type="button" role="tab">
+          Dispositivos <span class="tab-count" id="tab-count-devices" hidden></span>
+        </button>
+        <button class="detail-tab" data-tab="notes" type="button" role="tab">
+          Notas <span class="tab-dot" id="tab-dot-notes" hidden></span>
+        </button>
+      </nav>
+
+      <section class="detail-panel" data-panel="tasks">
+        <form id="add-item" class="quick-add" autocomplete="off">
+          <input id="new-item" type="text" placeholder="Adicionar tarefa e Enter" />
+          <button type="submit" hidden></button>
+        </form>
+        <ul class="items" id="items"></ul>
+      </section>
+
+      <section class="detail-panel" data-panel="devices" hidden>
+        <ul class="devices" id="devices"></ul>
+        <button id="open-device-picker" class="add-device" type="button">+ Vincular dispositivo</button>
+        <p class="panel-empty" id="devices-empty-msg" hidden>
+          Conecte ao Home Assistant para vincular dispositivos.
+        </p>
+      </section>
+
+      <section class="detail-panel" data-panel="notes" hidden>
+        <textarea id="notes" placeholder="Lembretes, projetos, manutenção…"></textarea>
+      </section>
     </div>
   </aside>
+
+  <main id="grocery-view">
+    <div class="grocery-shell">
+      <header class="grocery-head">
+        <h2>Lista de compras</h2>
+        <span id="grocery-summary" class="grocery-summary"></span>
+      </header>
+
+      <form id="grocery-add" class="grocery-add" autocomplete="off">
+        <input id="grocery-name" type="text" placeholder="Adicionar item..." required maxlength="60" />
+        <input id="grocery-qty" type="text" placeholder="qt (ex: 1kg)" maxlength="20" />
+        <select id="grocery-cat"></select>
+        <button type="submit" class="primary">Adicionar</button>
+      </form>
+
+      <div id="grocery-list" class="grocery-list"></div>
+
+      <div id="grocery-empty" class="grocery-empty">
+        Sua lista está vazia. Adicione o primeiro item acima.
+      </div>
+
+      <div class="grocery-footer">
+        <button id="grocery-clear-bought" class="ghost" type="button" hidden>Limpar comprados</button>
+      </div>
+    </div>
+  </main>
 </div>
 
 <!-- ============================ DEVICE PICKER MODAL ============================ -->
@@ -872,6 +1341,39 @@
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   }
+  // Priority helpers (used by room tasks AND grocery items)
+  const PRIORITY_ORDER = ["normal", "alta", "baixa"];
+  function nextPriority(cur) {
+    const i = PRIORITY_ORDER.indexOf(cur || "normal");
+    return PRIORITY_ORDER[(i + 1) % PRIORITY_ORDER.length];
+  }
+  function prioRank(p) { return p === "alta" ? 0 : p === "baixa" ? 2 : 1; }
+  function prioInfo(p) {
+    if (p === "alta")  return { cls: "prio-alta",   title: "Prioridade alta · clique para mudar",   text: "!" };
+    if (p === "baixa") return { cls: "prio-baixa",  title: "Prioridade baixa · clique para mudar",  text: "↓" };
+    return                   { cls: "prio-normal", title: "Prioridade normal · clique para mudar", text: "·" };
+  }
+  function makePrioButton(getPriority, setPriority) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "prio-btn";
+    const apply = () => {
+      const p = getPriority();
+      const info = prioInfo(p);
+      btn.className = "prio-btn " + info.cls;
+      btn.title = info.title;
+      btn.textContent = info.text;
+    };
+    apply();
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const cur = getPriority();
+      const next = nextPriority(cur);
+      setPriority(next === "normal" ? null : next);
+      apply();
+    });
+    return btn;
+  }
   function timeAgo(iso) {
     const diff = (Date.now() - new Date(iso).getTime()) / 1000;
     if (diff < 5) return "agora";
@@ -960,6 +1462,7 @@
     appShell.hidden = false;
     renderProfileChip();
     render();
+    setView(currentView);
     haInit();
   }
 
@@ -972,7 +1475,7 @@
   const syncPill = document.getElementById("sync-pill");
 
   function emptyState() {
-    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], view: { tx: 0, ty: 0 } };
+    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], view: { tx: 0, ty: 0 } };
   }
   function normalizeState(s) {
     if (!s || typeof s !== "object") return emptyState();
@@ -989,6 +1492,7 @@
       seq: typeof s.seq === "number" ? s.seq : 1,
       history: Array.isArray(s.history) ? s.history : [],
       routines: Array.isArray(s.routines) ? s.routines : [],
+      groceries: Array.isArray(s.groceries) ? s.groceries.filter(g => g && typeof g.id === "string" && typeof g.name === "string") : [],
       view: { tx: Number(v.tx) || 0, ty: Number(v.ty) || 0 },
     };
   }
@@ -1261,12 +1765,14 @@
     appShell.classList.toggle("has-selection", !!selected);
     if (!selected) {
       detail.hidden = true;
+      detailMenuEl.hidden = true;
     } else {
       detail.hidden = false;
       if (document.activeElement !== nameInput) nameInput.value = selected.name || "";
       if (document.activeElement !== notesInput) notesInput.value = selected.notes || "";
       renderItems(selected);
       renderDevicesPanel(selected);
+      updateDetailMeta(selected);
     }
     renderRoomPins();
 
@@ -1283,7 +1789,10 @@
 
   function renderItems(room) {
     itemsList.innerHTML = "";
-    const items = room.items || [];
+    const items = (room.items || []).slice().sort((a, b) => {
+      if (!!a.done !== !!b.done) return a.done ? 1 : -1;
+      return prioRank(a.priority) - prioRank(b.priority);
+    });
     if (items.length === 0) {
       const li = document.createElement("li");
       li.style.color = "var(--muted)";
@@ -1294,6 +1803,18 @@
     }
     for (const it of items) {
       const li = document.createElement("li");
+      if (it.priority === "alta") li.classList.add("prio-alta");
+
+      const prio = makePrioButton(
+        () => it.priority,
+        (p) => {
+          it.priority = p || undefined;
+          logActivity(`Prioridade de "${escapeHtml(it.text)}" em <b>${escapeHtml(room.name)}</b>: <b>${p || "normal"}</b>`);
+          scheduleSave();
+          render();
+        }
+      );
+
       const cb = document.createElement("input");
       cb.type = "checkbox";
       cb.checked = !!it.done;
@@ -1339,6 +1860,7 @@
         render();
       });
 
+      li.appendChild(prio);
       li.appendChild(cb);
       li.appendChild(span);
       li.appendChild(x);
@@ -1347,14 +1869,17 @@
   }
 
   function renderDevicesPanel(room) {
-    const heading = document.getElementById("devices-heading");
     const list = document.getElementById("devices");
     const addBtn = document.getElementById("open-device-picker");
-    if (!room || !haEnabled) {
-      heading.hidden = true; list.hidden = true; addBtn.hidden = true;
+    if (!room) return;
+    if (!haEnabled) {
+      list.innerHTML = "";
+      addBtn.hidden = true;
+      devicesEmptyMsg.hidden = false;
       return;
     }
-    heading.hidden = false; list.hidden = false; addBtn.hidden = false;
+    addBtn.hidden = false;
+    devicesEmptyMsg.hidden = true;
     list.innerHTML = "";
     const devs = room.devices || [];
     if (devs.length === 0) {
@@ -1442,12 +1967,16 @@
     const ic = document.createElement("div");
     ic.className = "dev-icon " + d.kind;
     ic.textContent = "💡";
+    const body = document.createElement("div");
+    body.className = "dev-body";
     const nm = document.createElement("div");
     nm.className = "dev-name";
     nm.textContent = d.name;
     const st = document.createElement("div");
-    st.className = "dev-state";
+    st.className = "dev-state is-" + (d.kind === "neutral" ? "na" : d.kind);
     st.textContent = d.status;
+    body.appendChild(nm);
+    body.appendChild(st);
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = "dev-ctrl power" + (isOn ? " on" : "");
@@ -1455,8 +1984,7 @@
     toggle.textContent = "⏻";
     toggle.addEventListener("click", (ev) => { ev.stopPropagation(); haCall("light", "toggle", { entity_id: id }, toggle); });
     row1.appendChild(ic);
-    row1.appendChild(nm);
-    row1.appendChild(st);
+    row1.appendChild(body);
     row1.appendChild(toggle);
     row1.appendChild(makeRemoveBtn(id, room, d.name));
     li.appendChild(row1);
@@ -1524,15 +2052,18 @@
     const ic = document.createElement("div");
     ic.className = "dev-icon " + d.kind;
     ic.textContent = entityIcon(id);
+    const body = document.createElement("div");
+    body.className = "dev-body";
     const nm = document.createElement("div");
     nm.className = "dev-name";
     nm.textContent = d.name;
     const st = document.createElement("div");
-    st.className = "dev-state";
+    st.className = "dev-state is-" + (d.kind === "neutral" ? "na" : d.kind);
     st.textContent = d.status;
+    body.appendChild(nm);
+    body.appendChild(st);
     li.appendChild(ic);
-    li.appendChild(nm);
-    li.appendChild(st);
+    li.appendChild(body);
 
     // Inline controls per domain
     const e = haEntities.get(id);
@@ -1628,15 +2159,18 @@
     const ic = document.createElement("div");
     ic.className = "dev-icon " + d.kind;
     ic.textContent = entityIcon(id);
+    const body = document.createElement("div");
+    body.className = "dev-body";
     const nm = document.createElement("div");
     nm.className = "dev-name";
     nm.textContent = d.name;
     const st = document.createElement("div");
-    st.className = "dev-state";
+    st.className = "dev-state is-" + (d.kind === "neutral" ? "na" : d.kind);
     st.textContent = d.status;
+    body.appendChild(nm);
+    body.appendChild(st);
     row1.appendChild(ic);
-    row1.appendChild(nm);
-    row1.appendChild(st);
+    row1.appendChild(body);
     row1.appendChild(makeRemoveBtn(id, room, d.name));
     li.appendChild(row1);
 
@@ -2952,6 +3486,266 @@
     scheduleSave();
     render();
   });
+
+  // ===== Detail tabs + menu =====
+  const detailTabs = document.querySelectorAll(".detail-tab");
+  const detailPanels = document.querySelectorAll(".detail-panel");
+  const detailMenuBtn = document.getElementById("detail-menu-btn");
+  const detailMenuEl = document.getElementById("detail-menu");
+  const detailMeta = document.getElementById("detail-meta");
+  const tabCountTasks = document.getElementById("tab-count-tasks");
+  const tabCountDevices = document.getElementById("tab-count-devices");
+  const tabDotNotes = document.getElementById("tab-dot-notes");
+  const devicesEmptyMsg = document.getElementById("devices-empty-msg");
+
+  let activeDetailTab = "tasks";
+  function setDetailTab(name) {
+    activeDetailTab = name;
+    for (const t of detailTabs) t.classList.toggle("active", t.dataset.tab === name);
+    for (const p of detailPanels) p.hidden = (p.dataset.panel !== name);
+    if (name === "tasks") setTimeout(() => document.getElementById("new-item")?.focus(), 0);
+    if (name === "notes") setTimeout(() => document.getElementById("notes")?.focus(), 0);
+  }
+  for (const t of detailTabs) t.addEventListener("click", () => setDetailTab(t.dataset.tab));
+
+  detailMenuBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    detailMenuEl.hidden = !detailMenuEl.hidden;
+  });
+  document.addEventListener("click", (e) => {
+    if (!detailMenuEl.hidden && !detailMenuEl.contains(e.target) && e.target !== detailMenuBtn) {
+      detailMenuEl.hidden = true;
+    }
+  });
+
+  function updateDetailMeta(room) {
+    if (!room) { detailMeta.textContent = ""; return; }
+    const tasksTotal = (room.items || []).length;
+    const tasksDone = (room.items || []).filter(i => i.done).length;
+    const devsCount = (room.devices || []).length;
+    const notesLen = (room.notes || "").trim().length;
+    const parts = [];
+    if (tasksTotal) parts.push(`${tasksDone}/${tasksTotal} ${tasksTotal === 1 ? "tarefa" : "tarefas"}`);
+    if (devsCount) parts.push(`${devsCount} ${devsCount === 1 ? "dispositivo" : "dispositivos"}`);
+    if (notesLen) parts.push(`notas`);
+    detailMeta.textContent = parts.join(" · ") || "Sem nada por aqui ainda";
+
+    // Tab badges
+    if (tasksTotal) { tabCountTasks.hidden = false; tabCountTasks.textContent = tasksTotal; }
+    else tabCountTasks.hidden = true;
+    if (devsCount) { tabCountDevices.hidden = false; tabCountDevices.textContent = devsCount; }
+    else tabCountDevices.hidden = true;
+    tabDotNotes.hidden = notesLen === 0;
+  }
+
+  // ===== Grocery =====
+  const GROCERY_CATEGORIES = [
+    { id: "hortifruti", label: "Hortifruti", emoji: "🥬" },
+    { id: "padaria",    label: "Padaria",            emoji: "🥖" },
+    { id: "carnes",     label: "Carnes & peixes",    emoji: "🥩" },
+    { id: "laticinios", label: "Laticínios",         emoji: "🥛" },
+    { id: "mercearia",  label: "Mercearia",          emoji: "🌾" },
+    { id: "congelados", label: "Congelados",         emoji: "🧊" },
+    { id: "bebidas",    label: "Bebidas",            emoji: "🥤" },
+    { id: "limpeza",    label: "Limpeza",            emoji: "🧼" },
+    { id: "higiene",    label: "Higiene",            emoji: "🧴" },
+    { id: "outros",     label: "Outros",             emoji: "🛒" },
+  ];
+  const GROCERY_CAT_MAP = Object.fromEntries(GROCERY_CATEGORIES.map(c => [c.id, c]));
+  function groceryCat(id) { return GROCERY_CAT_MAP[id] || GROCERY_CAT_MAP.outros; }
+  function gid() { return "g_" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
+
+  const groceryNameInput = document.getElementById("grocery-name");
+  const groceryQtyInput = document.getElementById("grocery-qty");
+  const groceryCatSelect = document.getElementById("grocery-cat");
+  const groceryForm = document.getElementById("grocery-add");
+  const groceryListEl = document.getElementById("grocery-list");
+  const groceryEmpty = document.getElementById("grocery-empty");
+  const grocerySummary = document.getElementById("grocery-summary");
+  const groceryClearBtn = document.getElementById("grocery-clear-bought");
+
+  for (const c of GROCERY_CATEGORIES) {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = `${c.emoji} ${c.label}`;
+    if (c.id === "outros") opt.selected = true;
+    groceryCatSelect.appendChild(opt);
+  }
+
+  function renderGrocery() {
+    const list = state.groceries || [];
+    grocerySummary.textContent = list.length === 0
+      ? ""
+      : `${list.filter(i => !i.bought).length} pendentes · ${list.filter(i => i.bought).length} comprados`;
+    groceryEmpty.hidden = list.length > 0;
+    groceryListEl.hidden = list.length === 0;
+    groceryClearBtn.hidden = !list.some(i => i.bought);
+
+    groceryListEl.innerHTML = "";
+    if (!list.length) return;
+
+    // Group by category, in the canonical order
+    const byCat = {};
+    for (const it of list) {
+      const cid = groceryCat(it.category).id;
+      (byCat[cid] = byCat[cid] || []).push(it);
+    }
+    for (const cat of GROCERY_CATEGORIES) {
+      const items = byCat[cat.id];
+      if (!items || !items.length) continue;
+      items.sort((a, b) => {
+        if (a.bought !== b.bought) return a.bought ? 1 : -1;
+        const pr = prioRank(a.priority) - prioRank(b.priority);
+        if (pr !== 0) return pr;
+        return a.name.localeCompare(b.name, "pt-BR");
+      });
+
+      const section = document.createElement("section");
+      section.className = "grocery-cat";
+
+      const head = document.createElement("div");
+      head.className = "grocery-cat-head";
+      const title = document.createElement("span");
+      title.textContent = `${cat.emoji}  ${cat.label}`;
+      const count = document.createElement("span");
+      count.className = "count";
+      const done = items.filter(i => i.bought).length;
+      count.textContent = `${done}/${items.length}`;
+      head.appendChild(title);
+      head.appendChild(count);
+      section.appendChild(head);
+
+      const ul = document.createElement("ul");
+      ul.className = "grocery-items";
+      for (const it of items) {
+        const li = document.createElement("li");
+        if (it.bought) li.classList.add("bought");
+        if (it.priority === "alta") li.classList.add("prio-alta");
+
+        const prio = makePrioButton(
+          () => it.priority,
+          (p) => {
+            it.priority = p || undefined;
+            logActivity(`Prioridade de "${escapeHtml(it.name)}" na lista: <b>${p || "normal"}</b>`);
+            scheduleSave();
+            renderGrocery();
+          }
+        );
+
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = !!it.bought;
+        cb.addEventListener("change", () => {
+          it.bought = cb.checked;
+          it.boughtAt = cb.checked ? new Date().toISOString() : null;
+          logActivity(cb.checked
+            ? `Item <b>${escapeHtml(it.name)}</b> comprado`
+            : `Item <b>${escapeHtml(it.name)}</b> reaberto`);
+          scheduleSave();
+          renderGrocery();
+        });
+
+        const nm = document.createElement("span");
+        nm.className = "it-name";
+        nm.textContent = it.name;
+        nm.contentEditable = "true";
+        nm.spellcheck = false;
+        const prevName = it.name;
+        nm.addEventListener("blur", () => {
+          const t = nm.textContent.trim();
+          if (!t) {
+            state.groceries = state.groceries.filter(x => x.id !== it.id);
+            logActivity(`Item <b>${escapeHtml(prevName)}</b> removido`);
+          } else if (t !== prevName) {
+            it.name = t;
+          } else { return; }
+          scheduleSave();
+          renderGrocery();
+        });
+        nm.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { e.preventDefault(); nm.blur(); }
+        });
+
+        li.appendChild(prio);
+        li.appendChild(cb);
+        li.appendChild(nm);
+        if (it.qty) {
+          const qty = document.createElement("span");
+          qty.className = "it-qty";
+          qty.textContent = it.qty;
+          li.appendChild(qty);
+        }
+
+        const rm = document.createElement("button");
+        rm.className = "it-rm";
+        rm.type = "button";
+        rm.title = "Remover";
+        rm.textContent = "×";
+        rm.addEventListener("click", () => {
+          state.groceries = state.groceries.filter(x => x.id !== it.id);
+          logActivity(`Item <b>${escapeHtml(it.name)}</b> removido da lista`);
+          scheduleSave();
+          renderGrocery();
+        });
+        li.appendChild(rm);
+
+        ul.appendChild(li);
+      }
+      section.appendChild(ul);
+      groceryListEl.appendChild(section);
+    }
+  }
+
+  groceryForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = groceryNameInput.value.trim();
+    if (!name) return;
+    const item = {
+      id: gid(),
+      name,
+      qty: groceryQtyInput.value.trim() || null,
+      category: groceryCatSelect.value,
+      bought: false,
+      addedAt: new Date().toISOString(),
+    };
+    state.groceries = state.groceries || [];
+    state.groceries.push(item);
+    logActivity(`Item <b>${escapeHtml(name)}</b> adicionado à lista de compras (${groceryCat(item.category).label})`);
+    groceryNameInput.value = "";
+    groceryQtyInput.value = "";
+    scheduleSave();
+    renderGrocery();
+    groceryNameInput.focus();
+  });
+
+  groceryClearBtn.addEventListener("click", () => {
+    const bought = (state.groceries || []).filter(i => i.bought).length;
+    if (!bought) return;
+    if (!confirm(`Remover ${bought} item${bought === 1 ? "" : "s"} comprado${bought === 1 ? "" : "s"} da lista?`)) return;
+    state.groceries = state.groceries.filter(i => !i.bought);
+    logActivity(`<b>${bought}</b> item${bought === 1 ? "" : "s"} comprado${bought === 1 ? "" : "s"} limpo${bought === 1 ? "" : "s"}`);
+    scheduleSave();
+    renderGrocery();
+  });
+
+  // ===== View switcher =====
+  const VIEW_KEY = "homeOS/view";
+  let currentView = localStorage.getItem(VIEW_KEY) || "map";
+  function setView(v) {
+    currentView = (v === "grocery") ? "grocery" : "map";
+    localStorage.setItem(VIEW_KEY, currentView);
+    appShell.classList.toggle("view-grocery", currentView === "grocery");
+    for (const btn of document.querySelectorAll(".view-tab")) {
+      btn.classList.toggle("active", btn.dataset.view === currentView);
+    }
+    if (currentView === "grocery") {
+      renderGrocery();
+      setTimeout(() => groceryNameInput.focus(), 0);
+    }
+  }
+  for (const btn of document.querySelectorAll(".view-tab")) {
+    btn.addEventListener("click", () => setView(btn.dataset.view));
+  }
 
   // ===== Boot =====
   (async function boot() {
