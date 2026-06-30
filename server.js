@@ -370,6 +370,95 @@ app.get("/api/ha/states", authRequired, async (req, res) => {
   }
 });
 
+// --- Routines ---
+// Routines are stored in the user's state.routines array. The server exposes a
+// "run by id" endpoint and runs time-triggered routines on a minute scheduler.
+
+function loadUserState(u) {
+  try { return JSON.parse(u.state || "{}"); } catch { return {}; }
+}
+function saveUserState(uid, st) {
+  db.prepare("UPDATE users SET state = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+    .run(JSON.stringify(st), uid);
+}
+
+const ACTION_PRESETS = {
+  light:         { on: { service: "turn_on" },  off: { service: "turn_off" } },
+  switch:        { on: { service: "turn_on" },  off: { service: "turn_off" } },
+  fan:           { on: { service: "turn_on" },  off: { service: "turn_off" } },
+  humidifier:    { on: { service: "turn_on" },  off: { service: "turn_off" } },
+  media_player:  { on: { service: "turn_on" },  off: { service: "turn_off" } },
+  cover:         { on: { service: "open_cover" }, off: { service: "close_cover" } },
+  lock:          { on: { service: "lock" },     off: { service: "unlock" } },
+  vacuum:        { on: { service: "start" },    off: { service: "return_to_base" } },
+  climate: {
+    on:  { service: "set_hvac_mode", data: { hvac_mode: "cool" } },
+    off: { service: "set_hvac_mode", data: { hvac_mode: "off" } },
+  },
+};
+
+async function runRoutineFor(u, routine) {
+  if (!userHaEnabled(u)) throw new Error("HA não configurado");
+  const results = [];
+  for (const action of (routine.actions || [])) {
+    const entityId = action.entityId;
+    const domain = (entityId || "").split(".")[0];
+    const preset = ACTION_PRESETS[domain] && ACTION_PRESETS[domain][action.preset];
+    if (!preset) { results.push({ entityId, ok: false, error: "ação não suportada" }); continue; }
+    try {
+      const r = await haFetch(u, `/api/services/${domain}/${preset.service}`, {
+        method: "POST",
+        body: JSON.stringify({ entity_id: entityId, ...(preset.data || {}) }),
+      });
+      results.push({ entityId, service: preset.service, ok: r.ok, status: r.status });
+    } catch (e) {
+      results.push({ entityId, ok: false, error: String(e.message || e) });
+    }
+  }
+  // Stamp lastRunAt in user state
+  const st = loadUserState(u);
+  if (Array.isArray(st.routines)) {
+    const r = st.routines.find(x => x.id === routine.id);
+    if (r) { r.lastRunAt = new Date().toISOString(); saveUserState(u.id, st); }
+  }
+  return results;
+}
+
+app.post("/api/routines/:id/run", authRequired, async (req, res) => {
+  const st = loadUserState(req.user);
+  const routine = (st.routines || []).find(r => r.id === req.params.id);
+  if (!routine) return res.status(404).json({ error: "rotina não encontrada" });
+  try {
+    const results = await runRoutineFor(req.user, routine);
+    res.json({ ok: true, results });
+  } catch (e) {
+    res.status(502).json({ error: String(e.message || e) });
+  }
+});
+
+// Time-trigger scheduler — every minute, check all users for due routines.
+// Tracks the last "HH:MM" we already fired for each routine so each schedule fires once per minute.
+const lastFiredKey = new Map(); // `${userId}:${routineId}` -> "HH:MM"
+function tickScheduler() {
+  const now = new Date();
+  const hhmm = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+  const users = db.prepare("SELECT * FROM users WHERE ha_url <> '' AND ha_token <> ''").all();
+  for (const u of users) {
+    const st = loadUserState(u);
+    const routines = Array.isArray(st.routines) ? st.routines : [];
+    for (const r of routines) {
+      if (!r || r.enabled === false) continue;
+      if (!r.trigger || r.trigger.type !== "time") continue;
+      if (r.trigger.time !== hhmm) continue;
+      const key = `${u.id}:${r.id}`;
+      if (lastFiredKey.get(key) === hhmm) continue;
+      lastFiredKey.set(key, hhmm);
+      runRoutineFor(u, r).catch(err => console.error(`Routine ${r.id} for user ${u.id} failed:`, err));
+    }
+  }
+}
+setInterval(tickScheduler, 60 * 1000).unref();
+
 app.post("/api/ha/services/:domain/:service", authRequired, async (req, res) => {
   if (!userHaEnabled(req.user)) return res.status(503).json({ error: "HA não configurado" });
   const { domain, service } = req.params;

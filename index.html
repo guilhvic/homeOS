@@ -351,6 +351,22 @@
   .climate-temp .display small { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
   .climate-temp .dev-ctrl { width: 36px; height: 32px; padding: 0; font-size: 16px; }
 
+  .devices li.light-card { flex-direction: column; align-items: stretch; gap: 10px; padding: 8px; }
+  .light-card .row1 { display: flex; align-items: center; gap: 8px; }
+  .light-row { display: flex; align-items: center; gap: 10px; padding: 0 4px; }
+  .light-row .ctrl-label { font-size: 11px; color: var(--muted); min-width: 50px; text-transform: uppercase; letter-spacing: .3px; }
+  .light-row .ctrl-value { font-size: 12px; min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+  .light-row input[type=range] { flex: 1; accent-color: var(--accent); height: 22px; }
+  .light-row input[type=color] {
+    width: 36px; height: 28px; padding: 2px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--paper); cursor: pointer;
+  }
+  .light-row input[type=color]:disabled,
+  .light-row input[type=range]:disabled { opacity: .45; cursor: not-allowed; }
+  .light-row .color-swatch {
+    flex: 1; height: 24px; border-radius: 4px; border: 1px solid var(--line);
+  }
+
   /* Picker modal */
   .picker-search { width: 100%; margin-bottom: 8px; }
   .picker-list {
@@ -438,19 +454,56 @@
   }
   .room text {
     fill: var(--ink);
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 22px;
+    font-weight: 700;
     pointer-events: none;
     user-select: none;
+    fill-opacity: 0.95;
+    letter-spacing: 0.5px;
+    text-anchor: middle;
+    dominant-baseline: central;
   }
-  .room .meta { fill: var(--muted); font-size: 11px; font-weight: 400; }
+  html[data-theme="dark"] .room text { fill: #ffffff; }
+  .room .meta {
+    fill: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+    fill-opacity: 0.9;
+    letter-spacing: 0.3px;
+  }
+  .room.selected text { fill-opacity: 1; }
   .handle {
     fill: var(--paper);
     stroke: var(--accent);
     stroke-width: 1.5;
-    cursor: nwse-resize;
   }
+  .handle.tl, .handle.br { cursor: nwse-resize; }
+  .handle.tr, .handle.bl { cursor: nesw-resize; }
   .room:not(.selected) .handle { display: none; }
+
+  /* SVG device pins — positionable pills inside each room */
+  .device-pin { cursor: grab; }
+  .device-pin.dragging { cursor: grabbing; }
+  .device-pin .pin-bg {
+    fill: var(--paper);
+    stroke: var(--line);
+    stroke-width: 1;
+  }
+  .device-pin.kind-on   .pin-bg { fill: #fde68a; stroke: #c2592a; }
+  html[data-theme="dark"] .device-pin.kind-on   .pin-bg { fill: #4a3210; stroke: #f4a572; }
+  .device-pin.kind-cool .pin-bg { fill: #d0e7f7; stroke: #1e6ea3; }
+  html[data-theme="dark"] .device-pin.kind-cool .pin-bg { fill: #1c3a55; stroke: #7fb9e5; }
+  .device-pin.kind-heat .pin-bg { fill: #f7d6c7; stroke: #a04020; }
+  html[data-theme="dark"] .device-pin.kind-heat .pin-bg { fill: #4a2616; stroke: #f2a98c; }
+  .device-pin .pin-text {
+    font-size: 11px;
+    font-weight: 600;
+    fill: var(--ink);
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+    user-select: none;
+  }
 
   /* Auth screen */
   #auth-screen {
@@ -579,6 +632,7 @@
     </button>
     <button id="sync-btn" class="ghost" title="Sincronizar dispositivos do Home Assistant" aria-label="Sincronizar dispositivos">🔄</button>
     <button id="history-btn" class="ghost" title="Histórico" aria-label="Histórico">🕘</button>
+    <button id="routines-btn" class="ghost" title="Rotinas" aria-label="Rotinas">📅</button>
     <button id="theme-toggle" class="ghost" title="Alternar tema" aria-label="Alternar tema">🌙</button>
     <button id="add-room" class="primary">+ Cômodo</button>
     <button id="center-view" class="ghost" title="Centralizar o mapa">Centrar</button>
@@ -732,6 +786,55 @@
   </div>
 </div>
 
+<!-- ============================ ROUTINES MODAL ============================ -->
+<div id="routines-modal" class="modal-bg" hidden>
+  <div class="modal" style="width: min(580px, 100%);">
+    <h3>Rotinas</h3>
+    <p class="sub">Crie rotinas com ações agendadas ou para execução rápida.</p>
+    
+    <div style="margin-bottom: 16px; display: flex; justify-content: flex-end;">
+      <button id="new-routine-btn" class="primary" type="button">+ Nova Rotina</button>
+    </div>
+
+    <!-- Routine Editor Form -->
+    <form id="routine-form" hidden style="border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; background: rgba(0,0,0,0.02);">
+      <h4 id="routine-form-title" style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Criar Rotina</h4>
+      <input type="hidden" id="routine-edit-id" />
+      
+      <div class="field">
+        <label for="routine-name">Nome da Rotina</label>
+        <input id="routine-name" type="text" placeholder="ex: Dormir" required />
+      </div>
+
+      <div class="field">
+        <label>Agendamento (Gatilho de Horário)</label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="checkbox" id="routine-time-enabled" style="width: auto; margin: 0; cursor: pointer;" />
+          <span style="font-size: 13px;">Habilitar horário</span>
+          <input id="routine-time" type="time" style="width: 120px;" disabled />
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <label style="display:block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Ações</label>
+        <ul id="routine-actions-list" style="list-style:none; padding:0; margin:0 0 8px; display:flex; flex-direction:column; gap:6px;"></ul>
+        <button id="add-action-btn" class="ghost" type="button" style="font-size: 12px; padding: 4px 8px;">+ Adicionar ação</button>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+        <button id="routine-cancel-btn" class="ghost" type="button">Cancelar</button>
+        <button type="submit" class="primary">Salvar Rotina</button>
+      </div>
+    </form>
+
+    <ul id="routines-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px;"></ul>
+
+    <div class="actions" style="margin-top: 20px; border-top: 1px solid var(--line); padding-top: 12px;">
+      <button id="routines-close" class="primary" type="button">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (() => {
   "use strict";
@@ -869,20 +972,23 @@
   const syncPill = document.getElementById("sync-pill");
 
   function emptyState() {
-    return { rooms: [], selectedId: null, seq: 1, history: [], view: { tx: 0, ty: 0 } };
+    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], view: { tx: 0, ty: 0 } };
   }
   function normalizeState(s) {
     if (!s || typeof s !== "object") return emptyState();
     const v = s.view && typeof s.view === "object" ? s.view : {};
     const rooms = (Array.isArray(s.rooms) ? s.rooms : []).map(r => ({
       ...r,
-      devices: Array.isArray(r.devices) ? r.devices.filter(d => typeof d === "string") : [],
+      devices: (Array.isArray(r.devices) ? r.devices : [])
+        .map(d => typeof d === "string" ? { entityId: d } : d)
+        .filter(d => d && typeof d === "object" && typeof d.entityId === "string"),
     }));
     return {
       rooms,
       selectedId: s.selectedId || null,
       seq: typeof s.seq === "number" ? s.seq : 1,
       history: Array.isArray(s.history) ? s.history : [],
+      routines: Array.isArray(s.routines) ? s.routines : [],
       view: { tx: Number(v.tx) || 0, ty: Number(v.ty) || 0 },
     };
   }
@@ -945,6 +1051,8 @@
   };
   function entityDomain(id) { return (id || "").split(".")[0]; }
   function entityIcon(id) { return DOMAIN_ICON[entityDomain(id)] || "🔘"; }
+  function devId(d) { return typeof d === "string" ? d : d?.entityId; }
+  function devObj(room, id) { return (room.devices || []).find(d => devId(d) === id); }
 
   // Returns { label, status, kind } where kind ∈ on|off|cool|heat|neutral
   function entityDisplay(id) {
@@ -1030,6 +1138,17 @@
   // ===== DOM refs (app) =====
   const svg = document.getElementById("svg");
   const status = document.getElementById("status");
+  const routinesBtn = document.getElementById("routines-btn");
+  const routinesModal = document.getElementById("routines-modal");
+  const routinesList = document.getElementById("routines-list");
+  const routineForm = document.getElementById("routine-form");
+  const routineFormTitle = document.getElementById("routine-form-title");
+  const routineEditId = document.getElementById("routine-edit-id");
+  const routineNameInput = document.getElementById("routine-name");
+  const routineTimeEnabled = document.getElementById("routine-time-enabled");
+  const routineTimeInput = document.getElementById("routine-time");
+  const routineActionsList = document.getElementById("routine-actions-list");
+  const addActionBtn = document.getElementById("add-action-btn");
   const nameInput = document.getElementById("name");
   const notesInput = document.getElementById("notes");
   const itemsList = document.getElementById("items");
@@ -1076,30 +1195,64 @@
       rect.setAttribute("rx", 6);
       g.appendChild(rect);
 
+      const cx = room.w / 2;
+      const cy = room.h / 2;
+      const padX = 10;
+      const maxTextW = Math.max(20, room.w - padX * 2);
+
+      const labelName = room.name || "Sem nome";
+      const fsByH = Math.min(28, Math.floor(room.h / 5));
+      const labelRatio = 0.78;
+      const fsByW = Math.floor(maxTextW / Math.max(1, labelName.length * labelRatio));
+      const labelFs = Math.max(9, Math.min(fsByH, fsByW));
+
       const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      label.setAttribute("x", 12);
-      label.setAttribute("y", 22);
-      label.textContent = room.name || "Sem nome";
+      label.setAttribute("x", cx);
+      label.setAttribute("y", cy - labelFs * 0.4);
+      label.style.fontSize = labelFs + "px";
+      label.textContent = labelName;
       g.appendChild(label);
+
+      const done = (room.items || []).filter(i => i.done).length;
+      const total = (room.items || []).length;
+      const metaText = total ? `${done}/${total} concluído${total === 1 ? "" : "s"}` : "sem itens";
+      const metaRatio = 0.6;
+      const metaFsByW = Math.floor(maxTextW / Math.max(1, metaText.length * metaRatio));
+      const metaFs = Math.max(8, Math.min(11, metaFsByW));
 
       const meta = document.createElementNS("http://www.w3.org/2000/svg", "text");
       meta.setAttribute("class", "meta");
-      meta.setAttribute("x", 12);
-      meta.setAttribute("y", 40);
-      const done = (room.items || []).filter(i => i.done).length;
-      const total = (room.items || []).length;
-      meta.textContent = total ? `${done}/${total} concluído${total === 1 ? "" : "s"}` : "sem itens";
+      meta.setAttribute("x", cx);
+      meta.setAttribute("y", cy + labelFs * 0.6);
+      meta.style.fontSize = metaFs + "px";
+      meta.textContent = metaText;
       g.appendChild(meta);
 
-      const handle = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      handle.setAttribute("class", "handle");
-      handle.setAttribute("x", room.w - 10);
-      handle.setAttribute("y", room.h - 10);
-      handle.setAttribute("width", 12);
-      handle.setAttribute("height", 12);
-      handle.setAttribute("rx", 2);
-      handle.setAttribute("data-handle", "1");
-      g.appendChild(handle);
+      queueMicrotask(() => {
+        for (const t of [label, meta]) {
+          try {
+            const w = t.getComputedTextLength();
+            if (w > maxTextW) {
+              t.setAttribute("textLength", maxTextW);
+              t.setAttribute("lengthAdjust", "spacingAndGlyphs");
+            }
+          } catch {}
+        }
+      });
+
+      for (const corner of ["tl","tr","bl","br"]) {
+        const hx = corner.includes("l") ? -2 : room.w - 10;
+        const hy = corner.includes("t") ? -2 : room.h - 10;
+        const handle = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        handle.setAttribute("class", "handle " + corner);
+        handle.setAttribute("x", hx);
+        handle.setAttribute("y", hy);
+        handle.setAttribute("width", 12);
+        handle.setAttribute("height", 12);
+        handle.setAttribute("rx", 2);
+        handle.setAttribute("data-handle", corner);
+        g.appendChild(handle);
+      }
 
       viewport.appendChild(g);
     }
@@ -1212,11 +1365,13 @@
       li.textContent = "Nenhum dispositivo vinculado.";
       list.appendChild(li);
     } else {
-      for (const id of devs) {
+      for (const dev of devs) {
+        const id = devId(dev);
         const dom = entityDomain(id);
-        const li = (dom === "climate" && haEntities.has(id))
-          ? buildClimateRow(id, room)
-          : buildSimpleDeviceRow(id, room);
+        let li;
+        if (dom === "climate" && haEntities.has(id))      li = buildClimateRow(id, room);
+        else if (dom === "light"  && haEntities.has(id))  li = buildLightCard(id, room);
+        else                                              li = buildSimpleDeviceRow(id, room);
         list.appendChild(li);
       }
     }
@@ -1229,12 +1384,137 @@
     rm.title = "Desvincular";
     rm.textContent = "×";
     rm.addEventListener("click", () => {
-      room.devices = room.devices.filter(x => x !== id);
+      room.devices = room.devices.filter(x => (typeof x === "string" ? x : x.entityId) !== id);
       logActivity(`Dispositivo <b>${escapeHtml(name)}</b> desvinculado de <b>${escapeHtml(room.name)}</b>`);
       scheduleSave();
       render();
     });
     return rm;
+  }
+
+  function rgbToHex(r, g, b) {
+    const c = n => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
+    return "#" + c(r) + c(g) + c(b);
+  }
+  function hexToRgb(hex) {
+    const m = (hex || "").match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+    if (!m) return [255, 255, 255];
+    return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+  }
+  function hsToRgb(h, s) {
+    h = h / 360; s = s / 100; const v = 1;
+    const i = Math.floor(h * 6), f = h * 6 - i;
+    const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+    let r, g, b;
+    switch (i % 6) {
+      case 0: r = v; g = t; b = p; break;
+      case 1: r = q; g = v; b = p; break;
+      case 2: r = p; g = v; b = t; break;
+      case 3: r = p; g = q; b = v; break;
+      case 4: r = t; g = p; b = v; break;
+      case 5: r = v; g = p; b = q; break;
+    }
+    return [r * 255, g * 255, b * 255];
+  }
+
+  function lightCapabilities(e) {
+    const a = e.attributes || {};
+    const modes = Array.isArray(a.supported_color_modes) ? a.supported_color_modes : [];
+    const colorModeSet = new Set(["hs", "rgb", "rgbw", "rgbww", "xy"]);
+    const hasBrightness = modes.some(m => m && m !== "onoff") || a.brightness != null;
+    const hasColor = modes.some(m => colorModeSet.has(m));
+    return { hasBrightness, hasColor };
+  }
+
+  function buildLightCard(id, room) {
+    const e = haEntities.get(id);
+    const { hasBrightness, hasColor } = lightCapabilities(e);
+    if (!hasBrightness && !hasColor) return buildSimpleDeviceRow(id, room);
+
+    const a = e.attributes || {};
+    const d = entityDisplay(id);
+    const isOn = e.state === "on";
+    const li = document.createElement("li");
+    li.className = "light-card";
+
+    const row1 = document.createElement("div");
+    row1.className = "row1";
+    const ic = document.createElement("div");
+    ic.className = "dev-icon " + d.kind;
+    ic.textContent = "💡";
+    const nm = document.createElement("div");
+    nm.className = "dev-name";
+    nm.textContent = d.name;
+    const st = document.createElement("div");
+    st.className = "dev-state";
+    st.textContent = d.status;
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "dev-ctrl power" + (isOn ? " on" : "");
+    toggle.title = isOn ? "Desligar" : "Ligar";
+    toggle.textContent = "⏻";
+    toggle.addEventListener("click", (ev) => { ev.stopPropagation(); haCall("light", "toggle", { entity_id: id }, toggle); });
+    row1.appendChild(ic);
+    row1.appendChild(nm);
+    row1.appendChild(st);
+    row1.appendChild(toggle);
+    row1.appendChild(makeRemoveBtn(id, room, d.name));
+    li.appendChild(row1);
+
+    if (hasBrightness) {
+      const curPct = a.brightness != null ? Math.round(a.brightness * 100 / 255) : (isOn ? 100 : 0);
+      const row = document.createElement("div");
+      row.className = "light-row";
+      const label = document.createElement("div");
+      label.className = "ctrl-label";
+      label.textContent = "Brilho";
+      const slider = document.createElement("input");
+      slider.type = "range";
+      slider.min = "1";
+      slider.max = "100";
+      slider.value = curPct > 0 ? curPct : 50;
+      const valLabel = document.createElement("span");
+      valLabel.className = "ctrl-value";
+      valLabel.textContent = `${slider.value}%`;
+      slider.addEventListener("input", () => { valLabel.textContent = `${slider.value}%`; });
+      slider.addEventListener("change", () => {
+        haCall("light", "turn_on", { entity_id: id, brightness_pct: Number(slider.value) }, slider);
+      });
+      row.appendChild(label);
+      row.appendChild(slider);
+      row.appendChild(valLabel);
+      li.appendChild(row);
+    }
+
+    if (hasColor) {
+      let rgb = Array.isArray(a.rgb_color) ? a.rgb_color
+              : Array.isArray(a.hs_color)  ? hsToRgb(a.hs_color[0], a.hs_color[1])
+              : [255, 255, 255];
+      const hex = rgbToHex(rgb[0], rgb[1], rgb[2]);
+      const row = document.createElement("div");
+      row.className = "light-row";
+      const label = document.createElement("div");
+      label.className = "ctrl-label";
+      label.textContent = "Cor";
+      const picker = document.createElement("input");
+      picker.type = "color";
+      picker.value = hex;
+      picker.disabled = !isOn;
+      picker.title = isOn ? "Mudar cor" : "Ligue a lâmpada para mudar a cor";
+      picker.addEventListener("change", () => {
+        const [r, g, b] = hexToRgb(picker.value);
+        haCall("light", "turn_on", { entity_id: id, rgb_color: [r, g, b] }, picker);
+      });
+      const swatch = document.createElement("div");
+      swatch.className = "color-swatch";
+      swatch.style.background = hex;
+      row.appendChild(label);
+      row.appendChild(swatch);
+      row.appendChild(picker);
+      li.appendChild(row);
+    }
+
+    return li;
   }
 
   function buildSimpleDeviceRow(id, room) {
@@ -1485,84 +1765,83 @@
     return null;
   }
 
+  // Auto-place a device pin near the bottom of the room when no x,y is set yet.
+  function autoPinPos(room, autoIdx, pinW, pinH) {
+    const pad = 10;
+    const lineH = pinH + 4;
+    const maxPerRow = Math.max(1, Math.floor((room.w - pad * 2) / (pinW + 4)));
+    const row = Math.floor(autoIdx / maxPerRow);
+    const col = autoIdx % maxPerRow;
+    return {
+      x: pad + col * (pinW + 4),
+      y: room.h - pad - lineH - row * lineH,
+    };
+  }
+
   function renderRoomPins() {
-    // Renders an inline status line at the bottom of each room with sensor readouts.
     for (const room of state.rooms) {
       const g = svg.querySelector(`g.room[data-id="${room.id}"]`);
       if (!g) continue;
-      const existing = g.querySelector("g.room-stats");
+      const existing = g.querySelector("g.device-pins");
       if (existing) existing.remove();
 
-      const stats = (room.devices || [])
-        .map(id => ({ id, stat: statForEntity(id) }))
-        .filter(x => x.stat);
-      if (!stats.length) continue;
+      const devs = (room.devices || []);
+      if (!devs.length) continue;
 
       const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-      group.setAttribute("class", "room-stats");
+      group.setAttribute("class", "device-pins");
 
-      // Wrap items into lines that fit room width
-      const pad = 12;
-      const maxWidth = Math.max(0, room.w - pad * 2);
-      const sep = "  ·  ";
-      // crude width estimate: 6.2px per character (font-size 11px)
+      const pinH = 22;
       const charW = 6.2;
-      const lines = [];
-      let cur = [];
-      let curWidth = 0;
-      for (const { id, stat } of stats) {
-        const w = stat.text.length * charW;
-        const sepW = cur.length ? sep.length * charW : 0;
-        if (curWidth + sepW + w > maxWidth && cur.length) {
-          lines.push(cur);
-          cur = [];
-          curWidth = 0;
+      const padX = 8;
+
+      let autoIdx = 0;
+      for (const dev of devs) {
+        const id = devId(dev);
+        const stat = statForEntity(id);
+        const display = entityDisplay(id);
+        const label = stat ? stat.text : entityIcon(id);
+        const kind = stat ? stat.kind : (display.kind || "neutral");
+        const pinW = Math.max(28, Math.ceil(label.length * charW) + padX * 2);
+
+        let x, y;
+        if (typeof dev === "object" && typeof dev.x === "number" && typeof dev.y === "number") {
+          x = dev.x; y = dev.y;
+        } else {
+          const pos = autoPinPos(room, autoIdx, pinW, pinH);
+          x = pos.x; y = pos.y;
+          autoIdx++;
         }
-        cur.push({ id, stat });
-        curWidth += (cur.length > 1 ? sepW : 0) + w;
-      }
-      if (cur.length) lines.push(cur);
+        x = Math.max(0, Math.min(room.w - pinW, x));
+        y = Math.max(0, Math.min(room.h - pinH, y));
 
-      // Limit lines to fit vertically (max 2 lines, or 3 if room is taller than 120)
-      const maxLines = room.h >= 120 ? 3 : 2;
-      const visibleLines = lines.slice(0, maxLines);
-      const lineH = 14;
-      const baseY = room.h - pad - (visibleLines.length - 1) * lineH;
+        const pin = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        pin.setAttribute("class", "device-pin kind-" + kind);
+        pin.setAttribute("data-entity-id", id);
+        pin.setAttribute("data-room-id", room.id);
+        pin.setAttribute("data-pin-w", pinW);
+        pin.setAttribute("data-pin-h", pinH);
+        pin.setAttribute("transform", `translate(${x},${y})`);
 
-      visibleLines.forEach((line, li) => {
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("class", "pin-bg");
+        rect.setAttribute("width", pinW);
+        rect.setAttribute("height", pinH);
+        rect.setAttribute("rx", pinH / 2);
+        const tt = document.createElementNS("http://www.w3.org/2000/svg", "title");
+        tt.textContent = `${display.name} — ${display.status} · arraste para reposicionar`;
+        rect.appendChild(tt);
+        pin.appendChild(rect);
+
         const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        text.setAttribute("x", pad);
-        text.setAttribute("y", baseY + li * lineH);
-        line.forEach((item, i) => {
-          if (i > 0) {
-            const sepEl = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-            sepEl.textContent = sep;
-            sepEl.setAttribute("fill", "var(--line)");
-            text.appendChild(sepEl);
-          }
-          const sp = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-          sp.setAttribute("class", "stat-" + item.stat.kind);
-          sp.textContent = item.stat.text;
-          const tt = document.createElementNS("http://www.w3.org/2000/svg", "title");
-          const d = entityDisplay(item.id);
-          tt.textContent = `${d.name} — ${d.status}`;
-          sp.appendChild(tt);
-          text.appendChild(sp);
-        });
-        group.appendChild(text);
-      });
+        text.setAttribute("class", "pin-text");
+        text.setAttribute("x", pinW / 2);
+        text.setAttribute("y", pinH / 2);
+        text.textContent = label;
+        pin.appendChild(text);
 
-      // Overflow indicator
-      if (lines.length > maxLines) {
-        const extra = lines.slice(maxLines).reduce((n, l) => n + l.length, 0);
-        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        text.setAttribute("x", pad);
-        text.setAttribute("y", baseY + visibleLines.length * lineH);
-        text.textContent = `+${extra} mais`;
-        text.setAttribute("opacity", "0.7");
-        group.appendChild(text);
+        group.appendChild(pin);
       }
-
       g.appendChild(group);
     }
   }
@@ -1595,7 +1874,12 @@
   }
   function assignedMap() {
     const m = new Map();
-    for (const r of state.rooms) for (const id of (r.devices || [])) m.set(id, r);
+    for (const r of state.rooms) {
+      for (const d of (r.devices || [])) {
+        const id = typeof d === "string" ? d : d.entityId;
+        m.set(id, r);
+      }
+    }
     return m;
   }
 
@@ -1687,7 +1971,7 @@
           const room = state.rooms.find(r => r.id === roomId);
           if (!room) return;
           room.devices = room.devices || [];
-          room.devices.push(e.entity_id);
+          room.devices.push({ entityId: e.entity_id, x: 30, y: 30 });
           logActivity(`Dispositivo <b>${escapeHtml(e.attributes.friendly_name || e.entity_id)}</b> vinculado a <b>${escapeHtml(room.name)}</b>`);
           scheduleSave();
           render();
@@ -1774,8 +2058,9 @@
       const e = haEntities.get(id);
       if (!room || !e) { skipped++; continue; }
       room.devices = room.devices || [];
-      if (!room.devices.includes(id)) {
-        room.devices.push(id);
+      const hasIt = room.devices.some(x => (typeof x === "string" ? x : x.entityId) === id);
+      if (!hasIt) {
+        room.devices.push({ entityId: id, x: 30, y: 30 });
         added++;
       }
       li.remove();
@@ -1822,7 +2107,12 @@
 
   function assignedEntityRoomMap() {
     const m = new Map();
-    for (const r of state.rooms) for (const id of (r.devices || [])) m.set(id, r);
+    for (const r of state.rooms) {
+      for (const d of (r.devices || [])) {
+        const id = typeof d === "string" ? d : d.entityId;
+        m.set(id, r);
+      }
+    }
     return m;
   }
   function renderPickerList() {
@@ -1868,7 +2158,7 @@
         li.addEventListener("click", () => {
           if (!room) return;
           room.devices = room.devices || [];
-          room.devices.push(e.entity_id);
+          room.devices.push({ entityId: e.entity_id, x: 30, y: 30 });
           logActivity(`Dispositivo <b>${escapeHtml(name)}</b> vinculado a <b>${escapeHtml(room.name)}</b>`);
           scheduleSave();
           closeDeviceModal();
@@ -1942,6 +2232,36 @@
 
   let drag = null;
   svg.addEventListener("pointerdown", (e) => {
+    const pinTarget = e.target.closest("g.device-pin");
+    if (pinTarget) {
+      const entityId = pinTarget.getAttribute("data-entity-id");
+      const roomId = pinTarget.getAttribute("data-room-id");
+      const room = state.rooms.find(r => r.id === roomId);
+      const dev = devObj(room, entityId);
+      if (room && dev) {
+        const w = svgWorld(e);
+        const m = pinTarget.getAttribute("transform")?.match(/translate\(([-\d.]+),([-\d.]+)\)/);
+        const curX = m ? Number(m[1]) : 0;
+        const curY = m ? Number(m[2]) : 0;
+        const localX = w.x - room.x;
+        const localY = w.y - room.y;
+        drag = {
+          mode: "pin",
+          roomId,
+          entityId,
+          dx: localX - curX,
+          dy: localY - curY,
+          pinW: Number(pinTarget.getAttribute("data-pin-w")) || 60,
+          pinH: Number(pinTarget.getAttribute("data-pin-h")) || 22,
+        };
+        state.selectedId = roomId;
+        svg.setPointerCapture(e.pointerId);
+        pinTarget.classList.add("dragging");
+        render();
+        return;
+      }
+    }
+
     const target = e.target.closest("g.room");
     const p = svgPoint(e);
     if (!target) {
@@ -1961,8 +2281,14 @@
     if (!room) return;
     state.selectedId = id;
     const w = svgWorld(e);
-    if (e.target.getAttribute("data-handle") === "1") {
-      drag = { mode: "resize", id, startX: w.x, startY: w.y, startW: room.w, startH: room.h };
+    const corner = e.target.getAttribute("data-handle");
+    if (corner) {
+      drag = {
+        mode: "resize", id, corner,
+        startX: w.x, startY: w.y,
+        origX: room.x, origY: room.y, origW: room.w, origH: room.h,
+        startW: room.w, startH: room.h,
+      };
     } else {
       drag = { mode: "move", id, dx: w.x - room.x, dy: w.y - room.y, origX: room.x, origY: room.y };
     }
@@ -1971,6 +2297,21 @@
   });
   svg.addEventListener("pointermove", (e) => {
     if (!drag) return;
+    if (drag.mode === "pin") {
+      const room = state.rooms.find(r => r.id === drag.roomId);
+      const dev = devObj(room, drag.entityId);
+      if (!room || !dev) return;
+      const w = svgWorld(e);
+      const localX = w.x - room.x;
+      const localY = w.y - room.y;
+      const newX = Math.max(0, Math.min(room.w - drag.pinW, snap(localX - drag.dx)));
+      const newY = Math.max(0, Math.min(room.h - drag.pinH, snap(localY - drag.dy)));
+      dev.x = newX;
+      dev.y = newY;
+      const pin = svg.querySelector(`g.room[data-id="${room.id}"] g.device-pin[data-entity-id="${drag.entityId}"]`);
+      if (pin) pin.setAttribute("transform", `translate(${newX},${newY})`);
+      return;
+    }
     if (drag.mode === "pan") {
       const p = svgPoint(e);
       const ndx = p.x - drag.startX;
@@ -1988,13 +2329,37 @@
       room.x = snap(w.x - drag.dx);
       room.y = snap(w.y - drag.dy);
     } else {
-      room.w = Math.max(80, snap(drag.startW + (w.x - drag.startX)));
-      room.h = Math.max(60, snap(drag.startH + (w.y - drag.startY)));
+      const MIN_W = 80, MIN_H = 60;
+      const dx = w.x - drag.startX;
+      const dy = w.y - drag.startY;
+      const c = drag.corner;
+      if (c === "br" || c === "tr") {
+        room.w = Math.max(MIN_W, snap(drag.origW + dx));
+      } else {
+        const newW = Math.max(MIN_W, snap(drag.origW - dx));
+        room.x = drag.origX + drag.origW - newW;
+        room.w = newW;
+      }
+      if (c === "br" || c === "bl") {
+        room.h = Math.max(MIN_H, snap(drag.origH + dy));
+      } else {
+        const newH = Math.max(MIN_H, snap(drag.origH - dy));
+        room.y = drag.origY + drag.origH - newH;
+        room.h = newH;
+      }
     }
     render();
   });
   function stopDrag(e) {
     if (!drag) return;
+    if (drag.mode === "pin") {
+      const pin = svg.querySelector(`g.room[data-id="${drag.roomId}"] g.device-pin[data-entity-id="${drag.entityId}"]`);
+      if (pin) pin.classList.remove("dragging");
+      scheduleSave();
+      drag = null;
+      try { svg.releasePointerCapture(e.pointerId); } catch {}
+      return;
+    }
     if (drag.mode === "pan") {
       svg.classList.remove("panning");
       if (!drag.moved) {
@@ -2211,6 +2576,287 @@
   profileModal.addEventListener("click", (e) => {
     if (e.target === profileModal) closeProfileModal();
   });
+  
+  routinesBtn.addEventListener("click", openRoutinesModal);
+  document.getElementById("routines-close").addEventListener("click", closeRoutinesModal);
+  document.getElementById("new-routine-btn").addEventListener("click", () => showRoutineEditor(null));
+  document.getElementById("routine-cancel-btn").addEventListener("click", () => { routineForm.hidden = true; });
+  addActionBtn.addEventListener("click", () => addRoutineActionRow(null));
+  routinesModal.addEventListener("click", (e) => { if (e.target === routinesModal) closeRoutinesModal(); });
+
+  routineTimeEnabled.addEventListener("change", () => {
+    routineTimeInput.disabled = !routineTimeEnabled.checked;
+    if (!routineTimeEnabled.checked) routineTimeInput.value = "";
+  });
+
+  routineForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = routineNameInput.value.trim();
+    if (!name) return;
+
+    const id = routineEditId.value || "rt-" + Date.now();
+    const isNew = !routineEditId.value;
+
+    const actions = [];
+    for (const row of routineActionsList.children) {
+      const entitySel = row.children[0];
+      const presetSel = row.children[1];
+      if (entitySel.value) {
+        actions.push({ entityId: entitySel.value, preset: presetSel.value });
+      }
+    }
+
+    const trigger = routineTimeEnabled.checked
+      ? { type: "time", time: routineTimeInput.value }
+      : null;
+
+    state.routines = state.routines || [];
+    let routine = state.routines.find(x => x.id === id);
+    if (!routine) {
+      routine = { id, name, enabled: true, actions, trigger };
+      state.routines.push(routine);
+    } else {
+      routine.name = name;
+      routine.actions = actions;
+      routine.trigger = trigger;
+    }
+
+    logActivity(`Rotina <b>${escapeHtml(name)}</b> ${isNew ? "criada" : "atualizada"}`);
+    scheduleSave();
+    routineForm.hidden = true;
+    renderRoutinesList();
+  });
+
+  // ===== Routines integration =====
+  function openRoutinesModal() {
+    routineForm.hidden = true;
+    routinesModal.hidden = false;
+    renderRoutinesList();
+  }
+  function closeRoutinesModal() {
+    routinesModal.hidden = true;
+  }
+
+  function renderRoutinesList() {
+    routinesList.innerHTML = "";
+    const routines = state.routines || [];
+    if (routines.length === 0) {
+      const li = document.createElement("li");
+      li.style.color = "var(--muted)";
+      li.style.fontStyle = "italic";
+      li.style.padding = "12px 0";
+      li.textContent = "Nenhuma rotina criada ainda.";
+      routinesList.appendChild(li);
+      return;
+    }
+    for (const r of routines) {
+      const li = document.createElement("li");
+      li.style.border = "1px solid var(--line)";
+      li.style.borderRadius = "8px";
+      li.style.padding = "12px";
+      li.style.background = "var(--paper)";
+      li.style.display = "flex";
+      li.style.flexDirection = "column";
+      li.style.gap = "8px";
+
+      const top = document.createElement("div");
+      top.style.display = "flex";
+      top.style.alignItems = "center";
+      top.style.justifyContent = "space-between";
+
+      const title = document.createElement("div");
+      title.style.fontWeight = "600";
+      title.style.fontSize = "14px";
+      title.textContent = r.name;
+
+      const right = document.createElement("div");
+      right.style.display = "flex";
+      right.style.alignItems = "center";
+      right.style.gap = "8px";
+
+      const timeText = document.createElement("span");
+      timeText.style.fontSize = "12px";
+      timeText.style.color = "var(--muted)";
+      if (r.trigger && r.trigger.type === "time") {
+        timeText.textContent = `⏰ ${r.trigger.time}`;
+      } else {
+        timeText.textContent = "Sem agendamento";
+      }
+
+      const activeLabel = document.createElement("label");
+      activeLabel.style.display = "flex";
+      activeLabel.style.alignItems = "center";
+      activeLabel.style.gap = "4px";
+      activeLabel.style.fontSize = "12px";
+      activeLabel.style.cursor = "pointer";
+
+      const activeCheck = document.createElement("input");
+      activeCheck.type = "checkbox";
+      activeCheck.checked = r.enabled !== false;
+      activeCheck.style.width = "auto";
+      activeCheck.style.margin = "0";
+      activeCheck.addEventListener("change", () => {
+        r.enabled = activeCheck.checked;
+        logActivity(`Rotina <b>${escapeHtml(r.name)}</b> ${r.enabled ? "ativada" : "desativada"}`);
+        scheduleSave();
+      });
+      activeLabel.appendChild(activeCheck);
+      activeLabel.appendChild(document.createTextNode("Ativa"));
+
+      right.appendChild(timeText);
+      right.appendChild(activeCheck);
+      right.appendChild(activeLabel);
+      top.appendChild(title);
+      top.appendChild(right);
+
+      const mid = document.createElement("div");
+      mid.style.fontSize = "12px";
+      mid.style.color = "var(--muted)";
+      const actionsCount = (r.actions || []).length;
+      mid.textContent = `${actionsCount} ação/ações` + (r.lastRunAt ? ` · Executada ${timeAgo(r.lastRunAt)}` : "");
+
+      const actionsRow = document.createElement("div");
+      actionsRow.style.display = "flex";
+      actionsRow.style.gap = "6px";
+      actionsRow.style.marginTop = "4px";
+
+      const runBtn = document.createElement("button");
+      runBtn.type = "button";
+      runBtn.className = "primary";
+      runBtn.style.padding = "4px 10px";
+      runBtn.style.fontSize = "12px";
+      runBtn.textContent = "Executar";
+      runBtn.addEventListener("click", async () => {
+        runBtn.disabled = true;
+        const res = await api("POST", `/routines/${r.id}/run`);
+        runBtn.disabled = false;
+        if (res.ok) {
+          logActivity(`Rotina <b>${escapeHtml(r.name)}</b> executada com sucesso`);
+          r.lastRunAt = new Date().toISOString();
+          scheduleSave();
+          renderRoutinesList();
+        } else {
+          alert("Erro ao executar rotina: " + ((res.data && res.data.error) || "erro desconhecido"));
+        }
+      });
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.style.padding = "4px 10px";
+      editBtn.style.fontSize = "12px";
+      editBtn.textContent = "Editar";
+      editBtn.addEventListener("click", () => {
+        showRoutineEditor(r);
+      });
+
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "danger";
+      delBtn.style.padding = "4px 10px";
+      delBtn.style.fontSize = "12px";
+      delBtn.textContent = "Excluir";
+      delBtn.addEventListener("click", () => {
+        if (!confirm(`Excluir a rotina "${r.name}"?`)) return;
+        state.routines = state.routines.filter(x => x.id !== r.id);
+        logActivity(`Rotina <b>${escapeHtml(r.name)}</b> excluída`);
+        scheduleSave();
+        renderRoutinesList();
+      });
+
+      actionsRow.appendChild(runBtn);
+      actionsRow.appendChild(editBtn);
+      actionsRow.appendChild(delBtn);
+
+      li.appendChild(top);
+      li.appendChild(mid);
+      li.appendChild(actionsRow);
+      routinesList.appendChild(li);
+    }
+  }
+
+  function showRoutineEditor(routine = null) {
+    routineForm.reset();
+    routineActionsList.innerHTML = "";
+    routineForm.hidden = false;
+
+    if (routine) {
+      routineFormTitle.textContent = "Editar Rotina";
+      routineEditId.value = routine.id;
+      routineNameInput.value = routine.name;
+      const hasTime = routine.trigger && routine.trigger.type === "time";
+      routineTimeEnabled.checked = hasTime;
+      routineTimeInput.disabled = !hasTime;
+      routineTimeInput.value = hasTime ? routine.trigger.time : "";
+
+      if (Array.isArray(routine.actions)) {
+        for (const action of routine.actions) {
+          addRoutineActionRow(action);
+        }
+      }
+    } else {
+      routineFormTitle.textContent = "Criar Rotina";
+      routineEditId.value = "";
+      routineTimeEnabled.checked = false;
+      routineTimeInput.disabled = true;
+      routineTimeInput.value = "";
+      addRoutineActionRow();
+    }
+  }
+
+  function addRoutineActionRow(actionData = null) {
+    const li = document.createElement("li");
+    li.style.display = "flex";
+    li.style.gap = "8px";
+    li.style.alignItems = "center";
+    li.style.marginBottom = "4px";
+
+    const selectEntity = document.createElement("select");
+    selectEntity.style.flex = "1";
+    selectEntity.style.fontSize = "12px";
+    selectEntity.style.padding = "4px";
+    
+    const optNone = document.createElement("option");
+    optNone.value = "";
+    optNone.textContent = "Escolher dispositivo…";
+    selectEntity.appendChild(optNone);
+
+    const sortedEntities = Array.from(haEntities.keys()).sort();
+    for (const ent of sortedEntities) {
+      const opt = document.createElement("option");
+      opt.value = ent;
+      const d = haEntities.get(ent);
+      opt.textContent = (d && d.attributes.friendly_name) ? `${d.attributes.friendly_name} (${ent})` : ent;
+      if (actionData && actionData.entityId === ent) opt.selected = true;
+      selectEntity.appendChild(opt);
+    }
+
+    const selectPreset = document.createElement("select");
+    selectPreset.style.width = "100px";
+    selectPreset.style.fontSize = "12px";
+    selectPreset.style.padding = "4px";
+
+    const presets = ["on", "off"];
+    for (const p of presets) {
+      const opt = document.createElement("option");
+      opt.value = p;
+      opt.textContent = p === "on" ? "Ligar" : "Desligar";
+      if (actionData && actionData.preset === p) opt.selected = true;
+      selectPreset.appendChild(opt);
+    }
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "danger";
+    removeBtn.style.padding = "2px 6px";
+    removeBtn.textContent = "×";
+    removeBtn.addEventListener("click", () => li.remove());
+
+    li.appendChild(selectEntity);
+    li.appendChild(selectPreset);
+    li.appendChild(removeBtn);
+    routineActionsList.appendChild(li);
+  }
+
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       if (!profileModal.hidden) closeProfileModal();
@@ -2218,6 +2864,7 @@
       if (!historyModal.hidden) closeHistoryModal();
       if (!deviceModal.hidden) closeDeviceModal();
       if (!syncModal.hidden) syncModal.hidden = true;
+      if (!routinesModal.hidden) closeRoutinesModal();
     }
   });
 
