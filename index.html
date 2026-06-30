@@ -271,33 +271,50 @@
 
   /* Priority indicator (used in both room tasks and groceries) */
   .prio-btn {
-    width: 22px; height: 22px;
-    border-radius: 50%;
-    border: 1.5px solid var(--line);
-    background: var(--paper);
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: transparent;
     cursor: pointer;
-    display: grid;
-    place-items: center;
-    font-size: 12px;
-    font-weight: 700;
-    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
     color: var(--muted);
-    transition: background .15s, border-color .15s, color .15s, transform .1s;
-    line-height: 1;
+    transition: all .2s ease;
+    padding: 0;
   }
-  .prio-btn:hover { border-color: var(--accent); transform: scale(1.08); }
+  .prio-btn:hover { transform: scale(1.08); }
   .prio-btn.prio-alta {
-    background: #ef4444;
-    border-color: #b91c1c;
-    color: #ffffff;
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #dc2626;
   }
   html[data-theme="dark"] .prio-btn.prio-alta {
-    background: #dc2626;
-    border-color: #fecaca;
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(248, 113, 113, 0.3);
+    color: #f87171;
   }
-  .prio-btn.prio-baixa { color: var(--muted); }
-  .prio-btn.prio-normal { color: var(--muted); opacity: 0.35; }
+  .prio-btn.prio-baixa {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
+    color: #2563eb;
+  }
+  html[data-theme="dark"] .prio-btn.prio-baixa {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(96, 165, 250, 0.3);
+    color: #60a5fa;
+  }
+  .prio-btn.prio-normal {
+    background: transparent;
+    border-color: var(--line);
+    color: var(--muted);
+    opacity: 0.5;
+  }
+  .prio-btn.prio-normal:hover {
+    opacity: 1;
+    border-color: var(--muted);
+  }
 
   .items li.prio-alta,
   .grocery-items li.prio-alta { box-shadow: inset 3px 0 0 0 #ef4444; }
@@ -1634,9 +1651,39 @@
   }
   function prioRank(p) { return p === "alta" ? 0 : p === "baixa" ? 2 : 1; }
   function prioInfo(p) {
-    if (p === "alta")  return { cls: "prio-alta",   title: "Prioridade alta · clique para mudar",   text: "!" };
-    if (p === "baixa") return { cls: "prio-baixa",  title: "Prioridade baixa · clique para mudar",  text: "↓" };
-    return                   { cls: "prio-normal", title: "Prioridade normal · clique para mudar", text: "·" };
+    if (p === "alta") {
+      return {
+        cls: "prio-alta",
+        title: "Prioridade alta · clique para mudar",
+        html: `
+          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="17 11 12 6 7 11"></polyline>
+            <polyline points="17 18 12 13 7 18"></polyline>
+          </svg>
+        `
+      };
+    }
+    if (p === "baixa") {
+      return {
+        cls: "prio-baixa",
+        title: "Prioridade baixa · clique para mudar",
+        html: `
+          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="7 13 12 18 17 13"></polyline>
+            <polyline points="7 6 12 11 17 6"></polyline>
+          </svg>
+        `
+      };
+    }
+    return {
+      cls: "prio-normal",
+      title: "Prioridade normal · clique para mudar",
+      html: `
+        <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      `
+    };
   }
   function makePrioButton(getPriority, setPriority) {
     const btn = document.createElement("button");
@@ -1647,7 +1694,7 @@
       const info = prioInfo(p);
       btn.className = "prio-btn " + info.cls;
       btn.title = info.title;
-      btn.textContent = info.text;
+      btn.innerHTML = info.html;
     };
     apply();
     btn.addEventListener("click", (ev) => {
