@@ -1042,6 +1042,9 @@
     stroke-width: 1.5;
     cursor: grab;
   }
+  svg.grid-locked .room rect.body {
+    cursor: pointer;
+  }
   .room.selected rect.body {
     fill: var(--room-selected);
     stroke: var(--accent);
@@ -1233,6 +1236,7 @@
     <button id="history-btn" class="ghost" title="Histórico" aria-label="Histórico">🕘</button>
     <button id="routines-btn" class="ghost map-only" title="Rotinas" aria-label="Rotinas">📅</button>
     <button id="theme-toggle" class="ghost" title="Alternar tema" aria-label="Alternar tema">🌙</button>
+    <button id="lock-btn" class="ghost map-only" title="Travar/Destravar posições dos cômodos" aria-label="Bloquear grade">🔒 Travado</button>
     <button id="add-room" class="primary map-only">+ Cômodo</button>
     <button id="center-view" class="ghost map-only" title="Centralizar o mapa">Centrar</button>
   </header>
@@ -1643,6 +1647,7 @@
     authScreen.hidden = true;
     appShell.hidden = false;
     renderProfileChip();
+    updateGridLockUI();
     render();
     setView(currentView);
     haInit();
@@ -1654,7 +1659,23 @@
   let saveTimer = null;
   let savingInFlight = false;
   let pendingDirty = false;
+  let gridLocked = localStorage.getItem("gridLocked") !== "false";
   const syncPill = document.getElementById("sync-pill");
+
+  function updateGridLockUI() {
+    const lockBtn = document.getElementById("lock-btn");
+    if (lockBtn) {
+      if (gridLocked) {
+        lockBtn.innerHTML = "🔒 Travado";
+        lockBtn.title = "Desbloquear movimentação de cômodos";
+      } else {
+        lockBtn.innerHTML = "🔓 Editando";
+        lockBtn.title = "Bloquear movimentação de cômodos";
+      }
+    }
+    const svg = document.getElementById("svg");
+    if (svg) svg.classList.toggle("grid-locked", gridLocked);
+  }
 
   function emptyState() {
     return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], view: { tx: 0, ty: 0 } };
@@ -1926,18 +1947,20 @@
         }
       });
 
-      for (const corner of ["tl","tr","bl","br"]) {
-        const hx = corner.includes("l") ? -2 : room.w - 10;
-        const hy = corner.includes("t") ? -2 : room.h - 10;
-        const handle = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        handle.setAttribute("class", "handle " + corner);
-        handle.setAttribute("x", hx);
-        handle.setAttribute("y", hy);
-        handle.setAttribute("width", 12);
-        handle.setAttribute("height", 12);
-        handle.setAttribute("rx", 2);
-        handle.setAttribute("data-handle", corner);
-        g.appendChild(handle);
+      if (!gridLocked) {
+        for (const corner of ["tl","tr","bl","br"]) {
+          const hx = corner.includes("l") ? -2 : room.w - 10;
+          const hy = corner.includes("t") ? -2 : room.h - 10;
+          const handle = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          handle.setAttribute("class", "handle " + corner);
+          handle.setAttribute("x", hx);
+          handle.setAttribute("y", hy);
+          handle.setAttribute("width", 12);
+          handle.setAttribute("height", 12);
+          handle.setAttribute("rx", 2);
+          handle.setAttribute("data-handle", corner);
+          g.appendChild(handle);
+        }
       }
 
       viewport.appendChild(g);
@@ -3022,6 +3045,7 @@
     const w = svgWorld(e);
     const corner = e.target.getAttribute("data-handle");
     if (corner) {
+      if (gridLocked) return;
       drag = {
         mode: "resize", id, corner,
         startX: w.x, startY: w.y,
@@ -3029,6 +3053,10 @@
         startW: room.w, startH: room.h,
       };
     } else {
+      if (gridLocked) {
+        render();
+        return;
+      }
       drag = { mode: "move", id, dx: w.x - room.x, dy: w.y - room.y, origX: room.x, origY: room.y };
     }
     svg.setPointerCapture(e.pointerId);
@@ -3150,6 +3178,13 @@
     scheduleSave();
     render();
     setTimeout(() => nameInput.focus(), 0);
+  });
+
+  document.getElementById("lock-btn").addEventListener("click", () => {
+    gridLocked = !gridLocked;
+    localStorage.setItem("gridLocked", gridLocked);
+    updateGridLockUI();
+    render();
   });
 
   document.getElementById("center-view").addEventListener("click", () => {
