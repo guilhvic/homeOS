@@ -613,8 +613,17 @@
     gap: 8px;
     padding: 6px 8px;
     border-radius: 6px;
+    transition: background .15s, border-top .15s;
+    border-top: 2px solid transparent;
   }
   .items li:hover { background: var(--bg); }
+  .items li.dragging {
+    opacity: 0.4;
+    background: var(--bg);
+  }
+  .items li.drag-over {
+    border-top-color: var(--accent);
+  }
   .items input[type="checkbox"] { accent-color: var(--accent); }
   .items .text { flex: 1; }
   .items .text.done { text-decoration: line-through; color: var(--muted); }
@@ -2088,10 +2097,7 @@
 
   function renderItems(room) {
     itemsList.innerHTML = "";
-    const items = (room.items || []).slice().sort((a, b) => {
-      if (!!a.done !== !!b.done) return a.done ? 1 : -1;
-      return prioRank(a.priority) - prioRank(b.priority);
-    });
+    const items = room.items || [];
     if (items.length === 0) {
       const li = document.createElement("li");
       li.style.color = "var(--muted)";
@@ -2100,9 +2106,84 @@
       itemsList.appendChild(li);
       return;
     }
-    for (const it of items) {
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
       const li = document.createElement("li");
       if (it.priority === "alta") li.classList.add("prio-alta");
+
+      li.dataset.index = i;
+
+      // Handle de arrasto (drag handle)
+      const handle = document.createElement("span");
+      handle.className = "drag-handle";
+      handle.innerHTML = `
+        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="5" r="1.5"></circle>
+          <circle cx="9" cy="12" r="1.5"></circle>
+          <circle cx="9" cy="19" r="1.5"></circle>
+          <circle cx="15" cy="5" r="1.5"></circle>
+          <circle cx="15" cy="12" r="1.5"></circle>
+          <circle cx="15" cy="19" r="1.5"></circle>
+        </svg>
+      `;
+      handle.style.cursor = "grab";
+      handle.style.color = "var(--muted)";
+      handle.style.display = "inline-flex";
+      handle.style.alignItems = "center";
+      handle.style.userSelect = "none";
+      handle.style.padding = "2px 4px";
+      handle.style.opacity = "0.5";
+      handle.addEventListener("mouseenter", () => handle.style.opacity = "1");
+      handle.addEventListener("mouseleave", () => handle.style.opacity = "0.5");
+
+      handle.addEventListener("mousedown", () => {
+        li.setAttribute("draggable", "true");
+      });
+      handle.addEventListener("mouseup", () => {
+        li.removeAttribute("draggable");
+      });
+
+      li.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("text/plain", i);
+        li.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+      });
+
+      li.addEventListener("dragend", () => {
+        li.removeAttribute("draggable");
+        li.classList.remove("dragging");
+        const listItems = itemsList.querySelectorAll("li");
+        listItems.forEach(item => item.classList.remove("drag-over"));
+      });
+
+      li.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        const draggingEl = itemsList.querySelector(".dragging");
+        if (draggingEl && draggingEl !== li) {
+          li.classList.add("drag-over");
+        }
+      });
+
+      li.addEventListener("dragleave", () => {
+        li.classList.remove("drag-over");
+      });
+
+      li.addEventListener("drop", (e) => {
+        e.preventDefault();
+        li.classList.remove("drag-over");
+        const fromIndex = parseInt(e.dataTransfer.getData("text/plain"), 10);
+        const toIndex = i;
+
+        if (fromIndex !== toIndex && !isNaN(fromIndex)) {
+          const reordered = [...room.items];
+          const [movedItem] = reordered.splice(fromIndex, 1);
+          reordered.splice(toIndex, 0, movedItem);
+          room.items = reordered;
+          scheduleSave();
+          render();
+        }
+      });
 
       const prio = makePrioButton(
         () => it.priority,
@@ -2159,6 +2240,7 @@
         render();
       });
 
+      li.appendChild(handle);
       li.appendChild(prio);
       li.appendChild(cb);
       li.appendChild(span);
