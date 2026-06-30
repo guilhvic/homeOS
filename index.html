@@ -646,51 +646,80 @@
   /* Devices */
   .devices {
     list-style: none; margin: 0 0 12px; padding: 0;
-    display: flex; flex-direction: column; gap: 8px;
+    display: flex; flex-direction: column; gap: 10px;
   }
   .devices li {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px;
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px;
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: 16px;
     background: var(--paper);
-    transition: border-color .15s, box-shadow .15s, transform .12s;
+    transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
     position: relative;
   }
   .devices li:hover {
     border-color: var(--accent-soft);
-    box-shadow: 0 4px 12px rgba(0,0,0,.06);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px -4px rgba(122, 114, 104, 0.12), 0 4px 8px -2px rgba(122, 114, 104, 0.06);
   }
   html[data-theme="dark"] .devices li:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,.4);
+    border-color: var(--accent-soft);
+    box-shadow: 0 8px 25px -4px rgba(0, 0, 0, 0.45), 0 4px 10px -2px rgba(0, 0, 0, 0.35);
   }
   .dev-icon {
-    width: 42px; height: 42px;
+    width: 44px; height: 44px;
     display: grid; place-items: center;
-    border-radius: 12px;
+    border-radius: 14px;
     background: var(--bg);
     color: var(--muted);
-    font-size: 20px;
+    font-size: 22px;
     flex-shrink: 0;
     border: 1px solid var(--line);
-    transition: background .15s, color .15s, border-color .15s;
+    transition: all .2s ease;
   }
-  .dev-icon.on   { background: #fef3c7; color: #b45309; border-color: transparent; }
-  html[data-theme="dark"] .dev-icon.on   { background: #422006; color: #fbbf24; }
-  .dev-icon.cool { background: #dbeafe; color: #1e6ea3; border-color: transparent; }
-  html[data-theme="dark"] .dev-icon.cool { background: #172d4a; color: #93c5fd; }
-  .dev-icon.heat { background: #fee2e2; color: #b91c1c; border-color: transparent; }
-  html[data-theme="dark"] .dev-icon.heat { background: #450a0a; color: #fca5a5; }
+  .dev-icon.on {
+    background: linear-gradient(135deg, #fffbeb, #fef3c7);
+    color: #d97706;
+    border-color: rgba(251, 191, 36, 0.3);
+    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.15);
+  }
+  html[data-theme="dark"] .dev-icon.on {
+    background: linear-gradient(135deg, #451a03, #78350f);
+    color: #fbbf24;
+    border-color: rgba(251, 191, 36, 0.15);
+  }
+  .dev-icon.cool {
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    color: #2563eb;
+    border-color: rgba(59, 130, 246, 0.3);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  }
+  html[data-theme="dark"] .dev-icon.cool {
+    background: linear-gradient(135deg, #172554, #1e3a8a);
+    color: #93c5fd;
+    border-color: rgba(59, 130, 246, 0.15);
+  }
+  .dev-icon.heat {
+    background: linear-gradient(135deg, #fef2f2, #fee2e2);
+    color: #dc2626;
+    border-color: rgba(239, 68, 68, 0.3);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+  }
+  html[data-theme="dark"] .dev-icon.heat {
+    background: linear-gradient(135deg, #450a0a, #7f1d1d);
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.15);
+  }
 
   .dev-body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
     min-width: 0;
   }
   .dev-name {
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 600;
     color: var(--ink);
     overflow: hidden;
@@ -699,91 +728,238 @@
     letter-spacing: -0.005em;
   }
   .dev-state {
-    font-size: 12px;
+    font-size: 10px;
+    font-weight: 600;
     color: var(--muted);
-    display: flex;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 2px 8px;
+    border-radius: 999px;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    gap: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    align-self: flex-start;
+    transition: all .2s ease;
   }
   .dev-state::before {
     content: "";
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     background: var(--muted);
     flex-shrink: 0;
-    opacity: 0.6;
   }
-  .dev-state.is-on::before  { background: #22c55e; opacity: 1; }
-  .dev-state.is-off::before { background: #a3a3a3; opacity: 0.6; }
-  .dev-state.is-cool::before { background: #3b82f6; opacity: 1; }
-  .dev-state.is-heat::before { background: #ef4444; opacity: 1; }
-  .dev-state.is-na::before { background: var(--line); opacity: 0.6; }
+  .dev-state.is-on { background: rgba(34, 197, 94, 0.1); color: #166534; border-color: rgba(34, 197, 94, 0.2); }
+  .dev-state.is-on::before { background: #22c55e; }
+  html[data-theme="dark"] .dev-state.is-on { background: rgba(74, 222, 128, 0.1); color: #4ade80; border-color: rgba(74, 222, 128, 0.2); }
+  
+  .dev-state.is-off { background: rgba(163, 163, 163, 0.1); color: var(--muted); border-color: rgba(163, 163, 163, 0.2); }
+  .dev-state.is-off::before { background: #a3a3a3; }
+  
+  .dev-state.is-cool { background: rgba(59, 130, 246, 0.1); color: #1e40af; border-color: rgba(59, 130, 246, 0.2); }
+  .dev-state.is-cool::before { background: #3b82f6; }
+  html[data-theme="dark"] .dev-state.is-cool { background: rgba(96, 165, 250, 0.1); color: #60a5fa; border-color: rgba(96, 165, 250, 0.2); }
+  
+  .dev-state.is-heat { background: rgba(239, 68, 68, 0.1); color: #991b1b; border-color: rgba(239, 68, 68, 0.2); }
+  .dev-state.is-heat::before { background: #ef4444; }
+  html[data-theme="dark"] .dev-state.is-heat { background: rgba(248, 113, 113, 0.1); color: #f87171; border-color: rgba(248, 113, 113, 0.2); }
+  
+  .dev-state.is-na { background: var(--bg); color: var(--muted); border-color: var(--line); }
+  .dev-state.is-na::before { display: none; }
 
   .dev-remove {
     border: none; background: transparent; color: var(--muted);
-    cursor: pointer; padding: 4px 8px; font-size: 18px; line-height: 1;
-    border-radius: 6px;
+    cursor: pointer; padding: 6px 10px; font-size: 16px; line-height: 1;
+    border-radius: 8px;
     opacity: 0;
     transition: opacity .15s, color .15s, background .15s;
   }
   .devices li:hover .dev-remove,
-  .devices li:focus-within .dev-remove { opacity: 1; }
-  .dev-remove:hover { color: var(--danger); background: var(--danger-soft); }
+  .devices li:focus-within .dev-remove { opacity: 0.8; }
+  .devices li:hover .dev-remove:hover { opacity: 1; color: var(--danger); background: var(--danger-soft); }
+  
   .add-device {
     width: 100%;
     border: 1px dashed var(--line);
     background: transparent;
     color: var(--muted);
-    padding: 8px;
-    border-radius: 6px;
+    padding: 10px;
+    border-radius: 10px;
     cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
   }
-  .add-device:hover { border-color: var(--accent); color: var(--accent); background: transparent; }
+  .add-device:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); opacity: 0.15; }
+  /* fix contrast for background hover on dashed button */
+  .add-device:hover { background: rgba(194, 89, 42, 0.05); }
 
   /* Device controls */
   .dev-ctrl {
     border: 1px solid var(--line);
     background: var(--paper);
-    border-radius: 6px;
-    padding: 4px 8px;
+    border-radius: 8px;
+    padding: 5px 10px;
     cursor: pointer;
     font: inherit;
+    font-weight: 500;
     color: var(--ink);
-    transition: background .15s, border-color .15s;
+    transition: all .15s ease;
   }
-  .dev-ctrl:hover { background: var(--accent-soft); border-color: var(--accent); }
+  .dev-ctrl:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
   .dev-ctrl:disabled { opacity: .5; cursor: wait; }
-  .dev-ctrl.power { width: 28px; height: 28px; padding: 0; display: grid; place-items: center; font-size: 13px; }
-  .dev-ctrl.on { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .dev-ctrl.on:hover { background: #a64a22; }
-
-  .devices li.climate-card { flex-direction: column; align-items: stretch; gap: 10px; padding: 8px; }
-  .climate-card .row1 { display: flex; align-items: center; gap: 8px; }
-  .climate-modes { display: flex; gap: 4px; }
-  .climate-modes .dev-ctrl { flex: 1; text-transform: capitalize; font-size: 11px; }
-  .climate-temp { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .climate-temp .display { font-size: 18px; font-weight: 700; }
-  .climate-temp .display small { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
-  .climate-temp .dev-ctrl { width: 36px; height: 32px; padding: 0; font-size: 16px; }
-
-  .devices li.light-card { flex-direction: column; align-items: stretch; gap: 10px; padding: 8px; }
-  .light-card .row1 { display: flex; align-items: center; gap: 8px; }
-  .light-row { display: flex; align-items: center; gap: 10px; padding: 0 4px; }
-  .light-row .ctrl-label { font-size: 11px; color: var(--muted); min-width: 50px; text-transform: uppercase; letter-spacing: .3px; }
-  .light-row .ctrl-value { font-size: 12px; min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
-  .light-row input[type=range] { flex: 1; accent-color: var(--accent); height: 22px; }
-  .light-row input[type=color] {
-    width: 36px; height: 28px; padding: 2px; border: 1px solid var(--line); border-radius: 6px;
-    background: var(--paper); cursor: pointer;
+  .dev-ctrl.power { 
+    width: 32px; height: 32px; padding: 0; 
+    display: grid; place-items: center; 
+    font-size: 14px; border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   }
-  .light-row input[type=color]:disabled,
+  .dev-ctrl.on { 
+    background: var(--accent); 
+    color: #fff; 
+    border-color: var(--accent); 
+    box-shadow: 0 4px 10px rgba(194, 89, 42, 0.25);
+  }
+  .dev-ctrl.on:hover { background: #a64a22; color: #fff; border-color: #a64a22; }
+
+  .devices li.climate-card { flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; }
+  .climate-card .row1 { display: flex; align-items: center; gap: 8px; width: 100%; }
+  
+  .climate-modes { 
+    display: flex; 
+    gap: 2px; 
+    background: var(--bg); 
+    padding: 3px; 
+    border-radius: 10px; 
+    border: 1px solid var(--line);
+  }
+  .climate-modes .dev-ctrl { 
+    flex: 1; 
+    text-transform: capitalize; 
+    font-size: 10.5px; 
+    border: none;
+    background: transparent;
+    padding: 6px 4px;
+    border-radius: 7px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .climate-modes .dev-ctrl:hover {
+    color: var(--ink);
+    background: rgba(0,0,0,0.04);
+  }
+  html[data-theme="dark"] .climate-modes .dev-ctrl:hover {
+    background: rgba(255,255,255,0.04);
+  }
+  .climate-modes .dev-ctrl.on {
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  html[data-theme="dark"] .climate-modes .dev-ctrl.on {
+    background: var(--bg);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  
+  .climate-temp { 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    gap: 8px;
+    background: var(--bg);
+    padding: 6px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+  }
+  .climate-temp .display { 
+    font-size: 18px; 
+    font-weight: 700; 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.1;
+  }
+  .climate-temp .display small { 
+    font-size: 9.5px; 
+    color: var(--muted); 
+    font-weight: 500; 
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+  }
+  .climate-temp .dev-ctrl { 
+    width: 32px; 
+    height: 32px; 
+    padding: 0; 
+    font-size: 18px; 
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--paper);
+  }
+  .climate-temp .dev-ctrl:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .devices li.light-card { flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; }
+  .light-card .row1 { display: flex; align-items: center; gap: 8px; width: 100%; }
+  
+  .light-row { display: flex; align-items: center; gap: 12px; padding: 0 2px; }
+  .light-row .ctrl-label { 
+    font-size: 10.5px; 
+    color: var(--muted); 
+    min-width: 50px; 
+    text-transform: uppercase; 
+    letter-spacing: .5px; 
+    font-weight: 600;
+  }
+  .light-row .ctrl-value { font-size: 12px; min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+  .light-row input[type=range] { 
+    flex: 1; 
+    accent-color: var(--accent); 
+    height: 6px; 
+    border-radius: 3px;
+    background: var(--line);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .light-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--paper);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    cursor: pointer;
+    transition: transform 0.1s ease;
+  }
+  .light-row input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.25);
+  }
+  .light-row input[type=color] {
+    width: 28px; height: 28px; padding: 0; border: 2px solid var(--line); border-radius: 50%;
+    background: none; cursor: pointer; overflow: hidden;
+    transition: border-color 0.2s ease;
+  }
+  .light-row input[type=color]::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  .light-row input[type=color]::-webkit-color-swatch {
+    border: none;
+    border-radius: 50%;
+  }
+  .light-row input[type=color]:hover {
+    border-color: var(--accent);
+  }
+  .light-row input[type=color]:disabled { opacity: .45; cursor: not-allowed; border-color: var(--line); }
   .light-row input[type=range]:disabled { opacity: .45; cursor: not-allowed; }
   .light-row .color-swatch {
-    flex: 1; height: 24px; border-radius: 4px; border: 1px solid var(--line);
+    flex: 1; height: 8px; border-radius: 4px; border: 1px solid var(--line);
   }
 
   /* Picker modal */
@@ -1221,6 +1397,12 @@
     <div class="field">
       <label for="ha-token-input">Long-Lived Access Token</label>
       <input id="ha-token-input" type="password" placeholder="cole aqui (deixe vazio para manter o atual)" autocomplete="off" />
+    </div>
+
+    <h3 style="margin-top: 20px; font-size: 14px;">Dispositivos Vinculados</h3>
+    <p class="sub">Dispositivos associados aos cômodos. Clique no "×" para desvincular.</p>
+    <div class="field" style="max-height: 180px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: var(--bg);">
+      <div id="profile-devices-list"></div>
     </div>
 
     <div class="actions">
@@ -1951,6 +2133,32 @@
     return { hasBrightness, hasColor };
   }
 
+  function createPowerIcon() {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "14");
+    svg.setAttribute("height", "14");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "2.5");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.style.display = "block";
+    
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", "M18.36 6.64a9 9 0 1 1-12.73 0");
+    svg.appendChild(path);
+    
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", "12");
+    line.setAttribute("y1", "2");
+    line.setAttribute("x2", "12");
+    line.setAttribute("y2", "12");
+    svg.appendChild(line);
+    
+    return svg;
+  }
+
   function buildLightCard(id, room) {
     const e = haEntities.get(id);
     const { hasBrightness, hasColor } = lightCapabilities(e);
@@ -1981,12 +2189,11 @@
     toggle.type = "button";
     toggle.className = "dev-ctrl power" + (isOn ? " on" : "");
     toggle.title = isOn ? "Desligar" : "Ligar";
-    toggle.textContent = "⏻";
+    toggle.appendChild(createPowerIcon());
     toggle.addEventListener("click", (ev) => { ev.stopPropagation(); haCall("light", "toggle", { entity_id: id }, toggle); });
     row1.appendChild(ic);
     row1.appendChild(body);
     row1.appendChild(toggle);
-    row1.appendChild(makeRemoveBtn(id, room, d.name));
     li.appendChild(row1);
 
     if (hasBrightness) {
@@ -2072,7 +2279,6 @@
       if (ctrl) li.appendChild(ctrl);
     }
 
-    li.appendChild(makeRemoveBtn(id, room, d.name));
     return li;
   }
 
@@ -2084,7 +2290,7 @@
       btn.type = "button";
       btn.className = "dev-ctrl power" + (on ? " on" : "");
       btn.title = on ? "Desligar" : "Ligar";
-      btn.textContent = "⏻";
+      btn.appendChild(createPowerIcon());
       btn.addEventListener("click", (ev) => { ev.stopPropagation(); haCall(dom, "toggle", { entity_id: id }, btn); });
       return btn;
     }
@@ -2094,7 +2300,7 @@
       btn.type = "button";
       btn.className = "dev-ctrl power" + (on ? " on" : "");
       btn.title = on ? "Desligar" : "Ligar";
-      btn.textContent = "⏻";
+      btn.appendChild(createPowerIcon());
       btn.addEventListener("click", (ev) => {
         ev.stopPropagation();
         haCall("media_player", on ? "turn_off" : "turn_on", { entity_id: id }, btn);
@@ -2171,7 +2377,6 @@
     body.appendChild(st);
     row1.appendChild(ic);
     row1.appendChild(body);
-    row1.appendChild(makeRemoveBtn(id, room, d.name));
     li.appendChild(row1);
 
     // Mode buttons (off / cool / heat / auto / heat_cool / dry / fan_only)
@@ -3079,6 +3284,90 @@
     profileAvatar.textContent = user.avatar || "🏠";
     profileName.textContent = user.displayName || user.username;
   }
+  function renderProfileDevices() {
+    const list = document.getElementById("profile-devices-list");
+    if (!list) return;
+    list.innerHTML = "";
+    
+    let hasDevices = false;
+    for (const room of state.rooms) {
+      const devices = room.devices || [];
+      if (devices.length === 0) continue;
+      
+      hasDevices = true;
+      const roomGroup = document.createElement("div");
+      roomGroup.style.marginBottom = "10px";
+      
+      const rHead = document.createElement("div");
+      rHead.style.fontWeight = "700";
+      rHead.style.fontSize = "11px";
+      rHead.style.textTransform = "uppercase";
+      rHead.style.letterSpacing = "0.5px";
+      rHead.style.color = "var(--muted)";
+      rHead.style.marginBottom = "4px";
+      rHead.textContent = room.name;
+      roomGroup.appendChild(rHead);
+      
+      const rList = document.createElement("div");
+      rList.style.display = "flex";
+      rList.style.flexDirection = "column";
+      rList.style.gap = "6px";
+      
+      for (const dev of devices) {
+        const id = typeof dev === "string" ? dev : dev.entityId;
+        const d = entityDisplay(id);
+        
+        const row = document.createElement("div");
+        row.style.display = "flex";
+        row.style.alignItems = "center";
+        row.style.justifyContent = "space-between";
+        row.style.padding = "6px 10px";
+        row.style.background = "var(--paper)";
+        row.style.border = "1px solid var(--line)";
+        row.style.borderRadius = "8px";
+        
+        const nameSpan = document.createElement("span");
+        nameSpan.style.fontSize = "12.5px";
+        nameSpan.style.fontWeight = "500";
+        nameSpan.textContent = d.name;
+        
+        const rmBtn = document.createElement("button");
+        rmBtn.type = "button";
+        rmBtn.className = "dev-remove";
+        rmBtn.style.opacity = "1";
+        rmBtn.style.padding = "4px 8px";
+        rmBtn.style.fontSize = "16px";
+        rmBtn.style.lineHeight = "1";
+        rmBtn.textContent = "×";
+        rmBtn.title = "Remover dispositivo";
+        rmBtn.addEventListener("click", () => {
+          room.devices = room.devices.filter(x => (typeof x === "string" ? x : x.entityId) !== id);
+          logActivity(`Dispositivo <b>${escapeHtml(d.name)}</b> desvinculado de <b>${escapeHtml(room.name)}</b>`);
+          scheduleSave();
+          render();
+          renderProfileDevices();
+        });
+        
+        row.appendChild(nameSpan);
+        row.appendChild(rmBtn);
+        rList.appendChild(row);
+      }
+      roomGroup.appendChild(rList);
+      list.appendChild(roomGroup);
+    }
+    
+    if (!hasDevices) {
+      const empty = document.createElement("div");
+      empty.style.textAlign = "center";
+      empty.style.color = "var(--muted)";
+      empty.style.fontSize = "12px";
+      empty.style.padding = "16px";
+      empty.style.fontStyle = "italic";
+      empty.textContent = "Nenhum dispositivo associado";
+      list.appendChild(empty);
+    }
+  }
+
   function openProfileModal() {
     if (!user) return;
     pendingAvatar = user.avatar || "🏠";
@@ -3101,6 +3390,7 @@
       });
       avatarPicker.appendChild(b);
     }
+    renderProfileDevices();
     profileModal.hidden = false;
   }
   function closeProfileModal() { profileModal.hidden = true; }
