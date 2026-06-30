@@ -74,6 +74,60 @@
     padding: 24px 16px 64px;
   }
 
+  /* Profile view replaces map+aside */
+  #app-shell.view-profile {
+    grid-template-columns: 1fr;
+    grid-template-areas: "top" "profile";
+  }
+  #app-shell.view-profile #map-wrap,
+  #app-shell.view-profile aside { display: none; }
+  #app-shell:not(.view-profile) #profile-view { display: none; }
+  #app-shell.view-profile .map-only { display: none; }
+  #profile-view {
+    grid-area: profile;
+    overflow-y: auto;
+    background: var(--bg);
+    padding: 24px 16px 64px;
+  }
+  .profile-shell {
+    max-width: 960px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+  }
+  .profile-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .profile-card h3 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  .profile-card .sub {
+    margin: -12px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .profile-card .card-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+
   .view-tabs {
     display: flex;
     gap: 2px;
@@ -1225,6 +1279,7 @@
     <div class="view-tabs" role="tablist">
       <button class="view-tab active" data-view="map" type="button">🏠 Casa</button>
       <button class="view-tab" data-view="grocery" type="button">🛒 Mercado</button>
+      <button class="view-tab" data-view="profile" type="button">👤 Perfil</button>
     </div>
     <span class="sub" id="status">— monte o mapa da sua casa</span>
     <div class="spacer"></div>
@@ -1233,9 +1288,7 @@
       <span class="pname" id="profile-name">…</span>
     </button>
     <button id="sync-btn" class="ghost map-only" title="Sincronizar dispositivos do Home Assistant" aria-label="Sincronizar dispositivos">🔄</button>
-    <button id="history-btn" class="ghost" title="Histórico" aria-label="Histórico">🕘</button>
     <button id="routines-btn" class="ghost map-only" title="Rotinas" aria-label="Rotinas">📅</button>
-    <button id="theme-toggle" class="ghost" title="Alternar tema" aria-label="Alternar tema">🌙</button>
     <button id="lock-btn" class="ghost map-only" title="Travar/Destravar posições dos cômodos" aria-label="Bloquear grade">🔒 Travado</button>
     <button id="add-room" class="primary map-only">+ Cômodo</button>
     <button id="center-view" class="ghost map-only" title="Centralizar o mapa">Centrar</button>
@@ -1322,6 +1375,82 @@
       </div>
     </div>
   </main>
+
+  <!-- ============================ PROFILE VIEW ============================ -->
+  <main id="profile-view" hidden>
+    <div class="profile-shell">
+      <!-- Card 1: Conta -->
+      <div class="profile-card">
+        <h3>👤 Sua Conta</h3>
+        <p class="sub" id="profile-username-sub">@…</p>
+        
+        <div class="field">
+          <label for="profile-name-input">Nome de exibição</label>
+          <input id="profile-name-input" type="text" maxlength="60" />
+        </div>
+        
+        <div class="field">
+          <label>Avatar</label>
+          <div class="avatar-picker" id="avatar-picker"></div>
+        </div>
+        
+        <div class="card-actions">
+          <button id="open-change-password" class="ghost" type="button">Trocar senha</button>
+          <button id="logout-btn" class="ghost danger" type="button">Sair</button>
+          <button id="profile-save" class="primary" type="button">Salvar tudo</button>
+        </div>
+      </div>
+
+      <!-- Card 2: Home Assistant -->
+      <div class="profile-card">
+        <h3>🤖 Home Assistant</h3>
+        <p class="sub" id="ha-config-status">…</p>
+        
+        <div class="field">
+          <label for="ha-url-input">URL do servidor</label>
+          <input id="ha-url-input" type="text" placeholder="http://localhost:8123" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="ha-token-input">Long-Lived Access Token</label>
+          <input id="ha-token-input" type="password" placeholder="cole aqui (deixe vazio para manter o atual)" autocomplete="off" />
+        </div>
+      </div>
+
+      <!-- Card 3: Preferências e Sistema -->
+      <div class="profile-card">
+        <h3>⚙️ Preferências</h3>
+        <p class="sub">Personalize as configurações do aplicativo.</p>
+        
+        <div class="field">
+          <label for="theme-select">Tema do aplicativo</label>
+          <select id="theme-select" style="width:100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 6px; padding: 8px 10px; font: inherit;">
+            <option value="light">☀️ Claro</option>
+            <option value="dark">🌙 Escuro</option>
+            <option value="system">🖥️ Sistema</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Card 4: Dispositivos Vinculados -->
+      <div class="profile-card">
+        <h3>🔌 Dispositivos Vinculados</h3>
+        <p class="sub">Dispositivos associados aos cômodos.</p>
+        <div class="field" style="max-height: 250px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: var(--bg); flex: 1;">
+          <div id="profile-devices-list"></div>
+        </div>
+      </div>
+
+      <!-- Card 5: Histórico de Atividade -->
+      <div class="profile-card" style="grid-column: 1 / -1;">
+        <h3>Atividade recente</h3>
+        <p class="sub">As últimas alterações na sua casa.</p>
+        <ul class="activity" id="activity" style="max-height: 250px;"></ul>
+        <div class="card-actions" style="border-top: none; padding-top: 0;">
+          <button id="clear-history" class="ghost" type="button" hidden>Limpar histórico</button>
+        </div>
+      </div>
+    </div>
+  </main>
 </div>
 
 <!-- ============================ DEVICE PICKER MODAL ============================ -->
@@ -1364,59 +1493,7 @@
   </div>
 </div>
 
-<!-- ============================ HISTORY MODAL ============================ -->
-<div id="history-modal" class="modal-bg" hidden>
-  <div class="modal">
-    <h3>Atividade recente</h3>
-    <p class="sub">As últimas alterações na sua casa.</p>
-    <ul class="activity" id="activity"></ul>
-    <div class="actions">
-      <button id="clear-history" class="ghost" type="button" hidden>Limpar histórico</button>
-      <button id="history-close" class="primary" type="button">Fechar</button>
-    </div>
-  </div>
-</div>
-
-<!-- ============================ PROFILE MODAL ============================ -->
-<div id="profile-modal" class="modal-bg" hidden>
-  <div class="modal">
-    <h3>Sua conta</h3>
-    <p class="sub" id="profile-username-sub">@…</p>
-
-    <div class="field">
-      <label for="profile-name-input">Nome de exibição</label>
-      <input id="profile-name-input" type="text" maxlength="60" />
-    </div>
-    <div class="field">
-      <label>Avatar</label>
-      <div class="avatar-picker" id="avatar-picker"></div>
-    </div>
-
-    <h3 style="margin-top: 20px; font-size: 14px;">Home Assistant</h3>
-    <p class="sub" id="ha-config-status">…</p>
-    <div class="field">
-      <label for="ha-url-input">URL do servidor</label>
-      <input id="ha-url-input" type="text" placeholder="http://localhost:8123" autocomplete="off" />
-    </div>
-    <div class="field">
-      <label for="ha-token-input">Long-Lived Access Token</label>
-      <input id="ha-token-input" type="password" placeholder="cole aqui (deixe vazio para manter o atual)" autocomplete="off" />
-    </div>
-
-    <h3 style="margin-top: 20px; font-size: 14px;">Dispositivos Vinculados</h3>
-    <p class="sub">Dispositivos associados aos cômodos. Clique no "×" para desvincular.</p>
-    <div class="field" style="max-height: 180px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: var(--bg);">
-      <div id="profile-devices-list"></div>
-    </div>
-
-    <div class="actions">
-      <button id="open-change-password" class="ghost" type="button">Trocar senha</button>
-      <button id="logout-btn" class="ghost" type="button">Sair</button>
-      <button id="profile-cancel" class="ghost" type="button">Cancelar</button>
-      <button id="profile-save" class="primary" type="button">Salvar</button>
-    </div>
-  </div>
-</div>
+<!-- Modais de Perfil e Histórico removidos (agora integrados no profile-view) -->
 
 <!-- ============================ CHANGE PASSWORD MODAL ============================ -->
 <div id="password-modal" class="modal-bg" hidden>
@@ -1501,26 +1578,39 @@
 
   // ===== Tema (independente de auth) =====
   function applyTheme(t) {
-    document.documentElement.setAttribute("data-theme", t);
-    const icon = t === "dark" ? "☀️" : "🌙";
-    const title = t === "dark" ? "Tema claro" : "Tema escuro";
+    let resolved = t;
+    if (t === "system") {
+      resolved = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+    }
+    document.documentElement.setAttribute("data-theme", resolved);
+    const icon = resolved === "dark" ? "☀️" : "🌙";
+    const title = resolved === "dark" ? "Tema claro" : "Tema escuro";
     for (const btn of document.querySelectorAll("#theme-toggle, #theme-toggle-auth")) {
       btn.textContent = icon;
       btn.title = title;
     }
+    const select = document.getElementById("theme-select");
+    if (select) {
+      select.value = t;
+    }
   }
-  const savedTheme = localStorage.getItem(THEME_KEY)
-    || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const savedTheme = localStorage.getItem(THEME_KEY) || "system";
   applyTheme(savedTheme);
+
   function bindThemeToggle(btn) {
     if (!btn) return;
     btn.addEventListener("click", () => {
-      const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      const current = localStorage.getItem(THEME_KEY) || "system";
+      let next = "dark";
+      if (current === "dark") next = "light";
+      else if (current === "light") next = "dark";
+      else {
+        next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      }
       localStorage.setItem(THEME_KEY, next);
       applyTheme(next);
     });
   }
-  bindThemeToggle(document.getElementById("theme-toggle"));
   bindThemeToggle(document.getElementById("theme-toggle-auth"));
 
   // ===== Helpers =====
@@ -1865,7 +1955,6 @@
   const hint = document.getElementById("hint");
   const activityList = document.getElementById("activity");
   const clearHistoryBtn = document.getElementById("clear-history");
-  const historyModal = document.getElementById("history-modal");
 
   // ===== Render =====
   function applyBgOffset() {
@@ -3221,16 +3310,7 @@
     renderActivity();
   });
 
-  function openHistoryModal() {
-    renderActivity();
-    historyModal.hidden = false;
-  }
-  function closeHistoryModal() { historyModal.hidden = true; }
-  document.getElementById("history-btn").addEventListener("click", openHistoryModal);
-  document.getElementById("history-close").addEventListener("click", closeHistoryModal);
-  historyModal.addEventListener("click", (e) => {
-    if (e.target === historyModal) closeHistoryModal();
-  });
+
 
   // ===== Detail edits =====
   let nameTimer = null, prevName = null;
@@ -3310,7 +3390,6 @@
   const profileBtn = document.getElementById("profile-btn");
   const profileAvatar = document.getElementById("profile-avatar");
   const profileName = document.getElementById("profile-name");
-  const profileModal = document.getElementById("profile-modal");
   const profileUsernameSub = document.getElementById("profile-username-sub");
   const profileNameInput = document.getElementById("profile-name-input");
   const avatarPicker = document.getElementById("avatar-picker");
@@ -3408,7 +3487,7 @@
     }
   }
 
-  function openProfileModal() {
+  function renderProfilePage() {
     if (!user) return;
     pendingAvatar = user.avatar || "🏠";
     profileUsernameSub.textContent = "@" + user.username;
@@ -3431,14 +3510,19 @@
       avatarPicker.appendChild(b);
     }
     renderProfileDevices();
-    profileModal.hidden = false;
+    renderActivity();
+    
+    const themeSelect = document.getElementById("theme-select");
+    if (themeSelect) {
+      themeSelect.value = localStorage.getItem(THEME_KEY) || "system";
+    }
   }
-  function closeProfileModal() { profileModal.hidden = true; }
 
-  profileBtn.addEventListener("click", openProfileModal);
-  document.getElementById("profile-cancel").addEventListener("click", closeProfileModal);
-  profileModal.addEventListener("click", (e) => {
-    if (e.target === profileModal) closeProfileModal();
+  profileBtn.addEventListener("click", () => setView("profile"));
+  document.getElementById("theme-select").addEventListener("change", (e) => {
+    const val = e.target.value;
+    localStorage.setItem(THEME_KEY, val);
+    applyTheme(val);
   });
   
   routinesBtn.addEventListener("click", openRoutinesModal);
@@ -3723,9 +3807,8 @@
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      if (!profileModal.hidden) closeProfileModal();
+      if (currentView === "profile") setView("map");
       if (!passwordModal.hidden) closePasswordModal();
-      if (!historyModal.hidden) closeHistoryModal();
       if (!deviceModal.hidden) closeDeviceModal();
       if (!syncModal.hidden) syncModal.hidden = true;
       if (!routinesModal.hidden) closeRoutinesModal();
@@ -3763,7 +3846,7 @@
       await haInit();
     }
     render();
-    closeProfileModal();
+    setView("map");
   });
 
   document.getElementById("logout-btn").addEventListener("click", async () => {
@@ -3772,7 +3855,7 @@
     if (saveTimer) { clearTimeout(saveTimer); await flushSave(); }
     await api("POST", "/auth/logout");
     user = null; state = null;
-    closeProfileModal();
+    setView("map");
     setAuthMode("login");
     authForm.reset();
     showAuth();
@@ -4062,15 +4145,18 @@
   const VIEW_KEY = "homeOS/view";
   let currentView = localStorage.getItem(VIEW_KEY) || "map";
   function setView(v) {
-    currentView = (v === "grocery") ? "grocery" : "map";
+    currentView = (v === "grocery") ? "grocery" : (v === "profile" ? "profile" : "map");
     localStorage.setItem(VIEW_KEY, currentView);
     appShell.classList.toggle("view-grocery", currentView === "grocery");
+    appShell.classList.toggle("view-profile", currentView === "profile");
     for (const btn of document.querySelectorAll(".view-tab")) {
       btn.classList.toggle("active", btn.dataset.view === currentView);
     }
     if (currentView === "grocery") {
       renderGrocery();
       setTimeout(() => groceryNameInput.focus(), 0);
+    } else if (currentView === "profile") {
+      renderProfilePage();
     }
   }
   for (const btn of document.querySelectorAll(".view-tab")) {
