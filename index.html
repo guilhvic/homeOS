@@ -448,7 +448,7 @@
     bottom: 12px;
     right: 12px;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 8px;
     z-index: 10;
   }
@@ -477,6 +477,18 @@
   }
   .map-control-btn:active {
     transform: scale(0.95);
+  }
+
+  #add-room.map-control-btn {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  #add-room.map-control-btn:hover {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+    filter: brightness(0.9);
   }
 
   aside {
@@ -1997,6 +2009,10 @@
         </svg>`;
         lockBtn.title = "Bloquear movimentação de cômodos";
       }
+    }
+    const addRoomBtn = document.getElementById("add-room");
+    if (addRoomBtn) {
+      addRoomBtn.hidden = gridLocked;
     }
     const svg = document.getElementById("svg");
     if (svg) svg.classList.toggle("grid-locked", gridLocked);
