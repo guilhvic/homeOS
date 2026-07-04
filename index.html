@@ -120,43 +120,121 @@
   }
   .routines-head h2 { margin: 0; font-size: 22px; }
 
+  .profile-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 960px;
+    margin: 0 auto 24px;
+    padding: 0 4px;
+  }
+  .profile-page-header h2 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .profile-page-header .sub-text {
+    margin: 4px 0 0;
+    font-size: 14px;
+    color: var(--muted);
+  }
   .profile-shell {
     max-width: 960px;
     margin: 0 auto;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 20px;
   }
   .profile-card {
     background: var(--paper);
     border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 20px;
+    border-radius: 20px;
+    padding: 24px;
     box-shadow: var(--shadow);
     display: flex;
     flex-direction: column;
     gap: 16px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .profile-card:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+  }
+  .profile-card.bento-2 {
+    grid-column: span 2;
+  }
+  .profile-card.bento-3 {
+    grid-column: span 3;
   }
   .profile-card h3 {
-    margin: 0 0 4px;
+    margin: 0;
     font-size: 16px;
     font-weight: 700;
     letter-spacing: -0.01em;
     color: var(--ink);
   }
   .profile-card .sub {
-    margin: -12px 0 0;
-    font-size: 12px;
+    margin: -10px 0 0;
+    font-size: 13px;
     color: var(--muted);
     line-height: 1.4;
   }
-  .profile-card .card-actions {
+
+  .profile-header-main {
     display: flex;
-    gap: 8px;
-    justify-content: flex-end;
-    margin-top: auto;
-    padding-top: 12px;
-    border-top: 1px solid var(--line);
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+  .large-avatar-preview {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    font-size: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+  }
+  .profile-title-sub h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+  }
+  .profile-title-sub .sub {
+    margin: 4px 0 0 !important;
+    font-size: 13px !important;
+  }
+
+  @media (max-width: 900px) {
+    .profile-shell {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .profile-card.bento-2,
+    .profile-card.bento-3 {
+      grid-column: span 2;
+    }
+  }
+  @media (max-width: 600px) {
+    .profile-page-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .profile-page-header button {
+      width: 100%;
+    }
+    .profile-shell {
+      grid-template-columns: 1fr;
+    }
+    .profile-card.bento-2,
+    .profile-card.bento-3 {
+      grid-column: span 1;
+    }
   }
 
   .view-tabs {
@@ -1592,52 +1670,44 @@
 
   <!-- ============================ PROFILE VIEW ============================ -->
   <main id="profile-view">
+    <div class="profile-page-header">
+      <div>
+        <h2>Configurações</h2>
+        <p class="sub-text">Personalize a sua experiência no homeOS</p>
+      </div>
+      <button id="profile-save" class="primary" type="button">Salvar Alterações</button>
+    </div>
+
     <div class="profile-shell">
-      <!-- Card 1: Conta -->
-      <div class="profile-card">
-        <h3>👤 Sua Conta</h3>
-        <p class="sub" id="profile-username-sub">@…</p>
+      <!-- Bento Card 1: Conta (Span 2) -->
+      <div class="profile-card bento-2">
+        <div class="profile-header-main">
+          <div class="large-avatar-preview" id="large-avatar-preview">🏠</div>
+          <div class="profile-title-sub">
+            <h3>Sua Conta</h3>
+            <p class="sub" id="profile-username-sub">@…</p>
+          </div>
+        </div>
         
         <div class="field">
           <label for="profile-name-input">Nome de exibição</label>
-          <input id="profile-name-input" type="text" maxlength="60" />
+          <input id="profile-name-input" type="text" maxlength="60" style="width:100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 10px 12px; font: inherit;" />
         </div>
         
         <div class="field">
           <label>Avatar</label>
           <div class="avatar-picker" id="avatar-picker"></div>
         </div>
-        
-        <div class="card-actions">
-          <button id="open-change-password" class="ghost" type="button">Trocar senha</button>
-          <button id="logout-btn" class="ghost danger" type="button">Sair</button>
-          <button id="profile-save" class="primary" type="button">Salvar tudo</button>
-        </div>
       </div>
 
-      <!-- Card 2: Home Assistant -->
-      <div class="profile-card">
-        <h3>🤖 Home Assistant</h3>
-        <p class="sub" id="ha-config-status">…</p>
-        
-        <div class="field">
-          <label for="ha-url-input">URL do servidor</label>
-          <input id="ha-url-input" type="text" placeholder="http://localhost:8123" autocomplete="off" />
-        </div>
-        <div class="field">
-          <label for="ha-token-input">Long-Lived Access Token</label>
-          <input id="ha-token-input" type="password" placeholder="cole aqui (deixe vazio para manter o atual)" autocomplete="off" />
-        </div>
-      </div>
-
-      <!-- Card 3: Preferências e Sistema -->
+      <!-- Bento Card 2: Preferências (Span 1) -->
       <div class="profile-card">
         <h3>⚙️ Preferências</h3>
-        <p class="sub">Personalize as configurações do aplicativo.</p>
+        <p class="sub">Personalize as configurações visuais do aplicativo.</p>
         
-        <div class="field">
+        <div class="field" style="margin-top: auto; margin-bottom: auto;">
           <label for="theme-select">Tema do aplicativo</label>
-          <select id="theme-select" style="width:100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 6px; padding: 8px 10px; font: inherit;">
+          <select id="theme-select" style="width:100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 10px 12px; font: inherit;">
             <option value="light">☀️ Claro</option>
             <option value="dark">🌙 Escuro</option>
             <option value="system">🖥️ Sistema</option>
@@ -1645,22 +1715,49 @@
         </div>
       </div>
 
-      <!-- Card 4: Dispositivos Vinculados -->
-      <div class="profile-card">
-        <h3>🔌 Dispositivos Vinculados</h3>
-        <p class="sub">Dispositivos associados aos cômodos.</p>
-        <div class="field" style="max-height: 250px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: var(--bg); flex: 1;">
-          <div id="profile-devices-list"></div>
+      <!-- Bento Card 3: Home Assistant (Span 2) -->
+      <div class="profile-card bento-2">
+        <h3>🤖 Home Assistant</h3>
+        <p class="sub" id="ha-config-status">…</p>
+        
+        <div class="field">
+          <label for="ha-url-input">URL do servidor</label>
+          <input id="ha-url-input" type="text" placeholder="http://localhost:8123" autocomplete="off" style="width:100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 10px 12px; font: inherit;" />
+        </div>
+        <div class="field">
+          <label for="ha-token-input">Long-Lived Access Token</label>
+          <input id="ha-token-input" type="password" placeholder="cole aqui (deixe vazio para manter o atual)" autocomplete="off" style="width:100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 10px 12px; font: inherit;" />
         </div>
       </div>
 
-      <!-- Card 5: Histórico de Atividade -->
-      <div class="profile-card" style="grid-column: 1 / -1;">
-        <h3>Atividade recente</h3>
+      <!-- Bento Card 4: Segurança e Sessão (Span 1) -->
+      <div class="profile-card" style="justify-content: space-between;">
+        <div>
+          <h3>🔒 Segurança e Sessão</h3>
+          <p class="sub">Gerencie sua senha e conexões ativas.</p>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: auto;">
+          <button id="open-change-password" class="ghost" type="button" style="width: 100%; border: 1px solid var(--line); padding: 10px 12px; border-radius: 8px; font-weight: 600;">Trocar senha</button>
+          <button id="logout-btn" class="ghost danger" type="button" style="width: 100%; border: 1px solid var(--danger-soft); padding: 10px 12px; border-radius: 8px; font-weight: 600; color: var(--danger); background: var(--danger-soft);">Sair da conta</button>
+        </div>
+      </div>
+
+      <!-- Bento Card 5: Atividade recente (Span 2) -->
+      <div class="profile-card bento-2" style="max-height: 400px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3>Atividade recente</h3>
+          <button id="clear-history" class="ghost" type="button" hidden style="font-size: 12px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px;">Limpar histórico</button>
+        </div>
         <p class="sub">As últimas alterações na sua casa.</p>
-        <ul class="activity" id="activity" style="max-height: 250px;"></ul>
-        <div class="card-actions" style="border-top: none; padding-top: 0;">
-          <button id="clear-history" class="ghost" type="button" hidden>Limpar histórico</button>
+        <ul class="activity" id="activity" style="overflow-y: auto; flex: 1; margin: 0; padding: 0; list-style: none;"></ul>
+      </div>
+
+      <!-- Bento Card 6: Dispositivos Vinculados (Span 1) -->
+      <div class="profile-card" style="max-height: 400px; display: flex; flex-direction: column;">
+        <h3>🔌 Dispositivos Vinculados</h3>
+        <p class="sub">Dispositivos associados aos cômodos.</p>
+        <div class="field" style="overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--bg); flex: 1; min-height: 0;">
+          <div id="profile-devices-list"></div>
         </div>
       </div>
     </div>
@@ -3912,6 +4009,8 @@
   function renderProfilePage() {
     if (!user) return;
     pendingAvatar = user.avatar || "🏠";
+    const largeAvatar = document.getElementById("large-avatar-preview");
+    if (largeAvatar) largeAvatar.textContent = pendingAvatar;
     profileUsernameSub.textContent = "@" + user.username;
     profileNameInput.value = user.displayName || "";
     haUrlInput.value = user.haUrl || "";
@@ -3927,6 +4026,7 @@
       if (a === pendingAvatar) b.classList.add("selected");
       b.addEventListener("click", () => {
         pendingAvatar = a;
+        if (largeAvatar) largeAvatar.textContent = a;
         avatarPicker.querySelectorAll("button").forEach(x => x.classList.toggle("selected", x.textContent === a));
       });
       avatarPicker.appendChild(b);
