@@ -89,6 +89,37 @@
     background: var(--bg);
     padding: 24px 16px 64px;
   }
+
+  /* Routines view replaces map+aside */
+  #app-shell.view-routines {
+    grid-template-columns: 1fr;
+    grid-template-areas: "top" "routines";
+  }
+  #app-shell.view-routines #map-wrap,
+  #app-shell.view-routines aside { display: none; }
+  #app-shell:not(.view-routines) #routines-view { display: none; }
+  #app-shell.view-routines .map-only { display: none; }
+  #routines-view {
+    grid-area: routines;
+    overflow-y: auto;
+    background: var(--bg);
+    padding: 24px 16px 64px;
+  }
+  .routines-shell {
+    max-width: 760px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .routines-head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+  .routines-head h2 { margin: 0; font-size: 22px; }
+
   .profile-shell {
     max-width: 960px;
     margin: 0 auto;
@@ -401,7 +432,7 @@
   .sync-pill {
     position: absolute;
     bottom: 12px;
-    right: 12px;
+    right: 56px;
     background: var(--paper);
     border: 1px solid var(--line);
     border-radius: 999px;
@@ -411,6 +442,35 @@
     box-shadow: var(--shadow);
   }
   .sync-pill.error { color: var(--danger); border-color: var(--danger); }
+
+  #center-view {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    cursor: pointer;
+    z-index: 10;
+    transition: background 0.2s, color 0.2s, transform 0.1s, border-color 0.2s;
+    padding: 0;
+  }
+  #center-view:hover {
+    background: var(--bg);
+    color: var(--ink);
+    border-color: var(--accent);
+    transform: scale(1.05);
+  }
+  #center-view:active {
+    transform: scale(0.95);
+  }
 
   aside {
     grid-area: side;
@@ -429,7 +489,13 @@
   }
 
   /* ===== Modern room detail panel ===== */
-  #detail { padding: 20px 16px 24px; }
+  #detail {
+    padding: 20px 16px 24px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+  }
+  #detail[hidden] { display: none; }
 
   .detail-head {
     display: flex;
@@ -578,22 +644,60 @@
     border-color: var(--accent);
   }
 
-  .detail-panel[data-panel="notes"] textarea {
+  /* Notion-like notes: borderless editor that fills the panel; toolbar fades in on use */
+  .detail-panel[data-panel="notes"] {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .notes-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 0 8px;
+    opacity: 0.4;
+    transition: opacity .15s;
+  }
+  .detail-panel[data-panel="notes"]:focus-within .notes-toolbar,
+  .notes-toolbar:hover { opacity: 1; }
+  .notes-toolbar button {
+    width: 28px; height: 26px;
+    padding: 0;
+    display: grid; place-items: center;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .notes-toolbar button:hover { background: var(--bg); color: var(--ink); border-color: transparent; }
+  .notes-toolbar button.active { background: var(--accent-soft); color: var(--accent); }
+  .tb-sep { width: 1px; height: 16px; background: var(--line); margin: 0 6px; }
+
+  .notes-editor {
+    flex: 1;
     width: 100%;
-    min-height: 220px;
-    border: 1px solid var(--line);
-    background: var(--bg);
+    min-height: 300px;
+    overflow-y: auto;
+    border: none;
+    background: transparent;
     color: var(--ink);
-    border-radius: 8px;
-    padding: 12px;
+    padding: 4px 4px 40px;
     font: inherit;
-    resize: vertical;
-    line-height: 1.5;
+    font-size: 14px;
+    line-height: 1.6;
   }
-  .detail-panel[data-panel="notes"] textarea:focus {
-    outline: 2px solid var(--accent-soft);
-    border-color: var(--accent);
+  .notes-editor:focus { outline: none; }
+  .notes-editor:empty::before {
+    content: attr(data-placeholder);
+    color: var(--muted);
+    opacity: 0.6;
+    pointer-events: none;
   }
+  .notes-editor ul, .notes-editor ol { margin: 4px 0; padding-left: 22px; }
+  .notes-editor p { margin: 0 0 6px; }
   .empty {
     color: var(--muted);
     font-size: 13px;
@@ -1341,6 +1445,7 @@
     <div class="view-tabs" role="tablist">
       <button class="view-tab active" data-view="map" type="button">🏠 Casa</button>
       <button class="view-tab" data-view="grocery" type="button">🛒 Mercado</button>
+      <button class="view-tab" data-view="routines" type="button">📅 Rotinas</button>
       <button class="view-tab" data-view="profile" type="button">👤 Perfil</button>
     </div>
     <span class="sub" id="status">— monte o mapa da sua casa</span>
@@ -1350,10 +1455,8 @@
       <span class="pname" id="profile-name">…</span>
     </button>
     <button id="sync-btn" class="ghost map-only" title="Sincronizar dispositivos do Home Assistant" aria-label="Sincronizar dispositivos">🔄</button>
-    <button id="routines-btn" class="ghost map-only" title="Rotinas" aria-label="Rotinas">📅</button>
     <button id="lock-btn" class="ghost map-only" title="Travar/Destravar posições dos cômodos" aria-label="Bloquear grade">🔒 Travado</button>
     <button id="add-room" class="primary map-only">+ Cômodo</button>
-    <button id="center-view" class="ghost map-only" title="Centralizar o mapa">Centrar</button>
   </header>
 
   <div id="map-wrap">
@@ -1362,6 +1465,16 @@
       Clique em <b>+ Cômodo</b> para adicionar. Arraste para mover, use o canto inferior direito para redimensionar. Clique num cômodo para editar.
     </div>
     <div class="sync-pill" id="sync-pill" hidden></div>
+    <button id="center-view" title="Centralizar o mapa" aria-label="Centralizar o mapa">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <circle cx="12" cy="12" r="3"></circle>
+        <line x1="12" y1="1" x2="12" y2="4"></line>
+        <line x1="12" y1="20" x2="12" y2="23"></line>
+        <line x1="1" y1="12" x2="4" y2="12"></line>
+        <line x1="20" y1="12" x2="23" y2="12"></line>
+      </svg>
+    </button>
   </div>
 
   <aside id="side">
@@ -1407,7 +1520,17 @@
       </section>
 
       <section class="detail-panel" data-panel="notes" hidden>
-        <textarea id="notes" placeholder="Lembretes, projetos, manutenção…"></textarea>
+        <div class="notes-toolbar" role="toolbar" aria-label="Formatação">
+          <button type="button" data-cmd="bold" title="Negrito (Ctrl+B)"><b>B</b></button>
+          <button type="button" data-cmd="italic" title="Itálico (Ctrl+I)"><i>I</i></button>
+          <button type="button" data-cmd="strikeThrough" title="Tachado"><s>S</s></button>
+          <span class="tb-sep"></span>
+          <button type="button" data-cmd="insertUnorderedList" title="Lista">•≡</button>
+          <button type="button" data-cmd="insertOrderedList" title="Lista numerada">1≡</button>
+          <span class="tb-sep"></span>
+          <button type="button" data-cmd="removeFormat" title="Limpar formatação">⌫</button>
+        </div>
+        <div id="notes" class="notes-editor" contenteditable="true" data-placeholder="Lembretes, projetos, manutenção…"></div>
       </section>
     </div>
   </aside>
@@ -1513,6 +1636,53 @@
       </div>
     </div>
   </main>
+
+  <!-- ============================ ROUTINES VIEW ============================ -->
+  <main id="routines-view">
+    <div class="routines-shell">
+      <header class="routines-head">
+        <h2>📅 Rotinas</h2>
+        <span class="grocery-summary">Crie rotinas com ações agendadas ou para execução rápida.</span>
+      </header>
+
+      <div style="margin-bottom: 16px; display: flex; justify-content: flex-end;">
+        <button id="new-routine-btn" class="primary" type="button">+ Nova Rotina</button>
+      </div>
+
+      <!-- Routine Editor Form -->
+      <form id="routine-form" hidden style="border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; background: rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 12px;">
+        <h4 id="routine-form-title" style="margin: 0; font-size: 14px; font-weight: 600;">Criar Rotina</h4>
+        <input type="hidden" id="routine-edit-id" />
+        
+        <div class="field">
+          <label for="routine-name">Nome da Rotina</label>
+          <input id="routine-name" type="text" placeholder="ex: Dormir" required />
+        </div>
+
+        <div class="field">
+          <label>Agendamento (Gatilho de Horário)</label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="checkbox" id="routine-time-enabled" style="width: auto; margin: 0; cursor: pointer;" />
+            <span style="font-size: 13px;">Habilitar horário</span>
+            <input id="routine-time" type="time" style="width: 120px;" disabled />
+          </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <label style="display:block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Ações</label>
+          <ul id="routine-actions-list" style="list-style:none; padding:0; margin:0 0 8px; display:flex; flex-direction:column; gap:6px;"></ul>
+          <button id="add-action-btn" class="ghost" type="button" style="font-size: 12px; padding: 4px 8px;">+ Adicionar ação</button>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+          <button id="routine-cancel-btn" class="ghost" type="button">Cancelar</button>
+          <button type="submit" class="primary">Salvar Rotina</button>
+        </div>
+      </form>
+
+      <ul id="routines-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px;"></ul>
+    </div>
+  </main>
 </div>
 
 <!-- ============================ DEVICE PICKER MODAL ============================ -->
@@ -1580,54 +1750,7 @@
   </div>
 </div>
 
-<!-- ============================ ROUTINES MODAL ============================ -->
-<div id="routines-modal" class="modal-bg" hidden>
-  <div class="modal" style="width: min(580px, 100%);">
-    <h3>Rotinas</h3>
-    <p class="sub">Crie rotinas com ações agendadas ou para execução rápida.</p>
-    
-    <div style="margin-bottom: 16px; display: flex; justify-content: flex-end;">
-      <button id="new-routine-btn" class="primary" type="button">+ Nova Rotina</button>
-    </div>
 
-    <!-- Routine Editor Form -->
-    <form id="routine-form" hidden style="border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; background: rgba(0,0,0,0.02);">
-      <h4 id="routine-form-title" style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Criar Rotina</h4>
-      <input type="hidden" id="routine-edit-id" />
-      
-      <div class="field">
-        <label for="routine-name">Nome da Rotina</label>
-        <input id="routine-name" type="text" placeholder="ex: Dormir" required />
-      </div>
-
-      <div class="field">
-        <label>Agendamento (Gatilho de Horário)</label>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <input type="checkbox" id="routine-time-enabled" style="width: auto; margin: 0; cursor: pointer;" />
-          <span style="font-size: 13px;">Habilitar horário</span>
-          <input id="routine-time" type="time" style="width: 120px;" disabled />
-        </div>
-      </div>
-
-      <div style="margin-bottom: 12px;">
-        <label style="display:block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Ações</label>
-        <ul id="routine-actions-list" style="list-style:none; padding:0; margin:0 0 8px; display:flex; flex-direction:column; gap:6px;"></ul>
-        <button id="add-action-btn" class="ghost" type="button" style="font-size: 12px; padding: 4px 8px;">+ Adicionar ação</button>
-      </div>
-
-      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
-        <button id="routine-cancel-btn" class="ghost" type="button">Cancelar</button>
-        <button type="submit" class="primary">Salvar Rotina</button>
-      </div>
-    </form>
-
-    <ul id="routines-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px;"></ul>
-
-    <div class="actions" style="margin-top: 20px; border-top: 1px solid var(--line); padding-top: 12px;">
-      <button id="routines-close" class="primary" type="button">Fechar</button>
-    </div>
-  </div>
-</div>
 
 <script>
 (() => {
@@ -2027,8 +2150,6 @@
   // ===== DOM refs (app) =====
   const svg = document.getElementById("svg");
   const status = document.getElementById("status");
-  const routinesBtn = document.getElementById("routines-btn");
-  const routinesModal = document.getElementById("routines-modal");
   const routinesList = document.getElementById("routines-list");
   const routineForm = document.getElementById("routine-form");
   const routineFormTitle = document.getElementById("routine-form-title");
@@ -2160,7 +2281,7 @@
     } else {
       detail.hidden = false;
       if (document.activeElement !== nameInput) nameInput.value = selected.name || "";
-      if (document.activeElement !== notesInput) notesInput.value = selected.notes || "";
+      if (document.activeElement !== notesInput) notesInput.innerHTML = notesToHtml(selected.notes);
       renderItems(selected);
       renderDevicesPanel(selected);
       updateDetailMeta(selected);
@@ -3505,13 +3626,60 @@
     }, 800);
   });
 
+  // Notes: rich-text editor (contenteditable). Stored as sanitized HTML in
+  // room.notes. Legacy plain-text notes are HTML-escaped with \n → <br>.
+  const NOTES_ALLOWED_TAGS = new Set(["B","STRONG","I","EM","S","STRIKE","DEL","UL","OL","LI","P","DIV","BR"]);
+  function sanitizeNotesHtml(html) {
+    const tpl = document.createElement("template");
+    tpl.innerHTML = html || "";
+    const walk = (node) => {
+      for (const child of [...node.childNodes]) {
+        if (child.nodeType === Node.ELEMENT_NODE) {
+          if (!NOTES_ALLOWED_TAGS.has(child.tagName)) {
+            // dangerous containers are dropped whole; others unwrap (keep children)
+            if (["SCRIPT","STYLE","IFRAME","OBJECT","EMBED","LINK","META"].includes(child.tagName)) {
+              node.removeChild(child);
+            } else {
+              while (child.firstChild) node.insertBefore(child.firstChild, child);
+              node.removeChild(child);
+            }
+            continue;
+          }
+          // strip all attributes (on*, style, class…)
+          for (const attr of [...child.attributes]) child.removeAttribute(attr.name);
+          walk(child);
+        } else if (child.nodeType !== Node.TEXT_NODE) {
+          node.removeChild(child); // comments etc.
+        }
+      }
+    };
+    walk(tpl.content);
+    const out = document.createElement("div");
+    out.appendChild(tpl.content.cloneNode(true));
+    return out.innerHTML;
+  }
+  function notesToHtml(stored) {
+    if (!stored) return "";
+    // Legacy plain text (no tags) → escape + line breaks
+    if (!/<[a-z][\s\S]*>/i.test(stored)) {
+      return escapeHtml(stored).replace(/\n/g, "<br>");
+    }
+    return sanitizeNotesHtml(stored);
+  }
+  function notesIsEmpty(html) {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = html || "";
+    return !tmp.textContent.trim();
+  }
+
   let notesTimer = null, prevNotes = null;
   notesInput.addEventListener("focus", () => {
     const r = currentRoom(); prevNotes = r ? (r.notes || "") : null;
   });
   notesInput.addEventListener("input", () => {
     const r = currentRoom(); if (!r) return;
-    r.notes = notesInput.value;
+    const clean = sanitizeNotesHtml(notesInput.innerHTML);
+    r.notes = notesIsEmpty(clean) ? "" : clean;
     scheduleSave();
     clearTimeout(notesTimer);
     notesTimer = setTimeout(() => {
@@ -3522,6 +3690,38 @@
       }
     }, 1200);
   });
+  // Paste as sanitized content (keeps allowed formatting, drops the rest)
+  notesInput.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const html = e.clipboardData.getData("text/html");
+    const text = e.clipboardData.getData("text/plain");
+    const insert = html ? sanitizeNotesHtml(html) : escapeHtml(text).replace(/\n/g, "<br>");
+    document.execCommand("insertHTML", false, insert);
+  });
+
+  // Toolbar
+  const notesToolbar = document.querySelector(".notes-toolbar");
+  notesToolbar.addEventListener("mousedown", (e) => e.preventDefault()); // keep editor selection/focus
+  notesToolbar.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-cmd]");
+    if (!btn) return;
+    notesInput.focus();
+    document.execCommand(btn.dataset.cmd, false, null);
+    updateToolbarState();
+    notesInput.dispatchEvent(new Event("input"));
+  });
+  function updateToolbarState() {
+    for (const btn of notesToolbar.querySelectorAll("button[data-cmd]")) {
+      const cmd = btn.dataset.cmd;
+      if (["bold","italic","strikeThrough","insertUnorderedList","insertOrderedList"].includes(cmd)) {
+        let on = false;
+        try { on = document.queryCommandState(cmd); } catch {}
+        btn.classList.toggle("active", on);
+      }
+    }
+  }
+  notesInput.addEventListener("keyup", updateToolbarState);
+  notesInput.addEventListener("mouseup", updateToolbarState);
 
   addItemForm.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -3698,12 +3898,9 @@
     applyTheme(val);
   });
   
-  routinesBtn.addEventListener("click", openRoutinesModal);
-  document.getElementById("routines-close").addEventListener("click", closeRoutinesModal);
   document.getElementById("new-routine-btn").addEventListener("click", () => showRoutineEditor(null));
   document.getElementById("routine-cancel-btn").addEventListener("click", () => { routineForm.hidden = true; });
   addActionBtn.addEventListener("click", () => addRoutineActionRow(null));
-  routinesModal.addEventListener("click", (e) => { if (e.target === routinesModal) closeRoutinesModal(); });
 
   routineTimeEnabled.addEventListener("change", () => {
     routineTimeInput.disabled = !routineTimeEnabled.checked;
@@ -3748,15 +3945,7 @@
     renderRoutinesList();
   });
 
-  // ===== Routines integration =====
-  function openRoutinesModal() {
-    routineForm.hidden = true;
-    routinesModal.hidden = false;
-    renderRoutinesList();
-  }
-  function closeRoutinesModal() {
-    routinesModal.hidden = true;
-  }
+
 
   function renderRoutinesList() {
     routinesList.innerHTML = "";
@@ -3980,11 +4169,10 @@
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      if (currentView === "profile") setView("map");
+      if (currentView === "profile" || currentView === "routines") setView("map");
       if (!passwordModal.hidden) closePasswordModal();
       if (!deviceModal.hidden) closeDeviceModal();
       if (!syncModal.hidden) syncModal.hidden = true;
-      if (!routinesModal.hidden) closeRoutinesModal();
     }
   });
 
@@ -4318,10 +4506,11 @@
   const VIEW_KEY = "homeOS/view";
   let currentView = localStorage.getItem(VIEW_KEY) || "map";
   function setView(v) {
-    currentView = (v === "grocery") ? "grocery" : (v === "profile" ? "profile" : "map");
+    currentView = (v === "grocery") ? "grocery" : (v === "profile" ? "profile" : (v === "routines" ? "routines" : "map"));
     localStorage.setItem(VIEW_KEY, currentView);
     appShell.classList.toggle("view-grocery", currentView === "grocery");
     appShell.classList.toggle("view-profile", currentView === "profile");
+    appShell.classList.toggle("view-routines", currentView === "routines");
     for (const btn of document.querySelectorAll(".view-tab")) {
       btn.classList.toggle("active", btn.dataset.view === currentView);
     }
@@ -4330,6 +4519,8 @@
       setTimeout(() => groceryNameInput.focus(), 0);
     } else if (currentView === "profile") {
       renderProfilePage();
+    } else if (currentView === "routines") {
+      renderRoutinesList();
     }
   }
   for (const btn of document.querySelectorAll(".view-tab")) {
