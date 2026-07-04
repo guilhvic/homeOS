@@ -1779,7 +1779,17 @@
   </div>
 </div>
 
-
+<!-- ============================ CONFIRM MODAL ============================ -->
+<div id="confirm-modal" class="modal-bg" hidden>
+  <div class="modal" style="width: min(380px, 100%);">
+    <h3 id="confirm-title">Confirmação</h3>
+    <p class="sub" id="confirm-message" style="margin-bottom: 20px; line-height: 1.5;"></p>
+    <div class="actions" style="display: flex; gap: 8px; justify-content: flex-end;">
+      <button id="confirm-cancel" class="ghost" type="button">Cancelar</button>
+      <button id="confirm-ok" class="primary" type="button">Confirmar</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (() => {
@@ -3264,8 +3274,8 @@
     if (!syncNewList.children.length) syncNewSection.hidden = true;
   });
 
-  document.getElementById("sync-clean-orphans").addEventListener("click", () => {
-    if (!confirm("Remover todos os dispositivos órfãos dos cômodos?")) return;
+  document.getElementById("sync-clean-orphans").addEventListener("click", async () => {
+    if (!await customConfirm("Remover todos os dispositivos órfãos dos cômodos?")) return;
     const rows = [...syncOrphanList.querySelectorAll("li.sync-row")];
     let removed = 0;
     for (const li of rows) {
@@ -3636,8 +3646,8 @@
     render();
   });
 
-  clearHistoryBtn.addEventListener("click", () => {
-    if (!confirm("Limpar todo o histórico de atividade?")) return;
+  clearHistoryBtn.addEventListener("click", async () => {
+    if (!await customConfirm("Limpar todo o histórico de atividade?")) return;
     state.history = [];
     scheduleSave();
     renderActivity();
@@ -3775,9 +3785,9 @@
     render();
   });
 
-  document.getElementById("delete-room").addEventListener("click", () => {
+  document.getElementById("delete-room").addEventListener("click", async () => {
     const r = currentRoom(); if (!r) return;
-    if (!confirm(`Excluir "${r.name || "este cômodo"}"?`)) return;
+    if (!await customConfirm(`Excluir "${r.name || "este cômodo"}"?`)) return;
     state.rooms = state.rooms.filter(x => x.id !== r.id);
     state.selectedId = null;
     logActivity(`Cômodo <b>${escapeHtml(r.name)}</b> excluído`);
@@ -4104,8 +4114,8 @@
       delBtn.style.padding = "4px 10px";
       delBtn.style.fontSize = "12px";
       delBtn.textContent = "Excluir";
-      delBtn.addEventListener("click", () => {
-        if (!confirm(`Excluir a rotina "${r.name}"?`)) return;
+      delBtn.addEventListener("click", async () => {
+        if (!await customConfirm(`Excluir a rotina "${r.name}"?`)) return;
         state.routines = state.routines.filter(x => x.id !== r.id);
         logActivity(`Rotina <b>${escapeHtml(r.name)}</b> excluída`);
         scheduleSave();
@@ -4212,6 +4222,13 @@
       if (!passwordModal.hidden) closePasswordModal();
       if (!deviceModal.hidden) closeDeviceModal();
       if (!syncModal.hidden) syncModal.hidden = true;
+      if (confirmModal && !confirmModal.hidden) {
+        confirmModal.hidden = true;
+        if (confirmResolve) {
+          confirmResolve(false);
+          confirmResolve = null;
+        }
+      }
     }
   });
 
@@ -4250,7 +4267,7 @@
   });
 
   document.getElementById("logout-btn").addEventListener("click", async () => {
-    if (!confirm("Sair da conta?")) return;
+    if (!await customConfirm("Sair da conta?")) return;
     // Flush antes de sair
     if (saveTimer) { clearTimeout(saveTimer); await flushSave(); }
     await api("POST", "/auth/logout");
@@ -4298,6 +4315,48 @@
     logActivity("Senha alterada");
     scheduleSave();
     render();
+  });
+
+  // ===== Confirm modal =====
+  const confirmModal = document.getElementById("confirm-modal");
+  const confirmMessage = document.getElementById("confirm-message");
+  const confirmCancelBtn = document.getElementById("confirm-cancel");
+  const confirmOkBtn = document.getElementById("confirm-ok");
+  let confirmResolve = null;
+
+  function customConfirm(message, title = "Confirmação") {
+    return new Promise((resolve) => {
+      confirmMessage.textContent = message;
+      document.getElementById("confirm-title").textContent = title;
+      confirmModal.hidden = false;
+      confirmResolve = resolve;
+    });
+  }
+
+  confirmCancelBtn.addEventListener("click", () => {
+    confirmModal.hidden = true;
+    if (confirmResolve) {
+      confirmResolve(false);
+      confirmResolve = null;
+    }
+  });
+
+  confirmOkBtn.addEventListener("click", () => {
+    confirmModal.hidden = true;
+    if (confirmResolve) {
+      confirmResolve(true);
+      confirmResolve = null;
+    }
+  });
+
+  confirmModal.addEventListener("click", (e) => {
+    if (e.target === confirmModal) {
+      confirmModal.hidden = true;
+      if (confirmResolve) {
+        confirmResolve(false);
+        confirmResolve = null;
+      }
+    }
   });
 
   // ===== Detail tabs + menu =====
@@ -4531,10 +4590,10 @@
     groceryNameInput.focus();
   });
 
-  groceryClearBtn.addEventListener("click", () => {
+  groceryClearBtn.addEventListener("click", async () => {
     const bought = (state.groceries || []).filter(i => i.bought).length;
     if (!bought) return;
-    if (!confirm(`Remover ${bought} item${bought === 1 ? "" : "s"} comprado${bought === 1 ? "" : "s"} da lista?`)) return;
+    if (!await customConfirm(`Remover ${bought} item${bought === 1 ? "" : "s"} comprado${bought === 1 ? "" : "s"} da lista?`)) return;
     state.groceries = state.groceries.filter(i => !i.bought);
     logActivity(`<b>${bought}</b> item${bought === 1 ? "" : "s"} comprado${bought === 1 ? "" : "s"} limpo${bought === 1 ? "" : "s"}`);
     scheduleSave();
