@@ -2,8 +2,14 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>homeOS</title>
+<link rel="manifest" href="/manifest.webmanifest" />
+<meta name="theme-color" content="#1d1b18" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="homeOS" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
 <style>
   :root {
     --bg: #f6f4ef;
@@ -4737,6 +4743,16 @@
     }
   })();
 })();
+</script>
+<script>
+  // Registro do service worker (PWA instalável no Windows via Edge/Chrome).
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        console.warn("Falha ao registrar o service worker:", err);
+      });
+    });
+  }
 </script>
 </body>
 </html>

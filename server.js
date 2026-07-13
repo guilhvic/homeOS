@@ -476,6 +476,38 @@ app.post("/api/ha/services/:domain/:service", authRequired, async (req, res) => 
   }
 });
 
+// --- PWA: manifest e service worker com headers corretos ---
+app.get("/manifest.webmanifest", (req, res) => {
+  res.type("application/manifest+json");
+  res.sendFile(path.join(__dirname, "manifest.webmanifest"));
+});
+app.get("/sw.js", (req, res) => {
+  res.type("application/javascript");
+  res.set("Service-Worker-Allowed", "/");
+  res.set("Cache-Control", "no-cache");
+  res.sendFile(path.join(__dirname, "sw.js"));
+});
+
+// --- Bloqueia arquivos sensíveis antes do estático ---
+// express.static serviria QUALQUER arquivo do diretório (inclusive .env e o DB).
+const BLOCKED_STATIC = new Set([
+  ".env", "data.db", "server.js", "generate-icons.js",
+  "package.json", "package-lock.json", "docker-compose.yml",
+]);
+app.use((req, res, next) => {
+  const clean = decodeURIComponent(req.path).replace(/^\/+/, "").toLowerCase();
+  const first = clean.split("/")[0];
+  if (
+    BLOCKED_STATIC.has(clean) ||
+    first === "ha-config" || first === ".git" || first === "node_modules" ||
+    clean.startsWith("data.db") ||   // WAL/SHM
+    first.startsWith(".env")
+  ) {
+    return res.status(404).send("Not found");
+  }
+  next();
+});
+
 // --- Estático ---
 app.use(express.static(__dirname, { extensions: ["html"] }));
 
