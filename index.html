@@ -111,6 +111,110 @@
     background: var(--bg);
     padding: 24px 16px 64px;
   }
+
+  /* Fridge view replaces map+aside */
+  #app-shell.view-fridge {
+    grid-template-columns: 1fr;
+    grid-template-areas: "top" "fridge";
+  }
+  #app-shell.view-fridge #map-wrap,
+  #app-shell.view-fridge aside { display: none; }
+  #app-shell:not(.view-fridge) #fridge-view { display: none; }
+  #app-shell.view-fridge .map-only { display: none; }
+  #fridge-view {
+    grid-area: fridge;
+    overflow-y: auto;
+    background: var(--bg);
+    padding: 24px 16px 64px;
+  }
+
+  /* Fridge item styling (reaproveita a linguagem da lista de compras) */
+  .fridge-add {
+    display: grid;
+    grid-template-columns: 1fr 110px 160px 150px auto;
+    gap: 8px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px;
+  }
+  .fridge-add input, .fridge-add select {
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font: inherit;
+  }
+  .fridge-add input:focus, .fridge-add select:focus {
+    outline: 2px solid var(--accent-soft);
+    border-color: var(--accent);
+  }
+  @media (max-width: 720px) {
+    .fridge-add { grid-template-columns: 1fr 1fr; }
+    .fridge-add button { grid-column: 1 / -1; }
+  }
+
+  .fridge-summary-cards {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .fridge-stat {
+    flex: 1;
+    min-width: 120px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .fridge-stat .n { font-size: 24px; font-weight: 700; line-height: 1; }
+  .fridge-stat .l { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .fridge-stat.warn { border-color: #f59e0b; }
+  .fridge-stat.warn .n { color: #f59e0b; }
+  .fridge-stat.danger { border-color: #ef4444; }
+  .fridge-stat.danger .n { color: #ef4444; }
+
+  .fridge-loc { }
+  .fridge-loc-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px;
+    font-weight: 700; font-size: 13px;
+    text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted);
+  }
+  .fridge-items { list-style: none; margin: 0; padding: 0;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .fridge-items li {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .fridge-items li:last-child { border-bottom: none; }
+  .fridge-items .fi-name { flex: 1; font-size: 14px; }
+  .fridge-items .fi-qty {
+    font-size: 12px; color: var(--muted);
+    background: var(--bg); border: 1px solid var(--line);
+    padding: 2px 8px; border-radius: 999px; font-variant-numeric: tabular-nums;
+  }
+  .fi-exp {
+    font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 999px;
+    background: var(--bg); border: 1px solid var(--line); color: var(--muted);
+    white-space: nowrap;
+  }
+  .fi-exp.soon { background: #fef3c7; color: #92400e; border-color: #f59e0b; }
+  html[data-theme="dark"] .fi-exp.soon { background: #422006; color: #fbbf24; }
+  .fi-exp.expired { background: #fee2e2; color: #b91c1c; border-color: #ef4444; }
+  html[data-theme="dark"] .fi-exp.expired { background: #450a0a; color: #fca5a5; }
+  .fridge-items li.expired { box-shadow: inset 3px 0 0 0 #ef4444; }
+  .fi-actions { display: flex; gap: 2px; }
+  .fi-btn {
+    border: none; background: transparent; color: var(--muted);
+    cursor: pointer; padding: 4px 6px; font-size: 14px; line-height: 1; border-radius: 6px;
+  }
+  .fi-btn:hover { background: var(--bg); color: var(--ink); }
+  .fi-btn.rm:hover { color: var(--danger); background: var(--danger-soft); }
   .routines-shell {
     max-width: 760px;
     margin: 0 auto;
@@ -1105,7 +1209,36 @@
   .devices li:hover .dev-remove,
   .devices li:focus-within .dev-remove { opacity: 0.8; }
   .devices li:hover .dev-remove:hover { opacity: 1; color: var(--danger); background: var(--danger-soft); }
-  
+
+  /* Sensor card with expandable history chart */
+  .devices li.sensor-card { flex-direction: column; align-items: stretch; gap: 10px; }
+  .sensor-card .dev-row { display: flex; align-items: center; gap: 12px; }
+  .chart-toggle {
+    width: 30px; height: 30px; padding: 0;
+    display: grid; place-items: center;
+    font-size: 14px; flex-shrink: 0;
+  }
+  .chart-toggle.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .dev-chart { display: flex; flex-direction: column; gap: 6px; }
+  .chart-periods { display: flex; gap: 4px; }
+  .chart-period {
+    font-size: 11px; padding: 2px 10px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--muted);
+    cursor: pointer;
+  }
+  .chart-period:hover { border-color: var(--accent); color: var(--ink); background: var(--bg); }
+  .chart-period.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .chart-svg { width: 100%; height: 110px; display: block; }
+  .chart-line { fill: none; stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+  .chart-area { stroke: none; opacity: 0.13; }
+  .chart-stats {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--muted);
+  }
+  .chart-stats b { color: var(--ink); font-weight: 600; }
+  .chart-axis { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); opacity: 0.7; }
+  .chart-loading { font-size: 12px; color: var(--muted); padding: 20px 0; text-align: center; }
+
   .add-device {
     width: 100%;
     border: 1px dashed var(--line);
@@ -1550,6 +1683,7 @@
     <h1>homeOS</h1>
     <div class="view-tabs" role="tablist">
       <button class="view-tab active" data-view="map" type="button">🏠 Casa</button>
+      <button class="view-tab" data-view="fridge" type="button">🧊 Geladeira</button>
       <button class="view-tab" data-view="grocery" type="button">🛒 Mercado</button>
       <button class="view-tab" data-view="routines" type="button">📅 Rotinas</button>
       <button class="view-tab" data-view="profile" type="button">👤 Perfil</button>
@@ -1670,6 +1804,32 @@
 
       <div class="grocery-footer">
         <button id="grocery-clear-bought" class="ghost" type="button" hidden>Limpar comprados</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============================ FRIDGE VIEW ============================ -->
+  <main id="fridge-view">
+    <div class="grocery-shell">
+      <header class="grocery-head">
+        <h2>Geladeira</h2>
+        <span id="fridge-summary" class="grocery-summary"></span>
+      </header>
+
+      <div class="fridge-summary-cards" id="fridge-stats"></div>
+
+      <form id="fridge-add" class="fridge-add" autocomplete="off">
+        <input id="fridge-name" type="text" placeholder="Adicionar item..." required maxlength="60" />
+        <input id="fridge-qty" type="text" placeholder="qt (ex: 2)" maxlength="20" />
+        <select id="fridge-loc"></select>
+        <input id="fridge-exp" type="date" title="Validade" />
+        <button type="submit" class="primary">Adicionar</button>
+      </form>
+
+      <div id="fridge-list" class="grocery-list"></div>
+
+      <div id="fridge-empty" class="grocery-empty">
+        Geladeira vazia. Adicione o que você guardou aí.
       </div>
     </div>
   </main>
@@ -2135,7 +2295,7 @@
   }
 
   function emptyState() {
-    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], view: { tx: 0, ty: 0 } };
+    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], fridge: [], view: { tx: 0, ty: 0 } };
   }
   function normalizeState(s) {
     if (!s || typeof s !== "object") return emptyState();
@@ -2153,6 +2313,7 @@
       history: Array.isArray(s.history) ? s.history : [],
       routines: Array.isArray(s.routines) ? s.routines : [],
       groceries: Array.isArray(s.groceries) ? s.groceries.filter(g => g && typeof g.id === "string" && typeof g.name === "string") : [],
+      fridge: Array.isArray(s.fridge) ? s.fridge.filter(g => g && typeof g.id === "string" && typeof g.name === "string") : [],
       view: { tx: Number(v.tx) || 0, ty: Number(v.ty) || 0 },
     };
   }
@@ -2641,6 +2802,7 @@
         let li;
         if (dom === "climate" && haEntities.has(id))      li = buildClimateRow(id, room);
         else if (dom === "light"  && haEntities.has(id))  li = buildLightCard(id, room);
+        else if (isChartableSensor(id))                   li = buildSensorCard(id, room);
         else                                              li = buildSimpleDeviceRow(id, room);
         list.appendChild(li);
       }
@@ -2812,6 +2974,160 @@
       li.appendChild(row);
     }
 
+    return li;
+  }
+
+  // Which sensors are worth charting, and what color.
+  function isChartableSensor(id) {
+    if (entityDomain(id) !== "sensor") return false;
+    const e = haEntities.get(id);
+    if (!e) return false;
+    const a = e.attributes || {};
+    const CHARTABLE = ["humidity","temperature","energy","power","illuminance","battery","voltage","current","pressure"];
+    return CHARTABLE.includes(a.device_class) || !!a.unit_of_measurement;
+  }
+  function sensorColor(id) {
+    const dc = haEntities.get(id)?.attributes?.device_class;
+    if (dc === "humidity") return "#3b82f6";
+    if (dc === "temperature") return "#ef4444";
+    if (dc === "energy" || dc === "power") return "#f59e0b";
+    if (dc === "illuminance") return "#eab308";
+    if (dc === "battery") return "#22c55e";
+    return "#c2592a";
+  }
+
+  function renderSensorChart(container, points, opts) {
+    const { unit, color, hours, active, onPeriod } = opts;
+    container.innerHTML = "";
+
+    const bar = document.createElement("div");
+    bar.className = "chart-periods";
+    for (const h of [24, 168]) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chart-period" + (h === active ? " on" : "");
+      b.textContent = h === 24 ? "24h" : "7 dias";
+      b.addEventListener("click", (ev) => { ev.stopPropagation(); onPeriod(h); });
+      bar.appendChild(b);
+    }
+    container.appendChild(bar);
+
+    if (!points.length) {
+      const p = document.createElement("div");
+      p.className = "chart-loading";
+      p.textContent = "Sem dados no período.";
+      container.appendChild(p);
+      return;
+    }
+
+    const vals = points.map(p => p.v);
+    const min = Math.min(...vals), max = Math.max(...vals), cur = vals[vals.length - 1];
+    const t0 = points[0].t, t1 = points[points.length - 1].t;
+    const W = 300, H = 110, padL = 4, padR = 4, padT = 8, padB = 6;
+    const iw = W - padL - padR, ih = H - padT - padB;
+    const span = (max - min) || 1;
+    const tspan = (t1 - t0) || 1;
+    const X = t => padL + ((t - t0) / tspan) * iw;
+    const Y = v => padT + (1 - (v - min) / span) * ih;
+
+    let dLine = "";
+    points.forEach((p, i) => { dLine += (i ? "L" : "M") + X(p.t).toFixed(1) + " " + Y(p.v).toFixed(1) + " "; });
+    const dArea = "M" + X(t0).toFixed(1) + " " + (padT + ih).toFixed(1) + " "
+      + points.map(p => "L" + X(p.t).toFixed(1) + " " + Y(p.v).toFixed(1)).join(" ")
+      + " L" + X(t1).toFixed(1) + " " + (padT + ih).toFixed(1) + " Z";
+
+    const fmt = v => Number.isInteger(v) ? String(v) : v.toFixed(1);
+    const u = unit ? " " + unit : "";
+    const timeFmt = ms => new Date(ms).toLocaleString("pt-BR",
+      hours > 24 ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }
+                 : { hour: "2-digit", minute: "2-digit" });
+
+    container.insertAdjacentHTML("beforeend", `
+      <svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="histórico">
+        <path class="chart-area" d="${dArea}" fill="${color}"></path>
+        <path class="chart-line" d="${dLine.trim()}" stroke="${color}"></path>
+      </svg>
+      <div class="chart-stats">
+        <span>mín <b>${fmt(min)}${u}</b></span>
+        <span>agora <b>${fmt(cur)}${u}</b></span>
+        <span>máx <b>${fmt(max)}${u}</b></span>
+      </div>
+      <div class="chart-axis"><span>${timeFmt(t0)}</span><span>${timeFmt(t1)}</span></div>
+    `);
+  }
+
+  // Preserva estado dos gráficos entre re-renders (o poll do HA reconstrói os cards a cada 7s)
+  const openSensorCharts = new Map(); // entity_id -> hours selecionadas
+  const chartCache = new Map();       // `${id}|${hours}` -> { points, at }
+
+  function buildSensorCard(id, room) {
+    const d = entityDisplay(id);
+    const e = haEntities.get(id);
+    const unit = e?.attributes?.unit_of_measurement || "";
+    const color = sensorColor(id);
+
+    const li = document.createElement("li");
+    li.className = "sensor-card";
+
+    const row = document.createElement("div");
+    row.className = "dev-row";
+    const ic = document.createElement("div");
+    ic.className = "dev-icon " + d.kind;
+    ic.textContent = entityIcon(id);
+    const body = document.createElement("div");
+    body.className = "dev-body";
+    const nm = document.createElement("div");
+    nm.className = "dev-name";
+    nm.textContent = d.name;
+    const st = document.createElement("div");
+    st.className = "dev-state is-" + (d.kind === "neutral" ? "na" : d.kind);
+    st.textContent = d.status;
+    body.appendChild(nm);
+    body.appendChild(st);
+
+    const chartBtn = document.createElement("button");
+    chartBtn.type = "button";
+    chartBtn.className = "dev-ctrl chart-toggle";
+    chartBtn.textContent = "📈";
+    chartBtn.title = "Ver histórico";
+
+    const chartWrap = document.createElement("div");
+    chartWrap.className = "dev-chart";
+    chartWrap.hidden = true;
+
+    let currentHours = openSensorCharts.get(id) || 24;
+
+    async function load(hours) {
+      currentHours = hours;
+      openSensorCharts.set(id, hours);
+      const key = id + "|" + hours;
+      const cached = chartCache.get(key);
+      const draw = (pts) => renderSensorChart(chartWrap, pts, { unit, color, hours, active: hours, onPeriod: load });
+      if (cached && (Date.now() - cached.at) < 60000) { draw(cached.points); return; }
+      chartWrap.innerHTML = '<div class="chart-loading">carregando…</div>';
+      const r = await api("GET", `/ha/history?entity_id=${encodeURIComponent(id)}&hours=${hours}`);
+      if (!r.ok || !r.data) { chartWrap.innerHTML = '<div class="chart-loading">erro ao carregar histórico</div>'; return; }
+      const pts = r.data.points || [];
+      chartCache.set(key, { points: pts, at: Date.now() });
+      draw(pts);
+    }
+    function setOpen(open) {
+      chartWrap.hidden = !open;
+      chartBtn.classList.toggle("on", open);
+      if (open) { openSensorCharts.set(id, currentHours); load(currentHours); }
+      else { openSensorCharts.delete(id); }
+    }
+    chartBtn.addEventListener("click", (ev) => { ev.stopPropagation(); setOpen(chartWrap.hidden); });
+
+    row.appendChild(ic);
+    row.appendChild(body);
+    row.appendChild(chartBtn);
+    row.appendChild(makeRemoveBtn(id, room, d.name));
+    li.appendChild(row);
+    li.appendChild(chartWrap);
+
+    // Restaura o gráfico se já estava aberto antes do re-render
+    if (openSensorCharts.has(id)) setOpen(true);
     return li;
   }
 
@@ -4709,18 +5025,227 @@
   // ===== View switcher =====
   const VIEW_KEY = "homeOS/view";
   let currentView = localStorage.getItem(VIEW_KEY) || "map";
+  // ===== Geladeira (inventário com validade) =====
+  const FRIDGE_LOCATIONS = [
+    { id: "prateleiras", label: "Prateleiras", emoji: "🧊" },
+    { id: "porta",       label: "Porta",       emoji: "🚪" },
+    { id: "gavetas",     label: "Gavetas",      emoji: "🥬" },
+    { id: "freezer",     label: "Freezer",      emoji: "❄️" },
+    { id: "outros",      label: "Outros",       emoji: "📦" },
+  ];
+  const FRIDGE_LOC_MAP = Object.fromEntries(FRIDGE_LOCATIONS.map(l => [l.id, l]));
+  function fridgeLoc(id) { return FRIDGE_LOC_MAP[id] || FRIDGE_LOC_MAP.outros; }
+  function fid() { return "f_" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
+
+  const fridgeNameInput = document.getElementById("fridge-name");
+  const fridgeQtyInput = document.getElementById("fridge-qty");
+  const fridgeLocSelect = document.getElementById("fridge-loc");
+  const fridgeExpInput = document.getElementById("fridge-exp");
+  const fridgeForm = document.getElementById("fridge-add");
+  const fridgeListEl = document.getElementById("fridge-list");
+  const fridgeEmpty = document.getElementById("fridge-empty");
+  const fridgeSummary = document.getElementById("fridge-summary");
+  const fridgeStatsEl = document.getElementById("fridge-stats");
+
+  for (const l of FRIDGE_LOCATIONS) {
+    const opt = document.createElement("option");
+    opt.value = l.id;
+    opt.textContent = `${l.emoji} ${l.label}`;
+    if (l.id === "prateleiras") opt.selected = true;
+    fridgeLocSelect.appendChild(opt);
+  }
+
+  // Dias até vencer (>=0 futuro, <0 vencido, null sem validade)
+  function daysUntil(iso) {
+    if (!iso) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const exp = new Date(iso + "T00:00:00");
+    if (Number.isNaN(exp.getTime())) return null;
+    return Math.round((exp - today) / 86400000);
+  }
+  function expInfo(iso) {
+    const d = daysUntil(iso);
+    if (d === null) return null;
+    if (d < 0)  return { cls: "expired", text: `venceu há ${Math.abs(d)}d`, rank: 0 };
+    if (d === 0) return { cls: "soon", text: "vence hoje", rank: 1 };
+    if (d <= 3) return { cls: "soon", text: `vence em ${d}d`, rank: 1 };
+    if (d <= 7) return { cls: "", text: `${d}d`, rank: 2 };
+    return { cls: "", text: `${d}d`, rank: 3 };
+  }
+
+  function renderFridge() {
+    const list = state.fridge || [];
+    const expired = list.filter(i => { const d = daysUntil(i.expiresAt); return d !== null && d < 0; }).length;
+    const soon = list.filter(i => { const d = daysUntil(i.expiresAt); return d !== null && d >= 0 && d <= 3; }).length;
+
+    fridgeSummary.textContent = list.length ? `${list.length} ${list.length === 1 ? "item" : "itens"}` : "";
+    fridgeEmpty.hidden = list.length > 0;
+    fridgeListEl.hidden = list.length === 0;
+
+    // Stat cards
+    fridgeStatsEl.innerHTML = "";
+    if (list.length) {
+      const stats = [
+        { n: list.length, l: "itens guardados", cls: "" },
+        { n: soon, l: "vencendo (≤3 dias)", cls: soon ? "warn" : "" },
+        { n: expired, l: "vencidos", cls: expired ? "danger" : "" },
+      ];
+      for (const s of stats) {
+        const c = document.createElement("div");
+        c.className = "fridge-stat " + s.cls;
+        c.innerHTML = `<div class="n">${s.n}</div><div class="l">${s.l}</div>`;
+        fridgeStatsEl.appendChild(c);
+      }
+    }
+
+    fridgeListEl.innerHTML = "";
+    if (!list.length) return;
+
+    const byLoc = {};
+    for (const it of list) {
+      const lid = fridgeLoc(it.location).id;
+      (byLoc[lid] = byLoc[lid] || []).push(it);
+    }
+    for (const loc of FRIDGE_LOCATIONS) {
+      const items = byLoc[loc.id];
+      if (!items || !items.length) continue;
+      // ordena por validade (vencidos/vencendo primeiro), depois nome
+      items.sort((a, b) => {
+        const ra = expInfo(a.expiresAt)?.rank ?? 4;
+        const rb = expInfo(b.expiresAt)?.rank ?? 4;
+        if (ra !== rb) return ra - rb;
+        return a.name.localeCompare(b.name, "pt-BR");
+      });
+
+      const section = document.createElement("section");
+      section.className = "fridge-loc";
+      const head = document.createElement("div");
+      head.className = "fridge-loc-head";
+      const title = document.createElement("span");
+      title.textContent = `${loc.emoji}  ${loc.label}`;
+      const count = document.createElement("span");
+      count.className = "count";
+      count.style.cssText = "font-size:11px;color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0;";
+      count.textContent = `${items.length}`;
+      head.appendChild(title); head.appendChild(count);
+      section.appendChild(head);
+
+      const ul = document.createElement("ul");
+      ul.className = "fridge-items";
+      for (const it of items) {
+        const info = expInfo(it.expiresAt);
+        const li = document.createElement("li");
+        if (info && info.cls === "expired") li.classList.add("expired");
+
+        const nm = document.createElement("span");
+        nm.className = "fi-name";
+        nm.textContent = it.name;
+        nm.contentEditable = "true";
+        nm.spellcheck = false;
+        const prevName = it.name;
+        nm.addEventListener("blur", () => {
+          const t = nm.textContent.trim();
+          if (!t) { state.fridge = state.fridge.filter(x => x.id !== it.id); logActivity(`Item <b>${escapeHtml(prevName)}</b> removido da geladeira`); }
+          else if (t !== prevName) { it.name = t; }
+          else return;
+          scheduleSave(); renderFridge();
+        });
+        nm.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); nm.blur(); } });
+        li.appendChild(nm);
+
+        if (it.qty) {
+          const q = document.createElement("span");
+          q.className = "fi-qty";
+          q.textContent = it.qty;
+          li.appendChild(q);
+        }
+        if (info) {
+          const exp = document.createElement("span");
+          exp.className = "fi-exp " + info.cls;
+          exp.textContent = info.text;
+          exp.title = it.expiresAt;
+          li.appendChild(exp);
+        }
+
+        const actions = document.createElement("div");
+        actions.className = "fi-actions";
+        // Enviar pra lista de compras (acabou / repor)
+        const cart = document.createElement("button");
+        cart.className = "fi-btn";
+        cart.type = "button";
+        cart.title = "Adicionar à lista de compras";
+        cart.textContent = "🛒";
+        cart.addEventListener("click", () => {
+          state.groceries = state.groceries || [];
+          if (!state.groceries.some(g => g.name.toLowerCase() === it.name.toLowerCase() && !g.bought)) {
+            state.groceries.push({ id: gid(), name: it.name, qty: it.qty || null, category: "outros", bought: false, addedAt: new Date().toISOString() });
+          }
+          logActivity(`Item <b>${escapeHtml(it.name)}</b> enviado da geladeira para a lista de compras`);
+          scheduleSave();
+          cart.textContent = "✓";
+          setTimeout(() => { cart.textContent = "🛒"; }, 1200);
+        });
+        const rm = document.createElement("button");
+        rm.className = "fi-btn rm";
+        rm.type = "button";
+        rm.title = "Remover";
+        rm.textContent = "×";
+        rm.addEventListener("click", () => {
+          state.fridge = state.fridge.filter(x => x.id !== it.id);
+          logActivity(`Item <b>${escapeHtml(it.name)}</b> removido da geladeira`);
+          scheduleSave(); renderFridge();
+        });
+        actions.appendChild(cart);
+        actions.appendChild(rm);
+        li.appendChild(actions);
+
+        ul.appendChild(li);
+      }
+      section.appendChild(ul);
+      fridgeListEl.appendChild(section);
+    }
+  }
+
+  fridgeForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = fridgeNameInput.value.trim();
+    if (!name) return;
+    const item = {
+      id: fid(),
+      name,
+      qty: fridgeQtyInput.value.trim() || null,
+      location: fridgeLocSelect.value,
+      expiresAt: fridgeExpInput.value || null,
+      addedAt: new Date().toISOString(),
+    };
+    state.fridge = state.fridge || [];
+    state.fridge.push(item);
+    logActivity(`Item <b>${escapeHtml(name)}</b> adicionado à geladeira (${fridgeLoc(item.location).label})`);
+    fridgeNameInput.value = "";
+    fridgeQtyInput.value = "";
+    fridgeExpInput.value = "";
+    scheduleSave();
+    renderFridge();
+    fridgeNameInput.focus();
+  });
+
+  const KNOWN_VIEWS = new Set(["map", "fridge", "grocery", "routines", "profile"]);
   function setView(v) {
-    currentView = (v === "grocery") ? "grocery" : (v === "profile" ? "profile" : (v === "routines" ? "routines" : "map"));
+    currentView = KNOWN_VIEWS.has(v) ? v : "map";
     localStorage.setItem(VIEW_KEY, currentView);
     appShell.classList.toggle("view-grocery", currentView === "grocery");
     appShell.classList.toggle("view-profile", currentView === "profile");
     appShell.classList.toggle("view-routines", currentView === "routines");
+    appShell.classList.toggle("view-fridge", currentView === "fridge");
     for (const btn of document.querySelectorAll(".view-tab")) {
       btn.classList.toggle("active", btn.dataset.view === currentView);
     }
     if (currentView === "grocery") {
       renderGrocery();
       setTimeout(() => groceryNameInput.focus(), 0);
+    } else if (currentView === "fridge") {
+      renderFridge();
+      setTimeout(() => fridgeNameInput.focus(), 0);
     } else if (currentView === "profile") {
       renderProfilePage();
     } else if (currentView === "routines") {

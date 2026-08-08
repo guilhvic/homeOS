@@ -370,6 +370,34 @@ app.get("/api/ha/states", authRequired, async (req, res) => {
   }
 });
 
+// Histórico numérico de uma entidade (para gráficos de sensores)
+app.get("/api/ha/history", authRequired, async (req, res) => {
+  if (!userHaEnabled(req.user)) return res.status(503).json({ error: "HA não configurado" });
+  const entityId = String(req.query.entity_id || "");
+  if (!/^[a-z_]+\.[a-z0-9_]+$/.test(entityId)) return res.status(400).json({ error: "entity_id inválido" });
+  const hours = Math.min(168, Math.max(1, parseInt(req.query.hours, 10) || 24));
+  const start = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+  try {
+    const suffix = `/api/history/period/${encodeURIComponent(start)}`
+      + `?filter_entity_id=${encodeURIComponent(entityId)}&minimal_response&no_attributes`;
+    const r = await haFetch(req.user, suffix);
+    if (!r.ok) return res.status(502).json({ error: "HA respondeu " + r.status });
+    const data = await r.json();
+    const series = Array.isArray(data) && Array.isArray(data[0]) ? data[0] : [];
+    const points = [];
+    for (const p of series) {
+      const v = Number(p.state);
+      if (!Number.isFinite(v)) continue; // ignora unknown/unavailable
+      const t = new Date(p.last_changed || p.last_updated || 0).getTime();
+      if (!Number.isFinite(t) || t === 0) continue;
+      points.push({ t, v });
+    }
+    res.json({ entity_id: entityId, hours, points });
+  } catch (e) {
+    res.status(502).json({ error: String(e.message || e) });
+  }
+});
+
 // --- Routines ---
 // Routines are stored in the user's state.routines array. The server exposes a
 // "run by id" endpoint and runs time-triggered routines on a minute scheduler.
