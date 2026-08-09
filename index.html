@@ -96,6 +96,71 @@
     padding: 24px 16px 64px;
   }
 
+  /* Tasks (afazeres) view replaces map+aside */
+  #app-shell.view-tasks {
+    grid-template-columns: 1fr;
+    grid-template-areas: "top" "tasks";
+  }
+  #app-shell.view-tasks #map-wrap,
+  #app-shell.view-tasks aside { display: none; }
+  #app-shell:not(.view-tasks) #tasks-view { display: none; }
+  #app-shell.view-tasks .map-only { display: none; }
+  #tasks-view { grid-area: tasks; overflow-y: auto; background: var(--bg); padding: 24px 16px 64px; }
+  .tasks-shell { max-width: 780px; margin: 0 auto; }
+  .tasks-head h2 { margin: 0 0 2px; font-size: 22px; }
+  .task-add { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+  .task-add input, .task-add select {
+    border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+    border-radius: 8px; padding: 10px 12px; font: inherit;
+  }
+  .task-add input.tname { flex: 1; min-width: 160px; }
+  .task-add input.tdays { width: 130px; }
+  .task-add input.twho { width: 130px; }
+  #tasks-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+  .task-item {
+    display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--paper);
+  }
+  .task-item.overdue { border-color: var(--danger-soft, rgba(221,51,51,.4)); }
+  .task-item .tinfo { flex: 1; min-width: 0; }
+  .task-item .tname { font-weight: 600; font-size: 15px; }
+  .task-item .tmeta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .task-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .task-badge.ok   { color: #1a7f4b; background: rgba(26,127,75,.12); }
+  .task-badge.soon { color: #b5760a; background: rgba(181,118,10,.14); }
+  .task-badge.due  { color: var(--danger, #d33); background: var(--danger-soft, rgba(221,51,51,.14)); }
+  .task-done-btn {
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+    border-radius: 8px; padding: 8px 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  .task-done-btn:hover { background: rgba(26,127,75,.1); border-color: rgba(26,127,75,.4); }
+  .task-del { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px; }
+  .task-del:hover { color: var(--danger, #d33); }
+
+  /* Card de saúde do servidor (perfil) */
+  .health-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 8px; }
+  .health-metric { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--bg); }
+  .health-metric .hm-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+  .health-metric .hm-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .health-bar { height: 5px; border-radius: 3px; background: rgba(127,127,127,.2); margin-top: 6px; overflow: hidden; }
+  .health-bar > span { display: block; height: 100%; background: var(--accent, #4a90d9); border-radius: 3px; }
+  .health-bar.warm > span { background: #d99a2b; }
+  .health-bar.hot > span { background: var(--danger, #d33); }
+
+  /* Protetor de tela / modo descanso */
+  #screensaver {
+    position: fixed; inset: 0; z-index: 9000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    background: #05070d; color: #e8eef7; cursor: pointer; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #screensaver[hidden] { display: none; }
+  #ss-clock { font-size: clamp(64px, 18vw, 200px); font-weight: 300; letter-spacing: 2px; line-height: 1; font-variant-numeric: tabular-nums; }
+  #ss-date { font-size: clamp(16px, 3vw, 26px); color: #9fb0c8; text-transform: capitalize; }
+  #ss-extra { margin-top: 18px; display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; color: #c7d3e6; font-size: clamp(14px, 2.4vw, 20px); }
+  #ss-extra .ss-chip { display: flex; align-items: center; gap: 8px; }
+  #ss-hint { position: absolute; bottom: 24px; font-size: 12px; color: #55627a; }
+
   /* Routines view replaces map+aside */
   #app-shell.view-routines {
     grid-template-columns: 1fr;
@@ -1746,6 +1811,7 @@
       <button class="view-tab" data-view="fridge" type="button">🧊 Geladeira</button>
       <button class="view-tab" data-view="grocery" type="button">🛒 Mercado</button>
       <button class="view-tab" data-view="routines" type="button">📅 Rotinas</button>
+      <button class="view-tab" data-view="tasks" type="button">🧹 Afazeres</button>
       <button class="view-tab" data-view="profile" type="button">👤 Perfil</button>
     </div>
     <span class="sub" id="status">— monte o mapa da sua casa</span>
@@ -1987,6 +2053,21 @@
           <div id="profile-devices-list"></div>
         </div>
       </div>
+
+      <!-- Bento Card 7: Saúde do servidor (Span 2) -->
+      <div class="profile-card bento-2">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3>🖥️ Saúde do servidor</h3>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); cursor:pointer;">
+            <input type="checkbox" id="screensaver-toggle" style="width:auto; margin:0;" />
+            Modo descanso
+          </label>
+        </div>
+        <p class="sub">Estado do note que roda o homeOS. Atualiza a cada 15s.</p>
+        <div class="health-grid" id="health-grid">
+          <div class="sub" style="grid-column:1/-1;">Carregando…</div>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -2036,6 +2117,34 @@
       <ul id="routines-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px;"></ul>
     </div>
   </main>
+
+  <!-- ============================ TASKS (AFAZERES) VIEW ============================ -->
+  <main id="tasks-view">
+    <div class="tasks-shell">
+      <header class="tasks-head">
+        <h2>🧹 Afazeres da casa</h2>
+        <span class="sub">Tarefas recorrentes — quem faz e de quanto em quanto tempo.</span>
+      </header>
+
+      <form id="task-add" class="task-add" autocomplete="off">
+        <input class="tname" id="task-name" type="text" placeholder="ex: Regar as plantas" required maxlength="60" />
+        <input class="twho" id="task-who" type="text" placeholder="quem faz (opcional)" maxlength="30" />
+        <input class="tdays" id="task-days" type="number" min="1" max="365" placeholder="cada N dias" required />
+        <button type="submit" class="primary">Adicionar</button>
+      </form>
+
+      <ul id="tasks-list"></ul>
+      <div id="tasks-empty" class="sub" style="padding: 12px 0; font-style: italic; display:none;">Nenhum afazer cadastrado ainda.</div>
+    </div>
+  </main>
+</div>
+
+<!-- ============================ SCREENSAVER / MODO DESCANSO ============================ -->
+<div id="screensaver" hidden>
+  <div id="ss-clock">--:--</div>
+  <div id="ss-date"></div>
+  <div id="ss-extra"></div>
+  <div id="ss-hint">toque para voltar</div>
 </div>
 
 <!-- ============================ DEVICE PICKER MODAL ============================ -->
@@ -2323,6 +2432,7 @@
     setView(currentView);
     haInit();
     startCpuTemp();
+    initScreensaver();
   }
 
   // ===== Temperatura da CPU do servidor =====
@@ -2389,7 +2499,7 @@
   }
 
   function emptyState() {
-    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], fridge: [], view: { tx: 0, ty: 0 } };
+    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], fridge: [], tasks: [], view: { tx: 0, ty: 0 } };
   }
   function normalizeState(s) {
     if (!s || typeof s !== "object") return emptyState();
@@ -2408,6 +2518,7 @@
       routines: Array.isArray(s.routines) ? s.routines : [],
       groceries: Array.isArray(s.groceries) ? s.groceries.filter(g => g && typeof g.id === "string" && typeof g.name === "string") : [],
       fridge: Array.isArray(s.fridge) ? s.fridge.filter(g => g && typeof g.id === "string" && typeof g.name === "string") : [],
+      tasks: Array.isArray(s.tasks) ? s.tasks.filter(t => t && typeof t.id === "string" && typeof t.name === "string") : [],
       view: { tx: Number(v.tx) || 0, ty: Number(v.ty) || 0 },
     };
   }
@@ -5149,6 +5260,221 @@
     renderGrocery();
   });
 
+  // ===== Afazeres (tarefas recorrentes) =====
+  function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function daysBetween(aStr, bStr) {
+    const a = new Date(aStr + "T00:00:00"), b = new Date(bStr + "T00:00:00");
+    return Math.round((b - a) / 86400000);
+  }
+  function renderTasksList() {
+    const ul = document.getElementById("tasks-list");
+    const empty = document.getElementById("tasks-empty");
+    if (!ul) return;
+    ul.innerHTML = "";
+    const tasks = state.tasks || [];
+    if (empty) empty.style.display = tasks.length ? "none" : "block";
+    const withStatus = tasks.map(t => {
+      const every = Math.max(1, parseInt(t.everyDays, 10) || 1);
+      const remaining = t.lastDone ? every - daysBetween(t.lastDone, todayStr()) : -9999;
+      return { t, every, remaining };
+    }).sort((x, y) => x.remaining - y.remaining);
+
+    for (const { t, every, remaining } of withStatus) {
+      const li = document.createElement("li");
+      li.className = "task-item";
+      let badgeClass, badgeText, metaText;
+      if (!t.lastDone) {
+        badgeClass = "due"; badgeText = "fazer"; metaText = "nunca feito";
+      } else if (remaining < 0) {
+        badgeClass = "due"; badgeText = `${-remaining}d atrasado`;
+        metaText = `a cada ${every}d · última há ${daysBetween(t.lastDone, todayStr())}d`;
+      } else if (remaining === 0) {
+        badgeClass = "soon"; badgeText = "hoje"; metaText = `a cada ${every}d`;
+      } else {
+        badgeClass = "ok"; badgeText = `em ${remaining}d`;
+        metaText = `a cada ${every}d · última há ${daysBetween(t.lastDone, todayStr())}d`;
+      }
+      if (badgeClass === "due") li.classList.add("overdue");
+      const who = t.who ? ` · 👤 ${escapeHtml(t.who)}` : "";
+      li.innerHTML = `
+        <div class="tinfo">
+          <div class="tname">${escapeHtml(t.name)}</div>
+          <div class="tmeta">${metaText}${who}</div>
+        </div>
+        <span class="task-badge ${badgeClass}">${badgeText}</span>`;
+      const doneBtn = document.createElement("button");
+      doneBtn.className = "task-done-btn";
+      doneBtn.textContent = "✓ Feito";
+      doneBtn.addEventListener("click", () => {
+        t.lastDone = todayStr();
+        logActivity(`Afazer <b>${escapeHtml(t.name)}</b> marcado como feito`);
+        scheduleSave();
+        renderTasksList();
+      });
+      const del = document.createElement("button");
+      del.className = "task-del";
+      del.textContent = "🗑";
+      del.title = "Remover";
+      del.addEventListener("click", async () => {
+        if (!(await customConfirm(`Remover o afazer "${t.name}"?`))) return;
+        state.tasks = (state.tasks || []).filter(x => x.id !== t.id);
+        scheduleSave();
+        renderTasksList();
+      });
+      li.appendChild(doneBtn);
+      li.appendChild(del);
+      ul.appendChild(li);
+    }
+  }
+  (function initTaskForm() {
+    const form = document.getElementById("task-add");
+    if (!form) return;
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = document.getElementById("task-name").value.trim();
+      const who = document.getElementById("task-who").value.trim();
+      const days = Math.max(1, parseInt(document.getElementById("task-days").value, 10) || 0);
+      if (!name || !days) return;
+      state.tasks = state.tasks || [];
+      state.tasks.push({ id: "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, who, everyDays: days, lastDone: null });
+      logActivity(`Afazer <b>${escapeHtml(name)}</b> criado`);
+      scheduleSave();
+      form.reset();
+      renderTasksList();
+      document.getElementById("task-name").focus();
+    });
+  })();
+
+  // ===== Saúde do servidor =====
+  let healthTimer = null;
+  function fmtBytes(b) {
+    if (b == null) return "—";
+    const u = ["B", "KB", "MB", "GB", "TB"]; let i = 0, n = b;
+    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return (n >= 10 || i === 0 ? Math.round(n) : n.toFixed(1)) + " " + u[i];
+  }
+  function fmtUptime(s) {
+    if (s == null) return "—";
+    const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  }
+  function barClass(pct) { return pct >= 90 ? "hot" : pct >= 75 ? "warm" : ""; }
+  function metricCard(label, value, pct, cls) {
+    const bar = pct != null
+      ? `<div class="health-bar ${cls}"><span style="width:${Math.min(100, Math.max(2, pct))}%"></span></div>` : "";
+    return `<div class="health-metric"><div class="hm-label">${label}</div><div class="hm-value">${value}</div>${bar}</div>`;
+  }
+  async function pollHealth() {
+    const grid = document.getElementById("health-grid");
+    if (!grid || currentView !== "profile") return;
+    try {
+      const r = await api("GET", "/system/health");
+      if (!r.ok || !r.data) { grid.innerHTML = '<div class="sub" style="grid-column:1/-1;">Indisponível.</div>'; return; }
+      const d = r.data, cards = [];
+      if (typeof d.tempC === "number")
+        cards.push(metricCard("Temperatura", d.tempC + "°C", d.tempC >= 82 ? 100 : d.tempC >= 70 ? 70 : 40, d.tempC >= 82 ? "hot" : d.tempC >= 70 ? "warm" : ""));
+      if (d.mem)
+        cards.push(metricCard("Memória", d.mem.pct + "% · " + fmtBytes(d.mem.used) + " / " + fmtBytes(d.mem.total), d.mem.pct, barClass(d.mem.pct)));
+      if (d.disk)
+        cards.push(metricCard("Disco", d.disk.pct + "% · " + fmtBytes(d.disk.used) + " / " + fmtBytes(d.disk.total), d.disk.pct, barClass(d.disk.pct)));
+      if (d.uptimeSec != null)
+        cards.push(metricCard("Uptime", fmtUptime(d.uptimeSec), null, ""));
+      if (d.load)
+        cards.push(metricCard("Carga (1m)", d.load["1m"].toFixed(2), null, ""));
+      grid.innerHTML = cards.join("") || '<div class="sub" style="grid-column:1/-1;">Sem dados do host.</div>';
+    } catch {
+      grid.innerHTML = '<div class="sub" style="grid-column:1/-1;">Erro ao ler saúde.</div>';
+    }
+    if (!healthTimer) healthTimer = setInterval(() => { if (currentView === "profile") pollHealth(); }, 15000);
+  }
+
+  // ===== Modo descanso / protetor de tela =====
+  const SS_KEY = "homeOS/screensaver";
+  const SS_MIN_KEY = "homeOS/screensaverMin";
+  let ssTimer = null, ssClockTimer = null, ssActive = false;
+  function ssEnabled() { return localStorage.getItem(SS_KEY) === "1"; }
+  function ssIdleMs() { return (parseInt(localStorage.getItem(SS_MIN_KEY), 10) || 2) * 60000; }
+  function nextRoutineText() {
+    const routines = ((state && state.routines) || []).filter(r => r.enabled !== false && r.trigger && r.trigger.type === "time" && r.trigger.time);
+    if (!routines.length) return null;
+    const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
+    let best = null;
+    for (const r of routines) {
+      const [h, m] = r.trigger.time.split(":").map(Number);
+      let delta = (h * 60 + m) - nowMin;
+      if (delta < 0) delta += 1440;
+      if (best === null || delta < best.delta) best = { delta, r };
+    }
+    return best ? `⏰ ${best.r.trigger.time} · ${best.r.name}` : null;
+  }
+  function indoorTempText() {
+    if (typeof haEntities === "undefined" || !haEntities || !haEntities.forEach) return null;
+    const temps = [];
+    haEntities.forEach((e, id) => {
+      const dom = id.split(".")[0], a = e.attributes || {};
+      if (dom === "sensor" && a.device_class === "temperature") {
+        const v = parseFloat(e.state); if (Number.isFinite(v)) temps.push(v);
+      } else if (dom === "climate" && typeof a.current_temperature === "number") {
+        temps.push(a.current_temperature);
+      }
+    });
+    if (!temps.length) return null;
+    return `🌡️ ${(temps.reduce((s, x) => s + x, 0) / temps.length).toFixed(1)}°C dentro`;
+  }
+  function updateScreensaver() {
+    const now = new Date();
+    const clk = document.getElementById("ss-clock");
+    const dt = document.getElementById("ss-date");
+    const ex = document.getElementById("ss-extra");
+    if (clk) clk.textContent = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+    if (dt) dt.textContent = now.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+    if (ex) {
+      const chips = [];
+      const t = indoorTempText(); if (t) chips.push(`<span class="ss-chip">${t}</span>`);
+      const nr = nextRoutineText(); if (nr) chips.push(`<span class="ss-chip">${escapeHtml(nr)}</span>`);
+      ex.innerHTML = chips.join("");
+    }
+  }
+  function showScreensaver() {
+    if (ssActive) return;
+    const ss = document.getElementById("screensaver");
+    if (!ss || appShell.hidden) return;
+    ssActive = true;
+    updateScreensaver();
+    ss.hidden = false;
+    ssClockTimer = setInterval(updateScreensaver, 1000);
+  }
+  function hideScreensaver() {
+    const ss = document.getElementById("screensaver");
+    ssActive = false;
+    if (ss) ss.hidden = true;
+    if (ssClockTimer) { clearInterval(ssClockTimer); ssClockTimer = null; }
+  }
+  function resetIdle() {
+    if (ssActive) hideScreensaver();
+    if (ssTimer) clearTimeout(ssTimer);
+    if (ssEnabled()) ssTimer = setTimeout(showScreensaver, ssIdleMs());
+  }
+  function initScreensaver() {
+    ["pointerdown", "keydown", "mousemove", "touchstart", "wheel"].forEach(ev =>
+      window.addEventListener(ev, resetIdle, { passive: true }));
+    const tog = document.getElementById("screensaver-toggle");
+    if (tog) {
+      tog.checked = ssEnabled();
+      tog.addEventListener("change", () => {
+        localStorage.setItem(SS_KEY, tog.checked ? "1" : "0");
+        resetIdle();
+        showToast(tog.checked ? "Modo descanso ativado (2 min ocioso)" : "Modo descanso desativado", "info");
+      });
+    }
+    resetIdle();
+  }
+
   // ===== View switcher =====
   const VIEW_KEY = "homeOS/view";
   let currentView = localStorage.getItem(VIEW_KEY) || "map";
@@ -5356,13 +5682,14 @@
     fridgeNameInput.focus();
   });
 
-  const KNOWN_VIEWS = new Set(["map", "fridge", "grocery", "routines", "profile"]);
+  const KNOWN_VIEWS = new Set(["map", "fridge", "grocery", "routines", "tasks", "profile"]);
   function setView(v) {
     currentView = KNOWN_VIEWS.has(v) ? v : "map";
     localStorage.setItem(VIEW_KEY, currentView);
     appShell.classList.toggle("view-grocery", currentView === "grocery");
     appShell.classList.toggle("view-profile", currentView === "profile");
     appShell.classList.toggle("view-routines", currentView === "routines");
+    appShell.classList.toggle("view-tasks", currentView === "tasks");
     appShell.classList.toggle("view-fridge", currentView === "fridge");
     for (const btn of document.querySelectorAll(".view-tab")) {
       btn.classList.toggle("active", btn.dataset.view === currentView);
@@ -5375,8 +5702,11 @@
       setTimeout(() => fridgeNameInput.focus(), 0);
     } else if (currentView === "profile") {
       renderProfilePage();
+      pollHealth();
     } else if (currentView === "routines") {
       renderRoutinesList();
+    } else if (currentView === "tasks") {
+      renderTasksList();
     }
   }
   for (const btn of document.querySelectorAll(".view-tab")) {

@@ -352,6 +352,55 @@ app.get("/api/system/temp", authRequired, (req, res) => {
   }
 });
 
+// Saúde do servidor (host): uptime, RAM, disco, carga e temperatura.
+app.get("/api/system/health", authRequired, (req, res) => {
+  const out = { ok: true };
+  // Uptime (segundos do host)
+  try {
+    const up = parseFloat(fs.readFileSync("/proc/uptime", "utf8").split(" ")[0]);
+    if (Number.isFinite(up)) out.uptimeSec = Math.round(up);
+  } catch {}
+  // Memória
+  try {
+    const mi = fs.readFileSync("/proc/meminfo", "utf8");
+    const grab = k => {
+      const m = mi.match(new RegExp("^" + k + ":\\s+(\\d+)\\s*kB", "m"));
+      return m ? parseInt(m[1], 10) * 1024 : null;
+    };
+    const total = grab("MemTotal");
+    const avail = grab("MemAvailable");
+    if (total && avail != null) {
+      out.mem = { total, used: total - avail, pct: Math.round((1 - avail / total) * 100) };
+    }
+  } catch {}
+  // Carga (load average)
+  try {
+    const la = fs.readFileSync("/proc/loadavg", "utf8").split(" ");
+    out.load = { "1m": parseFloat(la[0]), "5m": parseFloat(la[1]), "15m": parseFloat(la[2]) };
+  } catch {}
+  // Disco (usa /data, que é bind-mount do host; cai pra / se não existir)
+  try {
+    const target = fs.existsSync("/data") ? "/data" : "/";
+    const st = fs.statfsSync(target);
+    const total = st.blocks * st.bsize;
+    const free = st.bavail * st.bsize;
+    if (total > 0) out.disk = { total, used: total - free, pct: Math.round((1 - free / total) * 100) };
+  } catch {}
+  // Temperatura (maior zona)
+  try {
+    const base = "/sys/class/thermal";
+    let max = null;
+    for (const d of fs.readdirSync(base).filter(x => /^thermal_zone\d+$/.test(x))) {
+      try {
+        const c = Math.round(parseInt(fs.readFileSync(path.join(base, d, "temp"), "utf8").trim(), 10) / 1000);
+        if (Number.isFinite(c) && (max === null || c > max)) max = c;
+      } catch {}
+    }
+    if (max !== null) out.tempC = max;
+  } catch {}
+  res.json(out);
+});
+
 app.get("/api/ha/status", authRequired, async (req, res) => {
   if (!userHaEnabled(req.user)) return res.json({ configured: false });
   try {
