@@ -114,7 +114,9 @@ function parseCookies(req) {
 function setSessionCookie(res, token) {
   const maxAge = Math.floor(SESSION_TTL_MS / 1000);
   const flags = ["HttpOnly", "SameSite=Lax", "Path=/", `Max-Age=${maxAge}`];
-  if (process.env.NODE_ENV === "production") flags.push("Secure");
+  // Secure exige HTTPS — ative COOKIE_SECURE=1 só depois que o HTTPS estiver no ar
+  // (ex: via Tailscale). Sem isso, dá pra testar em http:// no primeiro boot.
+  if (process.env.COOKIE_SECURE === "1") flags.push("Secure");
   res.setHeader("Set-Cookie", `${SESSION_COOKIE}=${token}; ${flags.join("; ")}`);
 }
 function clearSessionCookie(res) {

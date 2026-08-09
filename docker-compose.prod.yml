@@ -26,7 +26,11 @@ services:
     volumes:
       - ./data:/data           # persiste o banco (data.db) fora do container
     environment:
-      - NODE_ENV=production     # ativa o cookie de sessão Secure (exige HTTPS)
+      - NODE_ENV=production
       - PORT=3030
       - DB_PATH=/data/data.db
       - TZ=America/Sao_Paulo
+      # Depois que o HTTPS (Tailscale) estiver funcionando, descomente a linha
+      # abaixo e rode `docker compose -f docker-compose.prod.yml up -d` de novo,
+      # pra o cookie de sessão só trafegar por HTTPS:
+      # - COOKIE_SECURE=1
