@@ -393,6 +393,10 @@ app.get("/api/ha/states", authRequired, async (req, res) => {
           current_temperature: e.attributes?.current_temperature,
           temperature: e.attributes?.temperature,
           hvac_action: e.attributes?.hvac_action,
+          hvac_modes: e.attributes?.hvac_modes,
+          min_temp: e.attributes?.min_temp,
+          max_temp: e.attributes?.max_temp,
+          target_temp_step: e.attributes?.target_temp_step,
         },
         last_changed: e.last_changed,
       }));
