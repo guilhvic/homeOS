@@ -1,0 +1,32 @@
+# homeOS + Home Assistant em produção (servidor de casa).
+#
+# Ambos usam network_mode: host porque:
+#  - O HA precisa da rede do host pra descobrir dispositivos (mDNS/SSDP).
+#  - O homeOS fala com o HA via http://localhost:8123 (sem complicação de rede).
+#
+# Suba com:  docker compose -f docker-compose.prod.yml up -d --build
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./ha-config:/config
+    environment:
+      - TZ=America/Sao_Paulo
+
+  homeos:
+    build: .
+    container_name: homeos
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - homeassistant
+    volumes:
+      - ./data:/data           # persiste o banco (data.db) fora do container
+    environment:
+      - NODE_ENV=production     # ativa o cookie de sessão Secure (exige HTTPS)
+      - PORT=3030
+      - DB_PATH=/data/data.db
+      - TZ=America/Sao_Paulo

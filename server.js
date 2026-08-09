@@ -4,6 +4,7 @@ const express = require("express");
 const Database = require("better-sqlite3");
 const crypto = require("crypto");
 const path = require("path");
+const fs = require("fs");
 
 const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, "data.db");
@@ -12,6 +13,8 @@ const SESSION_COOKIE = "casa_session";
 const STATE_LIMIT_BYTES = 1024 * 1024; // 1 MB por usuário
 
 // --- DB ---
+// Garante que o diretório do banco existe (ex: DB_PATH=/data/data.db em container)
+fs.mkdirSync(path.dirname(path.resolve(DB_PATH)), { recursive: true });
 const db = new Database(DB_PATH);
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");

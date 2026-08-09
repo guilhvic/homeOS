@@ -1,0 +1,13 @@
+node_modules
+data
+data.db
+data.db-*
+.env
+ha-config
+.git
+.gitignore
+.agents
+*.md
+Dockerfile
+.dockerignore
+docker-compose*.yml
