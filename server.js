@@ -325,6 +325,33 @@ async function haFetch(u, pathSuffix, init = {}) {
   return fetch(url + pathSuffix, { ...init, headers });
 }
 
+// Temperatura da CPU do host (lida de /sys/class/thermal, exposto no container).
+app.get("/api/system/temp", authRequired, (req, res) => {
+  try {
+    const base = "/sys/class/thermal";
+    let dirs = [];
+    try { dirs = fs.readdirSync(base).filter(d => /^thermal_zone\d+$/.test(d)); }
+    catch { return res.json({ available: false }); }
+    let max = null;
+    const zones = [];
+    for (const d of dirs) {
+      try {
+        const milli = parseInt(fs.readFileSync(path.join(base, d, "temp"), "utf8").trim(), 10);
+        if (!Number.isFinite(milli)) continue;
+        const c = Math.round(milli / 1000);
+        let type = "";
+        try { type = fs.readFileSync(path.join(base, d, "type"), "utf8").trim(); } catch {}
+        zones.push({ type, c });
+        if (max === null || c > max) max = c;
+      } catch {}
+    }
+    if (max === null) return res.json({ available: false });
+    res.json({ available: true, celsius: max, zones });
+  } catch (e) {
+    res.json({ available: false, error: String(e.message || e) });
+  }
+});
+
 app.get("/api/ha/status", authRequired, async (req, res) => {
   if (!userHaEnabled(req.user)) return res.json({ configured: false });
   try {

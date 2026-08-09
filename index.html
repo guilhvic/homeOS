@@ -560,6 +560,22 @@
   }
   header .sub { color: var(--muted); font-size: 12px; }
   header .spacer { flex: 1; }
+  .cpu-temp {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+    background: var(--chip, rgba(127,127,127,.12));
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 10px;
+    white-space: nowrap;
+  }
+  .cpu-temp.warm { color: #b5760a; border-color: rgba(181,118,10,.4); }
+  .cpu-temp.hot  { color: var(--danger, #d33); border-color: var(--danger-soft, rgba(221,51,51,.35)); }
 
   button, .btn {
     appearance: none;
@@ -1734,6 +1750,7 @@
     </div>
     <span class="sub" id="status">— monte o mapa da sua casa</span>
     <div class="spacer"></div>
+    <span id="cpu-temp" class="cpu-temp" title="Temperatura da CPU do servidor" hidden></span>
     <button id="profile-btn" class="profile" title="Conta">
       <span class="avatar" id="profile-avatar">🏠</span>
       <span class="pname" id="profile-name">…</span>
@@ -2305,6 +2322,36 @@
     render();
     setView(currentView);
     haInit();
+    startCpuTemp();
+  }
+
+  // ===== Temperatura da CPU do servidor =====
+  let cpuTempTimer = null;
+  async function pollCpuTemp() {
+    const el = document.getElementById("cpu-temp");
+    if (!el) return;
+    try {
+      const r = await api("GET", "/system/temp");
+      if (!r.ok || !r.data || !r.data.available || typeof r.data.celsius !== "number") {
+        el.hidden = true;
+        return;
+      }
+      const c = r.data.celsius;
+      el.textContent = "🌡️ " + c + "°C";
+      el.classList.toggle("warm", c >= 70 && c < 82);
+      el.classList.toggle("hot", c >= 82);
+      if (r.data.zones && r.data.zones.length) {
+        el.title = "CPU do servidor\n" + r.data.zones.map(z => `${z.type || "zona"}: ${z.c}°C`).join("\n");
+      }
+      el.hidden = false;
+    } catch {
+      el.hidden = true;
+    }
+  }
+  function startCpuTemp() {
+    if (cpuTempTimer) return;
+    pollCpuTemp();
+    cpuTempTimer = setInterval(pollCpuTemp, 15000);
   }
 
   // ===== Estado do app =====
