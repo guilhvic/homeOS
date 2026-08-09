@@ -1045,6 +1045,50 @@
     padding: 16px;
   }
   .modal-bg[hidden] { display: none; }
+
+  /* Toasts (substituem alert() nativo) */
+  #toast-container {
+    position: fixed;
+    bottom: 20px; right: 20px;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: min(360px, calc(100vw - 40px));
+    pointer-events: none;
+  }
+  .toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--muted);
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow);
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--ink);
+    animation: toast-in .18s ease-out;
+  }
+  .toast.leaving { animation: toast-out .18s ease-in forwards; }
+  .toast .toast-icon { font-size: 15px; line-height: 1.2; flex-shrink: 0; }
+  .toast .toast-msg { flex: 1; }
+  .toast .toast-close {
+    border: none; background: transparent; color: var(--muted);
+    cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; flex-shrink: 0;
+  }
+  .toast .toast-close:hover { color: var(--ink); background: transparent; }
+  .toast.error   { border-left-color: #ef4444; }
+  .toast.success { border-left-color: #22c55e; }
+  .toast.info    { border-left-color: var(--accent); }
+  @keyframes toast-in  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes toast-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(8px); } }
+  @media (max-width: 640px) {
+    #toast-container { left: 16px; right: 16px; bottom: 16px; max-width: none; }
+  }
   .modal {
     background: var(--paper);
     border: 1px solid var(--line);
@@ -2054,6 +2098,9 @@
   </div>
 </div>
 
+<!-- ============================ TOASTS ============================ -->
+<div id="toast-container" aria-live="polite"></div>
+
 <script>
 (() => {
   "use strict";
@@ -2430,7 +2477,7 @@
     try {
       const r = await api("POST", `/ha/services/${domain}/${service}`, body);
       if (!r.ok) {
-        alert((r.data && r.data.error) || `Erro chamando ${domain}.${service}`);
+        showToast((r.data && r.data.error) || `Erro chamando ${domain}.${service}`, "error");
         return false;
       }
       // Re-poll after a short delay so HA has time to update
@@ -2438,7 +2485,7 @@
       await haPoll();
       return true;
     } catch (e) {
-      alert("Erro de rede ao chamar HA");
+      showToast("Erro de rede ao chamar o Home Assistant", "error");
       return false;
     } finally {
       if (btn) btn.disabled = false;
@@ -3688,7 +3735,7 @@
       scheduleSave();
       render();
     }
-    if (skipped) alert(`${skipped} dispositivo${skipped === 1 ? "" : "s"} sem cômodo sugerido — escolha manualmente.`);
+    if (skipped) showToast(`${skipped} dispositivo${skipped === 1 ? "" : "s"} sem cômodo sugerido — escolha manualmente.`, "info");
     updateSummary();
     if (!syncNewList.children.length) syncNewSection.hidden = true;
   });
@@ -4517,7 +4564,7 @@
           scheduleSave();
           renderRoutinesList();
         } else {
-          alert("Erro ao executar rotina: " + ((res.data && res.data.error) || "erro desconhecido"));
+          showToast("Erro ao executar rotina: " + ((res.data && res.data.error) || "erro desconhecido"), "error");
         }
       });
 
@@ -4666,9 +4713,10 @@
     if (haTokenInput.value.length > 0) patch.haToken = haTokenInput.value;
 
     const r = await api("PATCH", "/me", patch);
-    if (!r.ok) { alert((r.data && r.data.error) || "erro ao salvar perfil"); return; }
+    if (!r.ok) { showToast((r.data && r.data.error) || "erro ao salvar perfil", "error"); return; }
     user = r.data;
     renderProfileChip();
+    showToast("Perfil salvo", "success");
 
     if (oldName !== user.displayName || oldAvatar !== user.avatar) {
       logActivity(`Perfil atualizado para <b>${escapeHtml(user.displayName)}</b> ${user.avatar}`);
@@ -4753,6 +4801,38 @@
       confirmModal.hidden = false;
       confirmResolve = resolve;
     });
+  }
+
+  // Toast não-bloqueante (substitui alert() nativo)
+  const toastContainer = document.getElementById("toast-container");
+  function showToast(message, type = "info", ms = 4000) {
+    const el = document.createElement("div");
+    el.className = "toast " + type;
+    const icon = document.createElement("span");
+    icon.className = "toast-icon";
+    icon.textContent = type === "error" ? "⚠️" : type === "success" ? "✅" : "ℹ️";
+    const msg = document.createElement("span");
+    msg.className = "toast-msg";
+    msg.textContent = message;
+    const close = document.createElement("button");
+    close.className = "toast-close";
+    close.type = "button";
+    close.setAttribute("aria-label", "Fechar");
+    close.textContent = "×";
+    let timer = null;
+    const dismiss = () => {
+      if (!el.parentNode) return;
+      clearTimeout(timer);
+      el.classList.add("leaving");
+      el.addEventListener("animationend", () => el.remove(), { once: true });
+    };
+    close.addEventListener("click", dismiss);
+    el.appendChild(icon);
+    el.appendChild(msg);
+    el.appendChild(close);
+    toastContainer.appendChild(el);
+    if (ms > 0) timer = setTimeout(dismiss, ms);
+    return el;
   }
 
   confirmCancelBtn.addEventListener("click", () => {
