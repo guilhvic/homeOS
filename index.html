@@ -911,6 +911,29 @@
     min-height: 18px;
   }
 
+  .devices-widget {
+    padding: 0 4px 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .devices-widget-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 4px 8px;
+  }
+  .devices-widget-head h4 {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
   .detail-tabs {
     display: flex;
     gap: 2px;
@@ -1912,12 +1935,20 @@
 
       <div class="detail-meta" id="detail-meta"></div>
 
+      <section class="devices-widget" id="devices-widget">
+        <div class="devices-widget-head">
+          <h4>Dispositivos <span class="tab-count" id="devices-widget-count" hidden></span></h4>
+        </div>
+        <ul class="devices" id="devices"></ul>
+        <button id="open-device-picker" class="add-device" type="button">+ Vincular dispositivo</button>
+        <p class="panel-empty" id="devices-empty-msg" hidden>
+          Conecte ao Home Assistant para vincular dispositivos.
+        </p>
+      </section>
+
       <nav class="detail-tabs" role="tablist">
         <button class="detail-tab active" data-tab="tasks" type="button" role="tab">
           Tarefas <span class="tab-count" id="tab-count-tasks" hidden></span>
-        </button>
-        <button class="detail-tab" data-tab="devices" type="button" role="tab">
-          Dispositivos <span class="tab-count" id="tab-count-devices" hidden></span>
         </button>
         <button class="detail-tab" data-tab="notes" type="button" role="tab">
           Notas <span class="tab-dot" id="tab-dot-notes" hidden></span>
@@ -1930,14 +1961,6 @@
           <button type="submit" hidden></button>
         </form>
         <ul class="items" id="items"></ul>
-      </section>
-
-      <section class="detail-panel" data-panel="devices" hidden>
-        <ul class="devices" id="devices"></ul>
-        <button id="open-device-picker" class="add-device" type="button">+ Vincular dispositivo</button>
-        <p class="panel-empty" id="devices-empty-msg" hidden>
-          Conecte ao Home Assistant para vincular dispositivos.
-        </p>
       </section>
 
       <section class="detail-panel" data-panel="notes" hidden>
@@ -5161,7 +5184,7 @@
   const detailMenuEl = document.getElementById("detail-menu");
   const detailMeta = document.getElementById("detail-meta");
   const tabCountTasks = document.getElementById("tab-count-tasks");
-  const tabCountDevices = document.getElementById("tab-count-devices");
+  const devicesWidgetCount = document.getElementById("devices-widget-count");
   const tabDotNotes = document.getElementById("tab-dot-notes");
   const devicesEmptyMsg = document.getElementById("devices-empty-msg");
 
@@ -5200,8 +5223,10 @@
     // Tab badges
     if (tasksTotal) { tabCountTasks.hidden = false; tabCountTasks.textContent = tasksTotal; }
     else tabCountTasks.hidden = true;
-    if (devsCount) { tabCountDevices.hidden = false; tabCountDevices.textContent = devsCount; }
-    else tabCountDevices.hidden = true;
+    if (devicesWidgetCount) {
+      if (devsCount) { devicesWidgetCount.hidden = false; devicesWidgetCount.textContent = devsCount; }
+      else devicesWidgetCount.hidden = true;
+    }
     tabDotNotes.hidden = notesLen === 0;
   }
 
