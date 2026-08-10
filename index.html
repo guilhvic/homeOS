@@ -680,7 +680,11 @@
     border-radius: 999px;
     padding: 4px 10px;
     white-space: nowrap;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
   }
+  body.kiosk .cpu-temp { font-size: 14px; padding: 8px 14px; }
   .cpu-temp.warm { color: #b5760a; border-color: rgba(181,118,10,.4); }
   .cpu-temp.hot  { color: var(--danger, #d33); border-color: var(--danger-soft, rgba(221,51,51,.35)); }
 
@@ -2487,6 +2491,7 @@
 
   // ===== Temperatura da CPU do servidor =====
   let cpuTempTimer = null;
+  let cpuTempDetail = "";
   async function pollCpuTemp() {
     const el = document.getElementById("cpu-temp");
     if (!el) return;
@@ -2501,7 +2506,10 @@
       el.classList.toggle("warm", c >= 70 && c < 82);
       el.classList.toggle("hot", c >= 82);
       if (r.data.zones && r.data.zones.length) {
+        cpuTempDetail = r.data.zones.map(z => `${z.type || "zona"}: ${z.c}°C`).join(" · ");
         el.title = "CPU do servidor\n" + r.data.zones.map(z => `${z.type || "zona"}: ${z.c}°C`).join("\n");
+      } else {
+        cpuTempDetail = `CPU: ${c}°C`;
       }
       el.hidden = false;
     } catch {
@@ -2510,6 +2518,11 @@
   }
   function startCpuTemp() {
     if (cpuTempTimer) return;
+    // Toque/clique mostra os detalhes (o tooltip de hover não funciona no touch).
+    const el = document.getElementById("cpu-temp");
+    if (el) el.addEventListener("click", () => {
+      showToast(cpuTempDetail ? "🌡️ CPU do servidor — " + cpuTempDetail : "Temperatura indisponível", "info");
+    });
     pollCpuTemp();
     cpuTempTimer = setInterval(pollCpuTemp, 15000);
   }
