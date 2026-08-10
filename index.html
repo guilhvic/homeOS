@@ -264,7 +264,7 @@
   body.kiosk header { gap: 14px; }
   body.kiosk header h1 { font-size: 19px; }
   body.kiosk .profile .pname { font-size: 15px; }
-  body.kiosk .profile .avatar { font-size: 22px; }
+  body.kiosk .profile .avatar { font-size: 14px; }
   /* Esconde controles de edicao/admin no kiosk */
   body.kiosk #add-room,
   body.kiosk #lock-btn,
@@ -494,7 +494,9 @@
     border-radius: 50%;
     background: var(--bg);
     border: 1px solid var(--line);
-    font-size: 30px;
+    font-size: 22px;
+    color: var(--accent);
+    background: var(--accent-soft);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -555,7 +557,11 @@
     border-radius: 999px;
     cursor: pointer;
     font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
+  .view-tab .ic { width: 16px; height: 16px; }
   .view-tab:hover { color: var(--ink); background: transparent; border-color: transparent; }
   .view-tab.active {
     background: var(--paper);
@@ -1265,7 +1271,7 @@
     background: var(--accent-soft);
     color: var(--accent);
     display: grid; place-items: center;
-    font-size: 16px;
+    font-size: 12px;
     border: 1px solid var(--line);
   }
   .profile .pname { font-weight: 600; font-size: 13px; }
@@ -1374,6 +1380,14 @@
     border-color: var(--accent-soft);
     box-shadow: 0 8px 25px -4px rgba(0, 0, 0, 0.45), 0 4px 10px -2px rgba(0, 0, 0, 0.35);
   }
+  /* ===== Ícones SVG ===== */
+  .ic { display: inline-block; vertical-align: middle; flex-shrink: 0; width: 20px; height: 20px; }
+  h1 .ic, h2 .ic, h3 .ic, h4 .ic { vertical-align: -0.16em; }
+  .dev-icon .ic { width: 22px; height: 22px; }
+  .app-opt .app-ico .ic { width: 22px; height: 22px; }
+  #dash-toggle .ic { width: 24px; height: 24px; }
+  .avatar, .large-avatar-preview { font-weight: 700; letter-spacing: .5px; }
+
   .dev-icon {
     width: 44px; height: 44px;
     display: grid; place-items: center;
@@ -1921,7 +1935,7 @@
 
 <!-- ============================ AUTH SCREEN ============================ -->
 <div id="auth-screen" hidden>
-  <button id="theme-toggle-auth" class="ghost auth-top" title="Alternar tema">🌙</button>
+  <button id="theme-toggle-auth" class="ghost auth-top" title="Alternar tema"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13A8 8 0 1 1 11 4a6 6 0 0 0 9 9z"/></svg></button>
   <div class="auth-card">
     <h2>homeOS</h2>
     <p class="lede">Entre ou crie uma conta para salvar o mapa da sua casa.</p>
@@ -1949,7 +1963,7 @@
     </form>
 
     <p class="auth-footer">
-      ⚠️ Aviso: este é um MVP. As senhas ficam protegidas por hash <code>scrypt</code> no servidor,
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg> Aviso: este é um MVP. As senhas ficam protegidas por hash <code>scrypt</code> no servidor,
       mas o sistema não tem recuperação de senha, 2FA nem HTTPS por padrão — não use uma senha que você reaproveita em outros serviços.
     </p>
   </div>
@@ -1960,21 +1974,21 @@
   <header>
     <h1>homeOS</h1>
     <div class="view-tabs" role="tablist">
-      <button class="view-tab active" data-view="map" type="button">🏠 Casa</button>
-      <button class="view-tab" data-view="fridge" type="button">🧊 Geladeira</button>
-      <button class="view-tab" data-view="grocery" type="button">🛒 Mercado</button>
-      <button class="view-tab" data-view="routines" type="button">📅 Rotinas</button>
-      <button class="view-tab" data-view="tasks" type="button">🧹 Afazeres</button>
-      <button class="view-tab" data-view="profile" type="button">👤 Perfil</button>
+      <button class="view-tab active" data-view="map" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span>Casa</span></button>
+      <button class="view-tab" data-view="fridge" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M6 10h12M9 6v1M9 13v3"/></svg><span>Geladeira</span></button>
+      <button class="view-tab" data-view="grocery" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12h11l1.9-8H6"/></svg><span>Mercado</span></button>
+      <button class="view-tab" data-view="routines" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span>Rotinas</span></button>
+      <button class="view-tab" data-view="tasks" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M8.5 13l2 2 4-4"/></svg><span>Afazeres</span></button>
+      <button class="view-tab" data-view="profile" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Perfil</span></button>
     </div>
     <span class="sub" id="status">— monte o mapa da sua casa</span>
     <div class="spacer"></div>
     <span id="cpu-temp" class="cpu-temp" title="Temperatura da CPU do servidor" hidden></span>
     <button id="profile-btn" class="profile" title="Conta">
-      <span class="avatar" id="profile-avatar">🏠</span>
+      <span class="avatar" id="profile-avatar"></span>
       <span class="pname" id="profile-name">…</span>
     </button>
-    <button id="sync-btn" class="ghost map-only" title="Sincronizar dispositivos do Home Assistant" aria-label="Sincronizar dispositivos">🔄</button>
+    <button id="sync-btn" class="ghost map-only" title="Sincronizar dispositivos do Home Assistant" aria-label="Sincronizar dispositivos"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-.5 4"/><path d="M20 4v5h-5"/></svg></button>
   </header>
 
   <div id="map-wrap">
@@ -2128,7 +2142,7 @@
       <!-- Bento Card 1: Conta (Span 2) -->
       <div class="profile-card bento-2">
         <div class="profile-header-main">
-          <div class="large-avatar-preview" id="large-avatar-preview">🏠</div>
+          <div class="large-avatar-preview" id="large-avatar-preview"></div>
           <div class="profile-title-sub">
             <h3>Sua Conta</h3>
             <p class="sub" id="profile-username-sub">@…</p>
@@ -2142,28 +2156,28 @@
         
         <div class="field">
           <label>Avatar</label>
-          <div class="avatar-picker" id="avatar-picker"></div>
+          <p class="sub" style="margin:2px 0 0;">Gerado a partir das iniciais do seu nome de exibição.</p>
         </div>
       </div>
 
       <!-- Bento Card 2: Preferências (Span 1) -->
       <div class="profile-card">
-        <h3>⚙️ Preferências</h3>
+        <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg> Preferências</h3>
         <p class="sub">Personalize as configurações visuais do aplicativo.</p>
         
         <div class="field" style="margin-top: auto; margin-bottom: auto;">
           <label for="theme-select">Tema do aplicativo</label>
           <select id="theme-select" style="width:100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 10px 12px; font: inherit;">
-            <option value="light">☀️ Claro</option>
-            <option value="dark">🌙 Escuro</option>
-            <option value="system">🖥️ Sistema</option>
+            <option value="light">Claro</option>
+            <option value="dark">Escuro</option>
+            <option value="system">Sistema</option>
           </select>
         </div>
       </div>
 
       <!-- Bento Card 3: Home Assistant (Span 2) -->
       <div class="profile-card bento-2">
-        <h3>🤖 Home Assistant</h3>
+        <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg> Home Assistant</h3>
         <p class="sub" id="ha-config-status">…</p>
         
         <div class="field">
@@ -2179,7 +2193,7 @@
       <!-- Bento Card 4: Segurança e Sessão (Span 1) -->
       <div class="profile-card" style="justify-content: space-between;">
         <div>
-          <h3>🔒 Segurança e Sessão</h3>
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> Segurança e Sessão</h3>
           <p class="sub">Gerencie sua senha e conexões ativas.</p>
         </div>
         <div style="display: flex; flex-direction: column; gap: 8px; margin-top: auto;">
@@ -2200,7 +2214,7 @@
 
       <!-- Bento Card 6: Dispositivos Vinculados (Span 1) -->
       <div class="profile-card" style="max-height: 400px; display: flex; flex-direction: column;">
-        <h3>🔌 Dispositivos Vinculados</h3>
+        <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2v6M15 2v6"/><path d="M7 8h10v2a5 5 0 0 1-10 0z"/><path d="M12 15v7"/></svg> Dispositivos Vinculados</h3>
         <p class="sub">Dispositivos associados aos cômodos.</p>
         <div class="field" style="overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--bg); flex: 1; min-height: 0;">
           <div id="profile-devices-list"></div>
@@ -2210,7 +2224,7 @@
       <!-- Bento Card 7: Saúde do servidor (Span 2) -->
       <div class="profile-card bento-2">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h3>🖥️ Saúde do servidor</h3>
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg> Saúde do servidor</h3>
           <div style="display:flex; align-items:center; gap:14px;">
             <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); cursor:pointer;">
               <input type="checkbox" id="kiosk-toggle" style="width:auto; margin:0;" />
@@ -2242,7 +2256,7 @@
   <main id="routines-view">
     <div class="routines-shell">
       <header class="routines-head">
-        <h2>📅 Rotinas</h2>
+        <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg> Rotinas</h2>
         <span class="grocery-summary">Crie rotinas com ações agendadas ou para execução rápida.</span>
       </header>
 
@@ -2289,7 +2303,7 @@
   <main id="tasks-view">
     <div class="tasks-shell">
       <header class="tasks-head">
-        <h2>🧹 Afazeres da casa</h2>
+        <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M8.5 13l2 2 4-4"/></svg> Afazeres da casa</h2>
         <span class="sub">Tarefas recorrentes — quem faz e de quanto em quanto tempo.</span>
       </header>
 
@@ -2329,10 +2343,10 @@
 </button>
 <div id="app-switcher" hidden role="menu" aria-label="Trocar de app">
   <button class="app-opt" data-app="home" type="button" role="menuitem">
-    <span class="app-ico">🏠</span><span class="app-name">homeOS</span><span class="app-dot"></span>
+    <span class="app-ico"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></span><span class="app-name">homeOS</span><span class="app-dot"></span>
   </button>
   <button class="app-opt" data-app="dash" type="button" role="menuitem">
-    <span class="app-ico">📊</span><span class="app-name">Meu Dia</span><span class="app-dot"></span>
+    <span class="app-ico"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></span><span class="app-name">Meu Dia</span><span class="app-dot"></span>
   </button>
 </div>
 
@@ -2423,7 +2437,6 @@
   // ===== Constantes =====
   const THEME_KEY = "casa-organizada/theme";
   const MAX_HISTORY = 100;
-  const AVATARS = ["🏠","🏡","🌿","🪴","🛋️","🛏️","🍳","📚","🎨","🐱","🐶","☕","🌞","🌙","⭐","🦊","🐢","🌸"];
 
   // ===== Tema (independente de auth) =====
   function applyTheme(t) {
@@ -2432,10 +2445,10 @@
       resolved = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
     }
     document.documentElement.setAttribute("data-theme", resolved);
-    const icon = resolved === "dark" ? "☀️" : "🌙";
+    const icon = resolved === "dark" ? svgIcon("sun") : svgIcon("moon");
     const title = resolved === "dark" ? "Tema claro" : "Tema escuro";
     for (const btn of document.querySelectorAll("#theme-toggle, #theme-toggle-auth")) {
-      btn.textContent = icon;
+      btn.innerHTML = icon;
       btn.title = title;
     }
     const select = document.getElementById("theme-select");
@@ -2444,7 +2457,15 @@
     }
   }
   const savedTheme = localStorage.getItem(THEME_KEY) || "system";
-  applyTheme(savedTheme);
+  // Paint inicial do tema sem depender do sistema de ícones (definido mais abaixo).
+  // O applyTheme completo (com ícones nos botões) roda logo após o bloco de ícones.
+  (function () {
+    let resolved = savedTheme;
+    if (savedTheme === "system") {
+      resolved = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+    }
+    document.documentElement.setAttribute("data-theme", resolved);
+  })();
 
   function bindThemeToggle(btn) {
     if (!btn) return;
@@ -2640,7 +2661,7 @@
         return;
       }
       const c = r.data.celsius;
-      el.textContent = "🌡️ " + c + "°C";
+      el.innerHTML = svgIcon("thermometer", 15) + " " + c + "°C";
       el.classList.toggle("warm", c >= 70 && c < 82);
       el.classList.toggle("hot", c >= 82);
       if (r.data.zones && r.data.zones.length) {
@@ -2659,7 +2680,7 @@
     // Toque/clique mostra os detalhes (o tooltip de hover não funciona no touch).
     const el = document.getElementById("cpu-temp");
     if (el) el.addEventListener("click", () => {
-      showToast(cpuTempDetail ? "🌡️ CPU do servidor — " + cpuTempDetail : "Temperatura indisponível", "info");
+      showToast(cpuTempDetail ? "CPU do servidor — " + cpuTempDetail : "Temperatura indisponível", "info");
     });
     pollCpuTemp();
     cpuTempTimer = setInterval(pollCpuTemp, 15000);
@@ -2776,13 +2797,80 @@
   let haPollTimer = null;
   const HA_POLL_MS = 7000;
 
+  // ===== Sistema de ícones (SVG minimalista, stroke, currentColor) =====
+  const ICON = {
+    home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+    fridge: '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M6 10h12M9 6v1M9 13v3"/>',
+    cart: '<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12h11l1.9-8H6"/>',
+    calendar: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>',
+    tasks: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M8.5 13l2 2 4-4"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
+    refresh: '<path d="M20 11a8 8 0 1 0-.5 4"/><path d="M20 4v5h-5"/>',
+    moon: '<path d="M20 13A8 8 0 1 1 11 4a6 6 0 0 0 9 9z"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.4 1.4M17.6 17.6L19 19M19 5l-1.4 1.4M6.4 17.6L5 19"/>',
+    monitor: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/>',
+    cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/>',
+    lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    unlock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-1.8"/>',
+    plug: '<path d="M9 2v6M15 2v6"/><path d="M7 8h10v2a5 5 0 0 1-10 0z"/><path d="M12 15v7"/>',
+    server: '<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/>',
+    chart: '<path d="M3 21h18"/><path d="M6 21v-6M11 21V9M16 21v-8"/>',
+    dashboard: '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
+    thermometer: '<path d="M14 14V5a2 2 0 0 0-4 0v9a4 4 0 1 0 4 0z"/>',
+    droplet: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
+    bulb: '<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12c.9.9 1 1.7 1 3h6c0-1.3.1-2.1 1-3a7 7 0 0 0-4-12z"/>',
+    bolt: '<path d="M13 2L4 14h7l-2 8 9-12h-7z"/>',
+    battery: '<rect x="2" y="8" width="18" height="9" rx="2"/><path d="M22 11v3M6 11v3"/>',
+    snowflake: '<path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"/>',
+    flame: '<path d="M12 2s5 4.5 5 10a5 5 0 0 1-10 0c0-2 1-3.2 2-4 .2 1.8 1 2.6 2 2.8-.6-3 .3-6 1-8.8z"/>',
+    tv: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 3l4 3 4-3"/>',
+    fan: '<circle cx="12" cy="12" r="2"/><path d="M12 10c0-4-1-6 2-7 2.5 1 2 4-2 7M14 12c4 0 6-1 7 2-1 2.5-4 2-7-2M12 14c0 4 1 6-2 7-2.5-1-2-4 2-7M10 12c-4 0-6 1-7-2 1-2.5 4-2 7 2"/>',
+    window: '<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M12 3v18M4 12h16"/>',
+    pin: '<path d="M12 22s7-6 7-12a7 7 0 0 0-14 0c0 6 7 12 7 12z"/><circle cx="12" cy="10" r="2.4"/>',
+    wind: '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h9a2.5 2.5 0 1 1-2.5 2.5"/>',
+    vacuum: '<circle cx="12" cy="13" r="8"/><path d="M9 13h6"/><circle cx="12" cy="13" r="1"/>',
+    trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14"/>',
+    check: '<path d="M4 12l5 5L20 6"/>',
+    warning: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/>',
+    success: '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-5"/>',
+    dot: '<circle cx="12" cy="12" r="4"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    leaf: '<path d="M4 20c0-8 6-14 16-14 0 10-6 16-16 14z"/><path d="M4 20l9-9"/>',
+    bread: '<path d="M6 11a4 4 0 0 1 4-4h4a4 4 0 0 1 0 8H10a4 4 0 0 1-4-4z"/><path d="M10 7v8M14 7v8"/>',
+    meat: '<path d="M14 4a5 5 0 0 1 3 9l-6 6-3 1-1-1 1-3 6-6a5 5 0 0 1 0-6z"/>',
+    milk: '<path d="M9 2h6v3l2 4v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V9l2-4z"/><path d="M7 12h10"/>',
+    grain: '<path d="M12 3v18"/><path d="M12 7c2-2 4-2 5-1-1 2-3 3-5 3M12 7c-2-2-4-2-5-1 1 2 3 3 5 3M12 12c2-2 4-2 5-1-1 2-3 3-5 3M12 12c-2-2-4-2-5-1 1 2 3 3 5 3"/>',
+    cup: '<path d="M7 4h10l-1 16H8z"/><path d="M9 9h6"/>',
+    spray: '<rect x="8" y="8" width="6" height="13" rx="1.5"/><path d="M9 8V4h3v4M12 5h3M15 3v4M18 4h.01M17 6h.01M18 8h.01"/>',
+    lotion: '<rect x="8" y="8" width="8" height="13" rx="2"/><path d="M10 8V5h4v3M11 3h2v2h-2z"/>',
+    box: '<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
+    door: '<rect x="6" y="3" width="12" height="18" rx="1"/><path d="M14 12h.01"/>',
+    shelf: '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 10h16M4 15h16"/>',
+    theme: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18" fill="currentColor"/>',
+  };
+  function svgIcon(name, size, cls) {
+    const p = ICON[name] || ICON.dot;
+    const s = size || 20;
+    return `<svg class="ic${cls ? " " + cls : ""}" viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+  }
+  function initials(name) {
+    const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return "?";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  // Agora que ICON existe, aplica o tema completo (ícones dos botões de tema).
+  applyTheme(savedTheme);
+
   const DOMAIN_ICON = {
-    light: "💡", switch: "🔌", climate: "❄️", fan: "🌀",
-    cover: "🪟", media_player: "📺", lock: "🔒", vacuum: "🤖",
-    humidifier: "💧", sensor: "📊", binary_sensor: "📍",
+    light: "bulb", switch: "plug", climate: "snowflake", fan: "fan",
+    cover: "window", media_player: "tv", lock: "lock", vacuum: "vacuum",
+    humidifier: "wind", sensor: "chart", binary_sensor: "pin",
   };
   function entityDomain(id) { return (id || "").split(".")[0]; }
-  function entityIcon(id) { return DOMAIN_ICON[entityDomain(id)] || "🔘"; }
+  function entityIcon(id) { return svgIcon(DOMAIN_ICON[entityDomain(id)] || "dot"); }
   function devId(d) { return typeof d === "string" ? d : d?.entityId; }
   function devObj(room, id) { return (room.devices || []).find(d => devId(d) === id); }
 
@@ -3310,7 +3398,7 @@
     row1.className = "row1";
     const ic = document.createElement("div");
     ic.className = "dev-icon " + d.kind;
-    ic.textContent = "💡";
+    ic.innerHTML = svgIcon("bulb");
     const body = document.createElement("div");
     body.className = "dev-body";
     const nm = document.createElement("div");
@@ -3484,7 +3572,7 @@
     row.className = "dev-row";
     const ic = document.createElement("div");
     ic.className = "dev-icon " + d.kind;
-    ic.textContent = entityIcon(id);
+    ic.innerHTML = entityIcon(id);
     const body = document.createElement("div");
     body.className = "dev-body";
     const nm = document.createElement("div");
@@ -3499,7 +3587,7 @@
     const chartBtn = document.createElement("button");
     chartBtn.type = "button";
     chartBtn.className = "dev-ctrl chart-toggle";
-    chartBtn.textContent = "📈";
+    chartBtn.innerHTML = svgIcon("chart", 16);
     chartBtn.title = "Ver histórico";
 
     const chartWrap = document.createElement("div");
@@ -3548,7 +3636,7 @@
     const li = document.createElement("li");
     const ic = document.createElement("div");
     ic.className = "dev-icon " + d.kind;
-    ic.textContent = entityIcon(id);
+    ic.innerHTML = entityIcon(id);
     const body = document.createElement("div");
     body.className = "dev-body";
     const nm = document.createElement("div");
@@ -3603,7 +3691,7 @@
       btn.type = "button";
       btn.className = "dev-ctrl power" + (locked ? " on" : "");
       btn.title = locked ? "Destrancar" : "Trancar";
-      btn.textContent = locked ? "🔒" : "🔓";
+      btn.innerHTML = svgIcon(locked ? "lock" : "unlock", 16);
       btn.addEventListener("click", (ev) => {
         ev.stopPropagation();
         haCall("lock", locked ? "unlock" : "lock", { entity_id: id }, btn);
@@ -3654,7 +3742,7 @@
     row1.className = "row1";
     const ic = document.createElement("div");
     ic.className = "dev-icon " + d.kind;
-    ic.textContent = entityIcon(id);
+    ic.innerHTML = entityIcon(id);
     const body = document.createElement("div");
     body.className = "dev-body";
     const nm = document.createElement("div");
@@ -3747,50 +3835,40 @@
                 : unit === "%" ? `${value}%`
                 : unit ? `${value} ${unit}`
                 : value;
-      const prefix = dc === "temperature" ? "🌡️ "
-                   : dc === "humidity"    ? "💧 "
-                   : dc === "illuminance" ? "💡 "
-                   : dc === "power"       ? "⚡ "
-                   : dc === "energy"      ? "🔋 "
-                   : "";
-      return { text: prefix + sym, kind: "neutral" };
+      return { text: sym, kind: "neutral" };
     }
     if (dom === "climate") {
       const action = a.hvac_action || s;
       const t = a.current_temperature ?? a.temperature;
       const tempStr = t != null ? `${t}°` : "";
-      const icon = action === "cooling" || s === "cool" ? "❄️"
-                : action === "heating" || s === "heat"  ? "🔥"
-                : s === "off" || action === "off"       ? "❄️"
-                : "❄️";
       const kind = (action === "cooling" || s === "cool") ? "cool"
                 : (action === "heating" || s === "heat")  ? "heat"
                 : (s === "off" || action === "off")       ? "off"
                 : "on";
       const label = s === "off" ? "off" : (a.hvac_action || s);
-      return { text: `${icon} ${label}${tempStr ? " " + tempStr : ""}`, kind };
+      return { text: `${label}${tempStr ? " " + tempStr : ""}`, kind };
     }
     if (dom === "media_player") {
       const on = s === "on" || s === "playing";
-      return { text: `📺 ${on ? "on" : (s === "off" ? "off" : s)}`, kind: on ? "on" : "off" };
+      return { text: `${on ? "on" : (s === "off" ? "off" : s)}`, kind: on ? "on" : "off" };
     }
     if (dom === "light") {
       const on = s === "on";
-      return { text: `💡 ${on ? "on" : "off"}`, kind: on ? "on" : "off" };
+      return { text: `${on ? "on" : "off"}`, kind: on ? "on" : "off" };
     }
     if (dom === "switch") {
       const on = s === "on";
-      return { text: `🔌 ${on ? "on" : "off"}`, kind: on ? "on" : "off" };
+      return { text: `${on ? "on" : "off"}`, kind: on ? "on" : "off" };
     }
     if (dom === "fan") {
       const on = s === "on";
-      return { text: `🌀 ${on ? "on" : "off"}`, kind: on ? "on" : "off" };
+      return { text: `${on ? "on" : "off"}`, kind: on ? "on" : "off" };
     }
-    if (dom === "cover") return { text: `🪟 ${s}`, kind: s === "open" ? "on" : "off" };
-    if (dom === "lock")  return { text: s === "locked" ? "🔒 ok" : "🔓 aberto", kind: s === "locked" ? "off" : "on" };
-    if (dom === "binary_sensor") return { text: `📍 ${s}`, kind: s === "on" ? "on" : "off" };
-    if (dom === "humidifier") return { text: `💨 ${s}`, kind: s === "on" ? "on" : "off" };
-    if (dom === "vacuum") return { text: `🤖 ${s}`, kind: s === "cleaning" ? "on" : "off" };
+    if (dom === "cover") return { text: `${s}`, kind: s === "open" ? "on" : "off" };
+    if (dom === "lock")  return { text: s === "locked" ? "trancado" : "aberto", kind: s === "locked" ? "off" : "on" };
+    if (dom === "binary_sensor") return { text: `${s}`, kind: s === "on" ? "on" : "off" };
+    if (dom === "humidifier") return { text: `${s}`, kind: s === "on" ? "on" : "off" };
+    if (dom === "vacuum") return { text: `${s}`, kind: s === "cleaning" ? "on" : "off" };
     return null;
   }
 
@@ -3829,7 +3907,7 @@
         const id = devId(dev);
         const stat = statForEntity(id);
         const display = entityDisplay(id);
-        const label = stat ? stat.text : entityIcon(id);
+        const label = stat ? stat.text : (display.name || entityDomain(id));
         const kind = stat ? stat.kind : (display.kind || "neutral");
         const pinW = Math.max(28, Math.ceil(label.length * charW) + padX * 2);
 
@@ -3961,7 +4039,7 @@
         li.dataset.entityId = e.entity_id;
         const ic = document.createElement("div");
         ic.className = "dev-icon " + entityDisplay(e.entity_id).kind;
-        ic.textContent = entityIcon(e.entity_id);
+        ic.innerHTML = entityIcon(e.entity_id);
         const body = document.createElement("div");
         body.className = "body";
         const name = document.createElement("div");
@@ -4025,7 +4103,7 @@
         li.dataset.entityId = id;
         const ic = document.createElement("div");
         ic.className = "dev-icon";
-        ic.textContent = "⚠️";
+        ic.innerHTML = svgIcon("warning");
         const body = document.createElement("div");
         body.className = "body";
         const name = document.createElement("div");
@@ -4167,7 +4245,7 @@
       if (blocked || isMine) li.classList.add("assigned");
       const ic = document.createElement("div");
       ic.className = "dev-icon " + entityDisplay(e.entity_id).kind;
-      ic.textContent = entityIcon(e.entity_id);
+      ic.innerHTML = entityIcon(e.entity_id);
       const body = document.createElement("div");
       body.style.flex = "1";
       const top = document.createElement("div");
@@ -4712,15 +4790,13 @@
   const profileName = document.getElementById("profile-name");
   const profileUsernameSub = document.getElementById("profile-username-sub");
   const profileNameInput = document.getElementById("profile-name-input");
-  const avatarPicker = document.getElementById("avatar-picker");
   const haUrlInput = document.getElementById("ha-url-input");
   const haTokenInput = document.getElementById("ha-token-input");
   const haConfigStatus = document.getElementById("ha-config-status");
-  let pendingAvatar = null;
 
   function renderProfileChip() {
     if (!user) return;
-    profileAvatar.textContent = user.avatar || "🏠";
+    profileAvatar.textContent = initials(user.displayName || user.username);
     profileName.textContent = user.displayName || user.username;
   }
   function renderProfileDevices() {
@@ -4809,29 +4885,17 @@
 
   function renderProfilePage() {
     if (!user) return;
-    pendingAvatar = user.avatar || "🏠";
     const largeAvatar = document.getElementById("large-avatar-preview");
-    if (largeAvatar) largeAvatar.textContent = pendingAvatar;
+    const setPreview = () => { if (largeAvatar) largeAvatar.textContent = initials(profileNameInput.value || user.username); };
     profileUsernameSub.textContent = "@" + user.username;
     profileNameInput.value = user.displayName || "";
+    setPreview();
+    profileNameInput.oninput = setPreview;
     haUrlInput.value = user.haUrl || "";
     haTokenInput.value = "";
     haConfigStatus.textContent = user.haConfigured
       ? `Conectado · token salvo. Deixe o campo vazio para manter; cole um novo para substituir.`
       : `Cole a URL e o Long-Lived Token para mostrar dispositivos no mapa.`;
-    avatarPicker.innerHTML = "";
-    for (const a of AVATARS) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.textContent = a;
-      if (a === pendingAvatar) b.classList.add("selected");
-      b.addEventListener("click", () => {
-        pendingAvatar = a;
-        if (largeAvatar) largeAvatar.textContent = a;
-        avatarPicker.querySelectorAll("button").forEach(x => x.classList.toggle("selected", x.textContent === a));
-      });
-      avatarPicker.appendChild(b);
-    }
     renderProfileDevices();
     renderActivity();
     
@@ -4938,7 +5002,7 @@
       timeText.style.fontSize = "12px";
       timeText.style.color = "var(--muted)";
       if (r.trigger && r.trigger.type === "time") {
-        timeText.textContent = `⏰ ${r.trigger.time}`;
+        timeText.innerHTML = `${svgIcon("clock", 13)} ${r.trigger.time}`;
       } else {
         timeText.textContent = "Sem agendamento";
       }
@@ -5139,7 +5203,7 @@
     const oldHaConfigured = !!user.haConfigured;
     const oldHaUrl = user.haUrl || "";
 
-    const patch = { displayName: newName, avatar: pendingAvatar };
+    const patch = { displayName: newName, avatar: initials(newName || user.username) };
     const newUrl = haUrlInput.value.trim();
     if (newUrl !== oldHaUrl) patch.haUrl = newUrl;
     if (haTokenInput.value.length > 0) patch.haToken = haTokenInput.value;
@@ -5242,7 +5306,7 @@
     el.className = "toast " + type;
     const icon = document.createElement("span");
     icon.className = "toast-icon";
-    icon.textContent = type === "error" ? "⚠️" : type === "success" ? "✅" : "ℹ️";
+    icon.innerHTML = svgIcon(type === "error" ? "warning" : type === "success" ? "success" : "info", 18);
     const msg = document.createElement("span");
     msg.className = "toast-msg";
     msg.textContent = message;
@@ -5348,16 +5412,16 @@
 
   // ===== Grocery =====
   const GROCERY_CATEGORIES = [
-    { id: "hortifruti", label: "Hortifruti", emoji: "🥬" },
-    { id: "padaria",    label: "Padaria",            emoji: "🥖" },
-    { id: "carnes",     label: "Carnes & peixes",    emoji: "🥩" },
-    { id: "laticinios", label: "Laticínios",         emoji: "🥛" },
-    { id: "mercearia",  label: "Mercearia",          emoji: "🌾" },
-    { id: "congelados", label: "Congelados",         emoji: "🧊" },
-    { id: "bebidas",    label: "Bebidas",            emoji: "🥤" },
-    { id: "limpeza",    label: "Limpeza",            emoji: "🧼" },
-    { id: "higiene",    label: "Higiene",            emoji: "🧴" },
-    { id: "outros",     label: "Outros",             emoji: "🛒" },
+    { id: "hortifruti", label: "Hortifruti",         icon: "leaf" },
+    { id: "padaria",    label: "Padaria",            icon: "bread" },
+    { id: "carnes",     label: "Carnes & peixes",    icon: "meat" },
+    { id: "laticinios", label: "Laticínios",         icon: "milk" },
+    { id: "mercearia",  label: "Mercearia",          icon: "grain" },
+    { id: "congelados", label: "Congelados",         icon: "snowflake" },
+    { id: "bebidas",    label: "Bebidas",            icon: "cup" },
+    { id: "limpeza",    label: "Limpeza",            icon: "spray" },
+    { id: "higiene",    label: "Higiene",            icon: "lotion" },
+    { id: "outros",     label: "Outros",             icon: "box" },
   ];
   const GROCERY_CAT_MAP = Object.fromEntries(GROCERY_CATEGORIES.map(c => [c.id, c]));
   function groceryCat(id) { return GROCERY_CAT_MAP[id] || GROCERY_CAT_MAP.outros; }
@@ -5375,7 +5439,7 @@
   for (const c of GROCERY_CATEGORIES) {
     const opt = document.createElement("option");
     opt.value = c.id;
-    opt.textContent = `${c.emoji} ${c.label}`;
+    opt.textContent = c.label;
     if (c.id === "outros") opt.selected = true;
     groceryCatSelect.appendChild(opt);
   }
@@ -5414,7 +5478,7 @@
       const head = document.createElement("div");
       head.className = "grocery-cat-head";
       const title = document.createElement("span");
-      title.textContent = `${cat.emoji}  ${cat.label}`;
+      title.innerHTML = `${svgIcon(cat.icon, 16)} ${escapeHtml(cat.label)}`;
       const count = document.createElement("span");
       count.className = "count";
       const done = items.filter(i => i.bought).length;
@@ -5574,7 +5638,7 @@
         metaText = `a cada ${every}d · última há ${daysBetween(t.lastDone, todayStr())}d`;
       }
       if (badgeClass === "due") li.classList.add("overdue");
-      const who = t.who ? ` · 👤 ${escapeHtml(t.who)}` : "";
+      const who = t.who ? ` · ${svgIcon("user", 13)} ${escapeHtml(t.who)}` : "";
       li.innerHTML = `
         <div class="tinfo">
           <div class="tname">${escapeHtml(t.name)}</div>
@@ -5583,7 +5647,7 @@
         <span class="task-badge ${badgeClass}">${badgeText}</span>`;
       const doneBtn = document.createElement("button");
       doneBtn.className = "task-done-btn";
-      doneBtn.textContent = "✓ Feito";
+      doneBtn.innerHTML = svgIcon("check", 15) + " Feito";
       doneBtn.addEventListener("click", () => {
         t.lastDone = todayStr();
         logActivity(`Afazer <b>${escapeHtml(t.name)}</b> marcado como feito`);
@@ -5592,7 +5656,7 @@
       });
       const del = document.createElement("button");
       del.className = "task-del";
-      del.textContent = "🗑";
+      del.innerHTML = svgIcon("trash", 16);
       del.title = "Remover";
       del.addEventListener("click", async () => {
         if (!(await customConfirm(`Remover o afazer "${t.name}"?`))) return;
@@ -5686,7 +5750,7 @@
       if (delta < 0) delta += 1440;
       if (best === null || delta < best.delta) best = { delta, r };
     }
-    return best ? `⏰ ${best.r.trigger.time} · ${best.r.name}` : null;
+    return best ? `${svgIcon("clock", 16)} ${best.r.trigger.time} · ${escapeHtml(best.r.name)}` : null;
   }
   function indoorTempText() {
     if (typeof haEntities === "undefined" || !haEntities || !haEntities.forEach) return null;
@@ -5700,7 +5764,7 @@
       }
     });
     if (!temps.length) return null;
-    return `🌡️ ${(temps.reduce((s, x) => s + x, 0) / temps.length).toFixed(1)}°C dentro`;
+    return `${svgIcon("thermometer", 16)} ${(temps.reduce((s, x) => s + x, 0) / temps.length).toFixed(1)}°C dentro`;
   }
   function updateScreensaver() {
     const now = new Date();
@@ -5910,11 +5974,11 @@
   let currentView = localStorage.getItem(VIEW_KEY) || "map";
   // ===== Geladeira (inventário com validade) =====
   const FRIDGE_LOCATIONS = [
-    { id: "prateleiras", label: "Prateleiras", emoji: "🧊" },
-    { id: "porta",       label: "Porta",       emoji: "🚪" },
-    { id: "gavetas",     label: "Gavetas",      emoji: "🥬" },
-    { id: "freezer",     label: "Freezer",      emoji: "❄️" },
-    { id: "outros",      label: "Outros",       emoji: "📦" },
+    { id: "prateleiras", label: "Prateleiras", icon: "shelf" },
+    { id: "porta",       label: "Porta",       icon: "door" },
+    { id: "gavetas",     label: "Gavetas",      icon: "leaf" },
+    { id: "freezer",     label: "Freezer",      icon: "snowflake" },
+    { id: "outros",      label: "Outros",       icon: "box" },
   ];
   const FRIDGE_LOC_MAP = Object.fromEntries(FRIDGE_LOCATIONS.map(l => [l.id, l]));
   function fridgeLoc(id) { return FRIDGE_LOC_MAP[id] || FRIDGE_LOC_MAP.outros; }
@@ -5933,7 +5997,7 @@
   for (const l of FRIDGE_LOCATIONS) {
     const opt = document.createElement("option");
     opt.value = l.id;
-    opt.textContent = `${l.emoji} ${l.label}`;
+    opt.textContent = l.label;
     if (l.id === "prateleiras") opt.selected = true;
     fridgeLocSelect.appendChild(opt);
   }
@@ -6005,7 +6069,7 @@
       const head = document.createElement("div");
       head.className = "fridge-loc-head";
       const title = document.createElement("span");
-      title.textContent = `${loc.emoji}  ${loc.label}`;
+      title.innerHTML = `${svgIcon(loc.icon, 16)} ${escapeHtml(loc.label)}`;
       const count = document.createElement("span");
       count.className = "count";
       count.style.cssText = "font-size:11px;color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0;";
@@ -6057,7 +6121,7 @@
         cart.className = "fi-btn";
         cart.type = "button";
         cart.title = "Adicionar à lista de compras";
-        cart.textContent = "🛒";
+        cart.innerHTML = svgIcon("cart", 16);
         cart.addEventListener("click", () => {
           state.groceries = state.groceries || [];
           if (!state.groceries.some(g => g.name.toLowerCase() === it.name.toLowerCase() && !g.bought)) {
@@ -6065,8 +6129,8 @@
           }
           logActivity(`Item <b>${escapeHtml(it.name)}</b> enviado da geladeira para a lista de compras`);
           scheduleSave();
-          cart.textContent = "✓";
-          setTimeout(() => { cart.textContent = "🛒"; }, 1200);
+          cart.innerHTML = svgIcon("check", 16);
+          setTimeout(() => { cart.innerHTML = svgIcon("cart", 16); }, 1200);
         });
         const rm = document.createElement("button");
         rm.className = "fi-btn rm";
