@@ -2646,7 +2646,7 @@
   }
 
   function emptyState() {
-    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], fridge: [], tasks: [], view: { tx: 0, ty: 0, scale: 1 } };
+    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], fridge: [], tasks: [], dashUrl: "", view: { tx: 0, ty: 0, scale: 1 } };
   }
   function normalizeState(s) {
     if (!s || typeof s !== "object") return emptyState();
@@ -2666,6 +2666,7 @@
       groceries: Array.isArray(s.groceries) ? s.groceries.filter(g => g && typeof g.id === "string" && typeof g.name === "string") : [],
       fridge: Array.isArray(s.fridge) ? s.fridge.filter(g => g && typeof g.id === "string" && typeof g.name === "string") : [],
       tasks: Array.isArray(s.tasks) ? s.tasks.filter(t => t && typeof t.id === "string" && typeof t.name === "string") : [],
+      dashUrl: typeof s.dashUrl === "string" ? s.dashUrl : "",
       view: { tx: Number(v.tx) || 0, ty: Number(v.ty) || 0, scale: Math.min(4, Math.max(0.35, Number(v.scale) || 1)) },
     };
   }
@@ -5749,8 +5750,8 @@
   }
 
   // ===== Painel externo (iframe do outro dashboard) =====
-  const DASH_URL_KEY = "homeOS/dashUrl";
-  function dashUrl() { return (localStorage.getItem(DASH_URL_KEY) || "").trim(); }
+  // URL do painel externo fica na conta (sincroniza entre aparelhos).
+  function dashUrl() { return ((state && state.dashUrl) || "").trim(); }
   function dashVisible() {
     const c = document.getElementById("external-dash");
     return c && !c.hidden;
@@ -5785,8 +5786,9 @@
       input.value = dashUrl();
       const save = () => {
         const v = input.value.trim();
-        if (v) localStorage.setItem(DASH_URL_KEY, v);
-        else { localStorage.removeItem(DASH_URL_KEY); hideDash(); }
+        state.dashUrl = v;
+        if (!v) hideDash();
+        scheduleSave();
         // força recarregar o iframe na próxima abertura
         const f = document.getElementById("dash-frame");
         if (f) f.removeAttribute("src");
