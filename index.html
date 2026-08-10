@@ -44,6 +44,17 @@
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
 
+  /* Escurecimento automático por horário — cobre tudo, sem bloquear toque */
+  #night-dim {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    pointer-events: none;
+    z-index: 99998;
+    opacity: 0;
+    transition: opacity 3s linear;
+  }
+
   /* ===== Scrollbars no estilo do app (tema claro/escuro via vars) ===== */
   * { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -2137,6 +2148,10 @@
               <input type="checkbox" id="screensaver-toggle" style="width:auto; margin:0;" />
               Modo descanso
             </label>
+            <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); cursor:pointer;">
+              <input type="checkbox" id="nightdim-toggle" style="width:auto; margin:0;" />
+              Escurecer à noite
+            </label>
           </div>
         </div>
         <p class="sub">Estado do note que roda o homeOS. Atualiza a cada 15s.</p>
@@ -2222,6 +2237,9 @@
   <div id="ss-extra"></div>
   <div id="ss-hint">toque para voltar</div>
 </div>
+
+<!-- Escurecimento automático por horário (camada por cima de tudo, não bloqueia toque) -->
+<div id="night-dim"></div>
 
 <!-- ============================ DEVICE PICKER MODAL ============================ -->
 <div id="device-modal" class="modal-bg" hidden>
@@ -2510,6 +2528,7 @@
     startCpuTemp();
     initScreensaver();
     initKiosk();
+    initNightDim();
   }
 
   // ===== Temperatura da CPU do servidor =====
@@ -5652,6 +5671,37 @@
         localStorage.setItem(KIOSK_KEY, t.checked ? "1" : "0");
         applyKiosk();
         showToast(t.checked ? "Modo kiosk ativado — controles grandes, edição travada" : "Modo kiosk desativado", "info");
+      });
+    }
+  }
+
+  // ===== Escurecer à noite (auto-dim por horário, por aparelho) =====
+  const NIGHTDIM_KEY = "homeOS/nightdim";
+  const NIGHTDIM_MAX = 0.62; // opacidade máxima no auge da madrugada
+  let nightDimTimer = null;
+  function nightDimEnabled() { return localStorage.getItem(NIGHTDIM_KEY) !== "0"; } // ligado por padrão
+  function nightDimOpacity(now) {
+    const h = now.getHours() + now.getMinutes() / 60;
+    if (h >= 7 && h < 18) return 0;               // dia: sem escurecer
+    if (h >= 18 && h < 23) return NIGHTDIM_MAX * (h - 18) / 5;  // 18h→23h rampa pra baixo
+    if (h >= 23 || h < 6) return NIGHTDIM_MAX;    // madrugada: máximo
+    return NIGHTDIM_MAX * (1 - (h - 6));          // 6h→7h clareia
+  }
+  function applyNightDim() {
+    const el = document.getElementById("night-dim");
+    if (!el) return;
+    el.style.opacity = nightDimEnabled() ? nightDimOpacity(new Date()).toFixed(3) : "0";
+  }
+  function initNightDim() {
+    applyNightDim();
+    if (!nightDimTimer) nightDimTimer = setInterval(applyNightDim, 60000);
+    const t = document.getElementById("nightdim-toggle");
+    if (t) {
+      t.checked = nightDimEnabled();
+      t.addEventListener("change", () => {
+        localStorage.setItem(NIGHTDIM_KEY, t.checked ? "1" : "0");
+        applyNightDim();
+        showToast(t.checked ? "Escurecer à noite ativado" : "Escurecer à noite desativado", "info");
       });
     }
   }
