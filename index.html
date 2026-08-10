@@ -1388,6 +1388,30 @@
   #dash-toggle .ic { width: 24px; height: 24px; }
   .avatar, .large-avatar-preview { font-weight: 700; letter-spacing: .5px; }
 
+  .devices li.camera-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
+  }
+  .camera-head { display: flex; align-items: center; gap: 10px; }
+  .camera-frame {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #0b0d12;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .camera-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .camera-status {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: #9fb0c8; font-size: 13px; font-weight: 600;
+  }
+  .camera-status[hidden] { display: none; }
+
   .dev-icon {
     width: 44px; height: 44px;
     display: grid; place-items: center;
@@ -2837,6 +2861,7 @@
     success: '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-5"/>',
     dot: '<circle cx="12" cy="12" r="4"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    camera: '<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M17 10l4-2v8l-4-2z"/>',
     leaf: '<path d="M4 20c0-8 6-14 16-14 0 10-6 16-16 14z"/><path d="M4 20l9-9"/>',
     bread: '<path d="M6 11a4 4 0 0 1 4-4h4a4 4 0 0 1 0 8H10a4 4 0 0 1-4-4z"/><path d="M10 7v8M14 7v8"/>',
     meat: '<path d="M14 4a5 5 0 0 1 3 9l-6 6-3 1-1-1 1-3 6-6a5 5 0 0 1 0-6z"/>',
@@ -2867,7 +2892,7 @@
   const DOMAIN_ICON = {
     light: "bulb", switch: "plug", climate: "snowflake", fan: "fan",
     cover: "window", media_player: "tv", lock: "lock", vacuum: "vacuum",
-    humidifier: "wind", sensor: "chart", binary_sensor: "pin",
+    humidifier: "wind", sensor: "chart", binary_sensor: "pin", camera: "camera",
   };
   function entityDomain(id) { return (id || "").split(".")[0]; }
   function entityIcon(id) { return svgIcon(DOMAIN_ICON[entityDomain(id)] || "dot"); }
@@ -3299,7 +3324,8 @@
         const id = devId(dev);
         const dom = entityDomain(id);
         let li;
-        if (dom === "climate" && haEntities.has(id))      li = buildClimateRow(id, room);
+        if (dom === "camera" && haEntities.has(id))       li = buildCameraCard(id, room);
+        else if (dom === "climate" && haEntities.has(id)) li = buildClimateRow(id, room);
         else if (dom === "light"  && haEntities.has(id))  li = buildLightCard(id, room);
         else if (isChartableSensor(id))                   li = buildSensorCard(id, room);
         else                                              li = buildSimpleDeviceRow(id, room);
@@ -3627,6 +3653,52 @@
 
     // Restaura o gráfico se já estava aberto antes do re-render
     if (openSensorCharts.has(id)) setOpen(true);
+    return li;
+  }
+
+  function buildCameraCard(id, room) {
+    const d = entityDisplay(id);
+    const li = document.createElement("li");
+    li.className = "camera-card";
+
+    const head = document.createElement("div");
+    head.className = "camera-head";
+    const ic = document.createElement("div");
+    ic.className = "dev-icon";
+    ic.innerHTML = svgIcon("camera");
+    const nm = document.createElement("div");
+    nm.className = "dev-name";
+    nm.textContent = d.name;
+    head.appendChild(ic);
+    head.appendChild(nm);
+
+    const frame = document.createElement("div");
+    frame.className = "camera-frame";
+    const img = document.createElement("img");
+    img.className = "camera-img";
+    img.alt = d.name;
+    const status = document.createElement("div");
+    status.className = "camera-status";
+    status.textContent = "Conectando…";
+    frame.appendChild(img);
+    frame.appendChild(status);
+
+    // Auto-refresh do snapshot; para sozinho quando o elemento sai do DOM.
+    const base = `/api/ha/camera/${encodeURIComponent(id)}`;
+    const tick = () => { if (img.isConnected) img.src = base + "?t=" + Date.now(); };
+    img.addEventListener("load", () => {
+      status.hidden = true;
+      if (img.isConnected) setTimeout(tick, 1500);
+    });
+    img.addEventListener("error", () => {
+      status.hidden = false;
+      status.textContent = "Sem sinal";
+      if (img.isConnected) setTimeout(tick, 4000);
+    });
+    tick();
+
+    li.appendChild(head);
+    li.appendChild(frame);
     return li;
   }
 

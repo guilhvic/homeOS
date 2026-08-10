@@ -296,7 +296,7 @@ app.put("/api/state", authRequired, (req, res) => {
 // --- Home Assistant proxy (per-user) ---
 const HA_DOMAINS = new Set([
   "light", "switch", "climate", "fan", "cover", "media_player",
-  "binary_sensor", "sensor", "lock", "vacuum", "humidifier",
+  "binary_sensor", "sensor", "lock", "vacuum", "humidifier", "camera",
 ]);
 
 // One-time migration: seed the env values into any user that has no config yet.
@@ -399,6 +399,23 @@ app.get("/api/system/health", authRequired, (req, res) => {
     if (max !== null) out.tempC = max;
   } catch {}
   res.json(out);
+});
+
+// Proxy de snapshot de câmera: repassa o JPEG do HA (camera_proxy) já autenticado.
+app.get("/api/ha/camera/:entityId", authRequired, async (req, res) => {
+  if (!userHaEnabled(req.user)) return res.status(503).end();
+  const id = String(req.params.entityId || "");
+  if (!/^camera\.[a-z0-9_]+$/.test(id)) return res.status(400).end();
+  try {
+    const r = await haFetch(req.user, "/api/camera_proxy/" + encodeURIComponent(id));
+    if (!r.ok) return res.status(502).end();
+    const buf = Buffer.from(await r.arrayBuffer());
+    res.set("Content-Type", r.headers.get("content-type") || "image/jpeg");
+    res.set("Cache-Control", "no-store");
+    res.send(buf);
+  } catch (e) {
+    res.status(502).end();
+  }
 });
 
 app.get("/api/ha/status", authRequired, async (req, res) => {
