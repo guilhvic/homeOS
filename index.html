@@ -44,6 +44,37 @@
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
 
+  /* Painel externo (iframe) + botão de alternância */
+  #external-dash {
+    position: fixed;
+    inset: 0;
+    z-index: 9500;
+    background: #000;
+    display: block;
+  }
+  #external-dash[hidden] { display: none; }
+  #external-dash iframe { width: 100%; height: 100%; border: 0; display: block; }
+  #dash-toggle {
+    position: fixed;
+    bottom: 18px;
+    right: 18px;
+    z-index: 9600;
+    width: 52px;
+    height: 52px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 22px;
+    line-height: 1;
+    box-shadow: var(--shadow, 0 4px 16px rgba(0,0,0,.25));
+    cursor: pointer;
+    opacity: .85;
+  }
+  #dash-toggle[hidden] { display: none; }
+  #dash-toggle:hover { opacity: 1; }
+  body.kiosk #dash-toggle { width: 64px; height: 64px; font-size: 26px; }
+
   /* Escurecimento automático por horário — cobre tudo, sem bloquear toque */
   #night-dim {
     position: fixed;
@@ -2155,6 +2186,10 @@
           </div>
         </div>
         <p class="sub">Estado do note que roda o homeOS. Atualiza a cada 15s.</p>
+        <div class="field" style="margin: 4px 0 12px;">
+          <label for="dash-url-input" style="font-size:12px; color:var(--muted);">Painel externo (URL) — alterna com 3 dedos ou o botão ⇄</label>
+          <input id="dash-url-input" type="url" inputmode="url" placeholder="https://seu-dashboard.exemplo.com" style="width:100%; border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:8px; padding:10px 12px; font:inherit; margin-top:4px;" />
+        </div>
         <div class="health-grid" id="health-grid">
           <div class="sub" style="grid-column:1/-1;">Carregando…</div>
         </div>
@@ -2240,6 +2275,12 @@
 
 <!-- Escurecimento automático por horário (camada por cima de tudo, não bloqueia toque) -->
 <div id="night-dim"></div>
+
+<!-- Painel externo (iframe do outro dashboard) + botão de alternância -->
+<div id="external-dash" hidden>
+  <iframe id="dash-frame" title="Painel externo" referrerpolicy="no-referrer"></iframe>
+</div>
+<button id="dash-toggle" type="button" title="Alternar painel (3 dedos)" hidden>⇄</button>
 
 <!-- ============================ DEVICE PICKER MODAL ============================ -->
 <div id="device-modal" class="modal-bg" hidden>
@@ -2529,6 +2570,7 @@
     initScreensaver();
     initKiosk();
     initNightDim();
+    initExternalDash();
   }
 
   // ===== Temperatura da CPU do servidor =====
@@ -4274,7 +4316,7 @@
   });
   svg.addEventListener("pointermove", (e) => {
     if (pointers.has(e.pointerId)) pointers.set(e.pointerId, svgPoint(e));
-    if (pinch && pointers.size >= 2) {
+    if (pinch && pointers.size === 2) {
       const mid = ptMid();
       const newScale = pinch.startScale * (ptDist() / pinch.startDist);
       // Ancora no ponto médio atual dos dedos (permite dar zoom e arrastar junto).
@@ -5622,7 +5664,7 @@
   function showScreensaver() {
     if (ssActive) return;
     const ss = document.getElementById("screensaver");
-    if (!ss || appShell.hidden) return;
+    if (!ss || appShell.hidden || dashVisible()) return;
     ssActive = true;
     updateScreensaver();
     ss.hidden = false;
@@ -5704,6 +5746,69 @@
         showToast(t.checked ? "Escurecer à noite ativado" : "Escurecer à noite desativado", "info");
       });
     }
+  }
+
+  // ===== Painel externo (iframe do outro dashboard) =====
+  const DASH_URL_KEY = "homeOS/dashUrl";
+  function dashUrl() { return (localStorage.getItem(DASH_URL_KEY) || "").trim(); }
+  function dashVisible() {
+    const c = document.getElementById("external-dash");
+    return c && !c.hidden;
+  }
+  function showDash() {
+    const url = dashUrl();
+    if (!url) return;
+    const c = document.getElementById("external-dash");
+    const f = document.getElementById("dash-frame");
+    if (!c || !f) return;
+    if (f.getAttribute("src") !== url) f.setAttribute("src", url);
+    c.hidden = false;
+  }
+  function hideDash() {
+    const c = document.getElementById("external-dash");
+    if (c) c.hidden = true;
+  }
+  function toggleDash() {
+    if (!dashUrl()) return;
+    if (dashVisible()) hideDash(); else showDash();
+  }
+  function refreshDashToggle() {
+    const btn = document.getElementById("dash-toggle");
+    if (btn) btn.hidden = !dashUrl();
+  }
+  function initExternalDash() {
+    refreshDashToggle();
+    const btn = document.getElementById("dash-toggle");
+    if (btn) btn.addEventListener("click", toggleDash);
+    const input = document.getElementById("dash-url-input");
+    if (input) {
+      input.value = dashUrl();
+      const save = () => {
+        const v = input.value.trim();
+        if (v) localStorage.setItem(DASH_URL_KEY, v);
+        else { localStorage.removeItem(DASH_URL_KEY); hideDash(); }
+        // força recarregar o iframe na próxima abertura
+        const f = document.getElementById("dash-frame");
+        if (f) f.removeAttribute("src");
+        refreshDashToggle();
+      };
+      input.addEventListener("change", save);
+      input.addEventListener("blur", save);
+    }
+    // Swipe horizontal com 3 dedos alterna (funciona saindo do homeOS).
+    let sw = null;
+    const avgX = touches => (touches[0].clientX + touches[1].clientX + touches[2].clientX) / 3;
+    window.addEventListener("touchstart", (e) => {
+      sw = e.touches.length === 3 ? { x: avgX(e.touches) } : null;
+    }, { passive: true });
+    window.addEventListener("touchmove", (e) => {
+      if (sw && e.touches.length === 3) {
+        if (Math.abs(avgX(e.touches) - sw.x) > 80) { toggleDash(); sw = null; }
+      } else if (e.touches.length !== 3) {
+        sw = null;
+      }
+    }, { passive: true });
+    window.addEventListener("touchend", () => { sw = null; }, { passive: true });
   }
 
   // ===== View switcher =====
