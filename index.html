@@ -73,7 +73,48 @@
   }
   #dash-toggle[hidden] { display: none; }
   #dash-toggle:hover { opacity: 1; }
-  body.kiosk #dash-toggle { width: 64px; height: 64px; font-size: 26px; }
+  #dash-toggle svg { display: block; margin: auto; }
+  body.kiosk #dash-toggle { width: 64px; height: 64px; }
+
+  #app-switcher {
+    position: fixed;
+    bottom: 80px;
+    left: 18px;
+    z-index: 9600;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow, 0 8px 28px rgba(0,0,0,.28));
+    min-width: 180px;
+  }
+  #app-switcher[hidden] { display: none; }
+  .app-opt {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+  }
+  .app-opt:hover { background: var(--bg); }
+  .app-opt .app-ico { font-size: 22px; line-height: 1; }
+  .app-opt .app-name { flex: 1; }
+  .app-opt .app-dot { width: 8px; height: 8px; border-radius: 50%; background: transparent; }
+  .app-opt.current { border-color: var(--line); background: var(--bg); }
+  .app-opt.current .app-dot { background: var(--accent); }
+  body.kiosk #app-switcher { bottom: 92px; min-width: 220px; }
+  body.kiosk .app-opt { padding: 14px 14px; font-size: 16px; }
+  body.kiosk .app-opt .app-ico { font-size: 26px; }
 
   /* Escurecimento automático por horário — cobre tudo, sem bloquear toque */
   #night-dim {
@@ -2280,7 +2321,20 @@
 <div id="external-dash" hidden>
   <iframe id="dash-frame" title="Painel externo" referrerpolicy="no-referrer"></iframe>
 </div>
-<button id="dash-toggle" type="button" title="Alternar painel (3 dedos)" hidden>⇄</button>
+<button id="dash-toggle" type="button" title="Trocar de app (3 dedos alternam)" aria-haspopup="true" hidden>
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true">
+    <rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/>
+    <rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/>
+  </svg>
+</button>
+<div id="app-switcher" hidden role="menu" aria-label="Trocar de app">
+  <button class="app-opt" data-app="home" type="button" role="menuitem">
+    <span class="app-ico">🏠</span><span class="app-name">homeOS</span><span class="app-dot"></span>
+  </button>
+  <button class="app-opt" data-app="dash" type="button" role="menuitem">
+    <span class="app-ico">📊</span><span class="app-name">Meu Dia</span><span class="app-dot"></span>
+  </button>
+</div>
 
 <!-- ============================ DEVICE PICKER MODAL ============================ -->
 <div id="device-modal" class="modal-bg" hidden>
@@ -5771,16 +5825,54 @@
   }
   function toggleDash() {
     if (!dashUrl()) return;
+    closeSwitcher();
     if (dashVisible()) hideDash(); else showDash();
   }
   function refreshDashToggle() {
     const btn = document.getElementById("dash-toggle");
     if (btn) btn.hidden = !dashUrl();
+    if (!dashUrl()) closeSwitcher();
+  }
+  function markSwitcherCurrent() {
+    const onDash = dashVisible();
+    for (const opt of document.querySelectorAll("#app-switcher .app-opt")) {
+      const isCurrent = (opt.dataset.app === "dash") === onDash;
+      opt.classList.toggle("current", isCurrent);
+    }
+  }
+  function openSwitcher() {
+    const m = document.getElementById("app-switcher");
+    if (!m || !dashUrl()) return;
+    markSwitcherCurrent();
+    m.hidden = false;
+  }
+  function closeSwitcher() {
+    const m = document.getElementById("app-switcher");
+    if (m) m.hidden = true;
+  }
+  function switcherOpen() {
+    const m = document.getElementById("app-switcher");
+    return m && !m.hidden;
   }
   function initExternalDash() {
     refreshDashToggle();
     const btn = document.getElementById("dash-toggle");
-    if (btn) btn.addEventListener("click", toggleDash);
+    if (btn) btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (switcherOpen()) closeSwitcher(); else openSwitcher();
+    });
+    for (const opt of document.querySelectorAll("#app-switcher .app-opt")) {
+      opt.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (opt.dataset.app === "dash") showDash(); else hideDash();
+        closeSwitcher();
+      });
+    }
+    document.addEventListener("click", (e) => {
+      if (switcherOpen() && !e.target.closest("#app-switcher") && e.target.closest("#dash-toggle") == null) {
+        closeSwitcher();
+      }
+    });
     const input = document.getElementById("dash-url-input");
     if (input) {
       input.value = dashUrl();
