@@ -671,9 +671,10 @@
     overflow: hidden;
     --vp-x: 0px;
     --vp-y: 0px;
+    --vp-s: 1;
     background:
-      linear-gradient(var(--line) 1px, transparent 1px) var(--vp-x) var(--vp-y) / 40px 40px,
-      linear-gradient(90deg, var(--line) 1px, transparent 1px) var(--vp-x) var(--vp-y) / 40px 40px,
+      linear-gradient(var(--line) 1px, transparent 1px) var(--vp-x) var(--vp-y) / calc(40px * var(--vp-s)) calc(40px * var(--vp-s)),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px) var(--vp-x) var(--vp-y) / calc(40px * var(--vp-s)) calc(40px * var(--vp-s)),
       var(--bg);
   }
   #svg {
@@ -2499,7 +2500,7 @@
   }
 
   function emptyState() {
-    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], fridge: [], tasks: [], view: { tx: 0, ty: 0 } };
+    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], fridge: [], tasks: [], view: { tx: 0, ty: 0, scale: 1 } };
   }
   function normalizeState(s) {
     if (!s || typeof s !== "object") return emptyState();
@@ -2519,7 +2520,7 @@
       groceries: Array.isArray(s.groceries) ? s.groceries.filter(g => g && typeof g.id === "string" && typeof g.name === "string") : [],
       fridge: Array.isArray(s.fridge) ? s.fridge.filter(g => g && typeof g.id === "string" && typeof g.name === "string") : [],
       tasks: Array.isArray(s.tasks) ? s.tasks.filter(t => t && typeof t.id === "string" && typeof t.name === "string") : [],
-      view: { tx: Number(v.tx) || 0, ty: Number(v.ty) || 0 },
+      view: { tx: Number(v.tx) || 0, ty: Number(v.ty) || 0, scale: Math.min(4, Math.max(0.35, Number(v.scale) || 1)) },
     };
   }
   async function loadState() {
@@ -2692,10 +2693,14 @@
     const wrap = document.getElementById("map-wrap");
     wrap.style.setProperty("--vp-x", state.view.tx + "px");
     wrap.style.setProperty("--vp-y", state.view.ty + "px");
+    wrap.style.setProperty("--vp-s", (state.view.scale || 1));
+  }
+  function viewportTransform() {
+    return `translate(${state.view.tx},${state.view.ty}) scale(${state.view.scale || 1})`;
   }
   function updateViewportOnly() {
     const vp = svg.querySelector("g.viewport");
-    if (vp) vp.setAttribute("transform", `translate(${state.view.tx},${state.view.ty})`);
+    if (vp) vp.setAttribute("transform", viewportTransform());
     applyBgOffset();
   }
 
@@ -2705,7 +2710,7 @@
 
     const viewport = document.createElementNS("http://www.w3.org/2000/svg", "g");
     viewport.setAttribute("class", "viewport");
-    viewport.setAttribute("transform", `translate(${state.view.tx},${state.view.ty})`);
+    viewport.setAttribute("transform", viewportTransform());
     svg.appendChild(viewport);
     applyBgOffset();
 
@@ -4049,12 +4054,52 @@
   }
   function svgWorld(evt) {
     const p = svgPoint(evt);
-    return { x: p.x - state.view.tx, y: p.y - state.view.ty };
+    const s = state.view.scale || 1;
+    return { x: (p.x - state.view.tx) / s, y: (p.y - state.view.ty) / s };
   }
   function snap(v) { return Math.round(v / 10) * 10; }
 
+  // ===== Zoom (pinça + scroll) =====
+  const MIN_ZOOM = 0.35, MAX_ZOOM = 4;
+  const clampScale = z => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+  const pointers = new Map(); // pointerId -> {x, y} em coords do svg
+  let pinch = null;
+  // Aplica um novo zoom mantendo o ponto (sx,sy) da tela ancorado.
+  function zoomAround(sx, sy, newScale) {
+    const s = state.view.scale || 1;
+    newScale = clampScale(newScale);
+    const wx = (sx - state.view.tx) / s;
+    const wy = (sy - state.view.ty) / s;
+    state.view.tx = sx - wx * newScale;
+    state.view.ty = sy - wy * newScale;
+    state.view.scale = newScale;
+    updateViewportOnly();
+  }
+  function ptDist() {
+    const p = [...pointers.values()];
+    return Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+  }
+  function ptMid() {
+    const p = [...pointers.values()];
+    return { x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2 };
+  }
+
   let drag = null;
   svg.addEventListener("pointerdown", (e) => {
+    // Rastreia o ponteiro para detectar pinça (2 dedos).
+    pointers.set(e.pointerId, svgPoint(e));
+    if (pointers.size === 2) {
+      // Entra em modo pinça: cancela qualquer arraste de 1 dedo em andamento.
+      if (drag) {
+        if (drag.mode === "pan") svg.classList.remove("panning");
+        const dp = svg.querySelector("g.device-pin.dragging");
+        if (dp) dp.classList.remove("dragging");
+        drag = null;
+      }
+      const mid = ptMid();
+      pinch = { startDist: ptDist() || 1, startScale: state.view.scale || 1, midX: mid.x, midY: mid.y };
+      return;
+    }
     const pinTarget = e.target.closest("g.device-pin");
     if (pinTarget) {
       const entityId = pinTarget.getAttribute("data-entity-id");
@@ -4124,6 +4169,14 @@
     render();
   });
   svg.addEventListener("pointermove", (e) => {
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, svgPoint(e));
+    if (pinch && pointers.size >= 2) {
+      const mid = ptMid();
+      const newScale = pinch.startScale * (ptDist() / pinch.startDist);
+      // Ancora no ponto médio atual dos dedos (permite dar zoom e arrastar junto).
+      zoomAround(mid.x, mid.y, newScale);
+      return;
+    }
     if (!drag) return;
     if (drag.mode === "pin") {
       const room = state.rooms.find(r => r.id === drag.roomId);
@@ -4179,6 +4232,13 @@
     render();
   });
   function stopDrag(e) {
+    pointers.delete(e.pointerId);
+    if (pinch) {
+      // Saiu de um gesto de pinça: quando restar <2 dedos, encerra e salva.
+      if (pointers.size < 2) { pinch = null; scheduleSave(); }
+      try { svg.releasePointerCapture(e.pointerId); } catch {}
+      if (!drag) return;
+    }
     if (!drag) return;
     if (drag.mode === "pin") {
       const pin = svg.querySelector(`g.room[data-id="${drag.roomId}"] g.device-pin[data-entity-id="${drag.entityId}"]`);
@@ -4216,6 +4276,17 @@
   svg.addEventListener("pointerup", stopDrag);
   svg.addEventListener("pointercancel", stopDrag);
 
+  // Zoom por scroll (desktop/trackpad), ancorado no cursor.
+  svg.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const p = svgPoint(e);
+    const factor = Math.exp(-e.deltaY * 0.0015);
+    zoomAround(p.x, p.y, (state.view.scale || 1) * factor);
+    if (wheelSaveTimer) clearTimeout(wheelSaveTimer);
+    wheelSaveTimer = setTimeout(() => scheduleSave(), 400);
+  }, { passive: false });
+  let wheelSaveTimer = null;
+
   // ===== Botões header =====
   function defaultRoomName() {
     const used = new Set(state.rooms.map(r => (r.name || "").toLowerCase()));
@@ -4227,9 +4298,10 @@
   document.getElementById("add-room").addEventListener("click", () => {
     const wrap = document.getElementById("map-wrap");
     const w = 180, h = 120;
-    // place at the world coords corresponding to the visible center
-    const cx = wrap.clientWidth / 2 - state.view.tx;
-    const cy = wrap.clientHeight / 2 - state.view.ty;
+    // place at the world coords corresponding to the visible center (considera o zoom)
+    const s = state.view.scale || 1;
+    const cx = (wrap.clientWidth / 2 - state.view.tx) / s;
+    const cy = (wrap.clientHeight / 2 - state.view.ty) / s;
     const x = snap(cx - w / 2 + (Math.random() - 0.5) * 80);
     const y = snap(cy - h / 2 + (Math.random() - 0.5) * 80);
     const room = { id: uid(), name: defaultRoomName(), notes: "", items: [], devices: [], x, y, w, h };
@@ -4250,6 +4322,7 @@
 
   document.getElementById("center-view").addEventListener("click", () => {
     const wrap = document.getElementById("map-wrap");
+    state.view.scale = 1;
     if (state.rooms.length === 0) {
       state.view.tx = 0;
       state.view.ty = 0;
