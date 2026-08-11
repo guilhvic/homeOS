@@ -5887,7 +5887,7 @@
     if (ex) {
       const chips = [];
       const t = indoorTempText(); if (t) chips.push(`<span class="ss-chip">${t}</span>`);
-      const nr = nextRoutineText(); if (nr) chips.push(`<span class="ss-chip">${escapeHtml(nr)}</span>`);
+      const nr = nextRoutineText(); if (nr) chips.push(`<span class="ss-chip">${nr}</span>`);
       ex.innerHTML = chips.join("");
     }
   }
