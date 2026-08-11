@@ -1401,6 +1401,63 @@
   #dash-toggle .ic { width: 24px; height: 24px; }
   .avatar, .large-avatar-preview { font-weight: 700; letter-spacing: .5px; }
 
+  .devices li.sensors-block {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 4px 2px 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+  .sensors-head {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--muted);
+  }
+  .sensor-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .sensor-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 12px;
+    max-width: 100%;
+  }
+  .sensor-chip .sc-ic { display: inline-flex; color: var(--muted); }
+  .sensor-chip .sc-ic .ic { width: 15px; height: 15px; }
+  .sensor-chip .sc-val { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .sensor-chip .sc-name {
+    color: var(--muted);
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sensor-chip .sc-remove {
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1;
+    padding: 0 2px;
+    border-radius: 50%;
+    opacity: .5;
+  }
+  .sensor-chip .sc-remove:hover { opacity: 1; color: var(--danger, #d33); }
+  .sensor-chip.clickable { cursor: pointer; }
+  .sensor-chip.clickable:hover { border-color: var(--accent); }
+  .sensor-chip.active { border-color: var(--accent); color: var(--accent); }
+  .sensor-chip.active .sc-ic, .sensor-chip.active .sc-name { color: var(--accent); }
+  body.kiosk .sensor-chip { font-size: 14px; padding: 9px 10px 9px 13px; }
+  .sensor-chart-host:not(:empty) { margin-top: 4px; }
+  .sensor-chart-inline { margin-bottom: 8px; }
+
   .devices li.camera-card {
     flex-direction: column;
     align-items: stretch;
@@ -3334,18 +3391,109 @@
       li.textContent = "Nenhum dispositivo vinculado.";
       list.appendChild(li);
     } else {
+      // Separa itens de interação (destaque) dos sensores (leitura, compacto).
+      const interactive = [];
+      const sensors = [];
       for (const dev of devs) {
+        const id = devId(dev);
+        const dom = entityDomain(id);
+        if ((dom === "sensor" || dom === "binary_sensor") && haEntities.has(id)) sensors.push(id);
+        else interactive.push(dev);
+      }
+      for (const dev of interactive) {
         const id = devId(dev);
         const dom = entityDomain(id);
         let li;
         if (dom === "camera" && haEntities.has(id))       li = buildCameraCard(id, room);
         else if (dom === "climate" && haEntities.has(id)) li = buildClimateRow(id, room);
         else if (dom === "light"  && haEntities.has(id))  li = buildLightCard(id, room);
-        else if (isChartableSensor(id))                   li = buildSensorCard(id, room);
         else                                              li = buildSimpleDeviceRow(id, room);
         list.appendChild(li);
       }
+      if (sensors.length) list.appendChild(buildSensorsBlock(sensors, room));
     }
+  }
+
+  // Bloco compacto de sensores (leitura). Chip mostra ícone + valor + nome;
+  // sensores "gráficaveis" abrem o histórico ao tocar.
+  function buildSensorsBlock(sensors, room) {
+    const li = document.createElement("li");
+    li.className = "sensors-block";
+    const head = document.createElement("div");
+    head.className = "sensors-head";
+    head.textContent = "Sensores";
+    const chips = document.createElement("div");
+    chips.className = "sensor-chips";
+    const chartHost = document.createElement("div");
+    chartHost.className = "sensor-chart-host";
+
+    for (const id of sensors) {
+      const d = entityDisplay(id);
+      const chartable = isChartableSensor(id);
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "sensor-chip" + (chartable ? " clickable" : "");
+      chip.innerHTML =
+        `<span class="sc-ic">${entityIcon(id)}</span>` +
+        `<span class="sc-val">${escapeHtml(d.status)}</span>` +
+        `<span class="sc-name">${escapeHtml(d.name)}</span>`;
+      const rm = document.createElement("span");
+      rm.className = "sc-remove";
+      rm.textContent = "×";
+      rm.title = "Desvincular";
+      rm.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        room.devices = room.devices.filter(x => (typeof x === "string" ? x : x.entityId) !== id);
+        logActivity(`Dispositivo <b>${escapeHtml(d.name)}</b> desvinculado de <b>${escapeHtml(room.name)}</b>`);
+        scheduleSave();
+        render();
+      });
+      chip.appendChild(rm);
+      if (chartable) {
+        chip.addEventListener("click", () => toggleSensorChart(id, room, chartHost, chip));
+        if (openSensorCharts.has(id)) toggleSensorChart(id, room, chartHost, chip, true);
+      }
+      chips.appendChild(chip);
+    }
+    li.appendChild(head);
+    li.appendChild(chips);
+    li.appendChild(chartHost);
+    return li;
+  }
+
+  function toggleSensorChart(id, room, host, chip, restore) {
+    const existing = host.querySelector(`[data-chart-for="${CSS.escape(id)}"]`);
+    if (existing) {
+      if (restore) return;
+      existing.remove();
+      chip.classList.remove("active");
+      openSensorCharts.delete(id);
+      return;
+    }
+    const wrap = document.createElement("div");
+    wrap.className = "dev-chart sensor-chart-inline";
+    wrap.dataset.chartFor = id;
+    host.appendChild(wrap);
+    chip.classList.add("active");
+    const unit = haEntities.get(id)?.attributes?.unit_of_measurement || "";
+    const color = sensorColor(id);
+    let currentHours = openSensorCharts.get(id) || 24;
+    openSensorCharts.set(id, currentHours);
+    async function load(hours) {
+      currentHours = hours;
+      openSensorCharts.set(id, hours);
+      const key = id + "|" + hours;
+      const cached = chartCache.get(key);
+      const draw = (pts) => renderSensorChart(wrap, pts, { unit, color, hours, active: hours, onPeriod: load });
+      if (cached && (Date.now() - cached.at) < 60000) { draw(cached.points); return; }
+      wrap.innerHTML = '<div class="chart-loading">carregando…</div>';
+      const r = await api("GET", `/ha/history?entity_id=${encodeURIComponent(id)}&hours=${hours}`);
+      if (!r.ok || !r.data) { wrap.innerHTML = '<div class="chart-loading">erro ao carregar histórico</div>'; return; }
+      const pts = r.data.points || [];
+      chartCache.set(key, { points: pts, at: Date.now() });
+      draw(pts);
+    }
+    load(currentHours);
   }
 
   function makeRemoveBtn(id, room, name) {
