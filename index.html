@@ -1972,6 +1972,9 @@
     user-select: none;
   }
   .device-pin .pin-icon { fill: none; stroke: var(--ink); pointer-events: none; }
+  .device-pin { cursor: pointer; }
+  .device-pin.pin-pulse .pin-bg { transform-box: fill-box; transform-origin: center; animation: pin-pulse .45s ease; }
+  @keyframes pin-pulse { 0%, 100% { transform: scale(1); } 45% { transform: scale(1.25); } }
 
   /* Auth screen */
   #auth-screen {
@@ -2774,6 +2777,7 @@
     setView(currentView);
     haInit();
     startCpuTemp();
+    startHealthAlerts();
     initScreensaver();
     initKiosk();
     initNightDim();
@@ -2817,6 +2821,29 @@
     });
     pollCpuTemp();
     cpuTempTimer = setInterval(pollCpuTemp, 15000);
+  }
+
+  // ===== Alertas de saúde do servidor (toast quando passa do limite) =====
+  let healthAlertTimer = null;
+  const healthAlerted = { temp: false, disk: false, ram: false };
+  async function checkHealthAlerts() {
+    try {
+      const r = await api("GET", "/system/health");
+      if (!r.ok || !r.data) return;
+      const d = r.data;
+      const edge = (key, cond, msg) => {
+        if (cond && !healthAlerted[key]) { healthAlerted[key] = true; showToast(msg, "error", 9000); }
+        else if (!cond) healthAlerted[key] = false;
+      };
+      if (typeof d.tempC === "number") edge("temp", d.tempC >= 85, `Servidor quente — CPU a ${d.tempC}°C`);
+      if (d.disk) edge("disk", d.disk.pct >= 90, `Disco quase cheio — ${d.disk.pct}% usado`);
+      if (d.mem) edge("ram", d.mem.pct >= 92, `Memória alta — ${d.mem.pct}% usada`);
+    } catch {}
+  }
+  function startHealthAlerts() {
+    if (healthAlertTimer) return;
+    checkHealthAlerts();
+    healthAlertTimer = setInterval(checkHealthAlerts, 60000);
   }
 
   // ===== Estado do app =====
@@ -4350,7 +4377,8 @@
         rect.setAttribute("height", pinH);
         rect.setAttribute("rx", pinH / 2);
         const tt = document.createElementNS("http://www.w3.org/2000/svg", "title");
-        tt.textContent = `${display.name} — ${display.status} · arraste para reposicionar`;
+        const pinHint = PIN_TOGGLEABLE.has(entityDomain(id)) ? "segure p/ ligar·desligar · arraste p/ mover" : "arraste p/ mover";
+        tt.textContent = `${display.name} — ${display.status} · ${pinHint}`;
         rect.appendChild(tt);
         pin.appendChild(rect);
 
@@ -4771,6 +4799,42 @@
   }
   function snap(v) { return Math.round(v / 10) * 10; }
 
+  // ===== Pins: toque longo (liga/desliga) e arraste entre cômodos =====
+  const PIN_TOGGLEABLE = new Set(["light", "switch", "fan", "humidifier"]);
+  async function longPressToggle(id, pinEl) {
+    if (!PIN_TOGGLEABLE.has(entityDomain(id))) return; // outros domínios: toque longo não faz nada
+    if (pinEl) { pinEl.classList.add("pin-pulse"); setTimeout(() => pinEl.classList.remove("pin-pulse"), 450); }
+    await haCall(entityDomain(id), "toggle", { entity_id: id });
+  }
+  function hitTestRoom(wx, wy) {
+    for (let i = state.rooms.length - 1; i >= 0; i--) {
+      const r = state.rooms[i];
+      if (wx >= r.x && wx <= r.x + r.w && wy >= r.y && wy <= r.y + r.h) return r;
+    }
+    return null;
+  }
+  function finalizePinDrag(d, evt) {
+    const w = svgWorld(evt);
+    const origin = state.rooms.find(r => r.id === d.roomId);
+    if (!origin) return;
+    const idx = (origin.devices || []).findIndex(x => devId(x) === d.entityId);
+    if (idx < 0) return;
+    const target = hitTestRoom(w.x, w.y) || origin;
+    const cx = Math.max(0, Math.min(target.w - d.pinW, snap(w.x - target.x - d.dx)));
+    const cy = Math.max(0, Math.min(target.h - d.pinH, snap(w.y - target.y - d.dy)));
+    const entry = { entityId: d.entityId, x: cx, y: cy };
+    if (target.id === origin.id) {
+      origin.devices[idx] = entry;
+    } else {
+      origin.devices.splice(idx, 1);
+      target.devices = target.devices || [];
+      target.devices.push(entry);
+      logActivity(`Dispositivo <b>${escapeHtml(entityDisplay(d.entityId).name)}</b> movido de <b>${escapeHtml(origin.name)}</b> para <b>${escapeHtml(target.name)}</b>`);
+    }
+    state.selectedId = target.id;
+    render();
+  }
+
   // ===== Zoom (pinça + scroll) =====
   const MIN_ZOOM = 0.35, MAX_ZOOM = 4;
   const clampScale = z => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
@@ -4833,11 +4897,17 @@
           dy: localY - curY,
           pinW: Number(pinTarget.getAttribute("data-pin-w")) || 60,
           pinH: Number(pinTarget.getAttribute("data-pin-h")) || 22,
+          startWX: w.x, startWY: w.y, moved: false, longPressed: false,
         };
-        state.selectedId = roomId;
         svg.setPointerCapture(e.pointerId);
         pinTarget.classList.add("dragging");
-        render();
+        // Toque longo (segurar parado) liga/desliga o dispositivo sem abrir o cômodo.
+        drag.longPressTimer = setTimeout(() => {
+          if (!drag || drag.moved) return;
+          drag.longPressed = true;
+          pinTarget.classList.remove("dragging");
+          longPressToggle(entityId, pinTarget);
+        }, 500);
         return;
       }
     }
@@ -4891,18 +4961,18 @@
     }
     if (!drag) return;
     if (drag.mode === "pin") {
-      const room = state.rooms.find(r => r.id === drag.roomId);
-      const dev = devObj(room, drag.entityId);
-      if (!room || !dev) return;
       const w = svgWorld(e);
-      const localX = w.x - room.x;
-      const localY = w.y - room.y;
-      const newX = Math.max(0, Math.min(room.w - drag.pinW, snap(localX - drag.dx)));
-      const newY = Math.max(0, Math.min(room.h - drag.pinH, snap(localY - drag.dy)));
-      dev.x = newX;
-      dev.y = newY;
-      const pin = svg.querySelector(`g.room[data-id="${room.id}"] g.device-pin[data-entity-id="${drag.entityId}"]`);
-      if (pin) pin.setAttribute("transform", `translate(${newX},${newY})`);
+      if (!drag.moved && Math.abs(w.x - drag.startWX) + Math.abs(w.y - drag.startWY) > 4) {
+        drag.moved = true;
+        if (drag.longPressTimer) { clearTimeout(drag.longPressTimer); drag.longPressTimer = null; }
+      }
+      if (drag.longPressed) return;
+      const room = state.rooms.find(r => r.id === drag.roomId);
+      const pin = svg.querySelector(`g.room[data-id="${drag.roomId}"] g.device-pin[data-entity-id="${drag.entityId}"]`);
+      if (room && pin) {
+        // Segue o dedo (sem travar no cômodo), pra permitir soltar em outro cômodo.
+        pin.setAttribute("transform", `translate(${snap(w.x - room.x - drag.dx)},${snap(w.y - room.y - drag.dy)})`);
+      }
       return;
     }
     if (drag.mode === "pan") {
@@ -4953,9 +5023,20 @@
     }
     if (!drag) return;
     if (drag.mode === "pin") {
+      if (drag.longPressTimer) { clearTimeout(drag.longPressTimer); drag.longPressTimer = null; }
       const pin = svg.querySelector(`g.room[data-id="${drag.roomId}"] g.device-pin[data-entity-id="${drag.entityId}"]`);
       if (pin) pin.classList.remove("dragging");
-      scheduleSave();
+      if (drag.longPressed) {
+        // já ligou/desligou no toque longo
+      } else if (!drag.moved) {
+        // toque simples → abre o cômodo
+        state.selectedId = drag.roomId;
+        render();
+      } else {
+        // arrastou → reposiciona ou move para outro cômodo
+        finalizePinDrag(drag, e);
+        scheduleSave();
+      }
       drag = null;
       try { svg.releasePointerCapture(e.pointerId); } catch {}
       return;
