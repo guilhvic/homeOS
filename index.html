@@ -1890,6 +1890,7 @@
     pointer-events: none;
     user-select: none;
   }
+  .device-pin .pin-icon { fill: none; stroke: var(--ink); pointer-events: none; }
 
   /* Auth screen */
   #auth-screen {
@@ -3992,9 +3993,10 @@
         const id = devId(dev);
         const stat = statForEntity(id);
         const display = entityDisplay(id);
-        const label = stat ? stat.text : (display.name || entityDomain(id));
-        const kind = stat ? stat.kind : (display.kind || "neutral");
-        const pinW = Math.max(28, Math.ceil(label.length * charW) + padX * 2);
+        const hasState = !!stat;
+        const label = hasState ? stat.text : "";
+        const kind = hasState ? stat.kind : (display.kind || "neutral");
+        const pinW = hasState ? Math.max(28, Math.ceil(label.length * charW) + padX * 2) : 30;
 
         let x, y;
         if (typeof dev === "object" && typeof dev.x === "number" && typeof dev.y === "number") {
@@ -4025,12 +4027,29 @@
         rect.appendChild(tt);
         pin.appendChild(rect);
 
-        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        text.setAttribute("class", "pin-text");
-        text.setAttribute("x", pinW / 2);
-        text.setAttribute("y", pinH / 2);
-        text.textContent = label;
-        pin.appendChild(text);
+        if (hasState) {
+          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          text.setAttribute("class", "pin-text");
+          text.setAttribute("x", pinW / 2);
+          text.setAttribute("y", pinH / 2);
+          text.textContent = label;
+          pin.appendChild(text);
+        } else {
+          // Sem estado ao vivo: mostra o ícone do dispositivo (compacto), não o nome longo.
+          const sz = 15;
+          const isvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          isvg.setAttribute("class", "pin-icon");
+          isvg.setAttribute("x", (pinW - sz) / 2);
+          isvg.setAttribute("y", (pinH - sz) / 2);
+          isvg.setAttribute("width", sz);
+          isvg.setAttribute("height", sz);
+          isvg.setAttribute("viewBox", "0 0 24 24");
+          isvg.setAttribute("stroke-width", "2");
+          isvg.setAttribute("stroke-linecap", "round");
+          isvg.setAttribute("stroke-linejoin", "round");
+          isvg.innerHTML = ICON[DOMAIN_ICON[entityDomain(id)] || "dot"] || ICON.dot;
+          pin.appendChild(isvg);
+        }
 
         group.appendChild(pin);
       }
