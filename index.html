@@ -2078,6 +2078,7 @@
     </div>
     <span class="sub" id="status">— monte o mapa da sua casa</span>
     <div class="spacer"></div>
+    <span id="energy-pill" class="cpu-temp" title="Consumo dos aparelhos monitorados" hidden></span>
     <span id="cpu-temp" class="cpu-temp" title="Temperatura da CPU do servidor" hidden></span>
     <button id="profile-btn" class="profile" title="Conta">
       <span class="avatar" id="profile-avatar"></span>
@@ -2339,6 +2340,10 @@
         <div class="field" style="margin: 4px 0 12px;">
           <label for="dash-url-input" style="font-size:12px; color:var(--muted);">Painel externo (URL) — alterna com 3 dedos ou o botão ⇄</label>
           <input id="dash-url-input" type="url" inputmode="url" placeholder="https://seu-dashboard.exemplo.com" style="width:100%; border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:8px; padding:10px 12px; font:inherit; margin-top:4px;" />
+        </div>
+        <div class="field" style="margin: 4px 0 12px;">
+          <label for="tariff-input" style="font-size:12px; color:var(--muted);">Tarifa de energia (R$/kWh) — para o custo do mês</label>
+          <input id="tariff-input" type="number" inputmode="decimal" min="0" step="0.01" placeholder="ex: 0.95" style="width:100%; border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:8px; padding:10px 12px; font:inherit; margin-top:4px;" />
         </div>
         <div class="health-grid" id="health-grid">
           <div class="sub" style="grid-column:1/-1;">Carregando…</div>
@@ -2741,6 +2746,7 @@
     initKiosk();
     initNightDim();
     initExternalDash();
+    initEnergy();
   }
 
   // ===== Temperatura da CPU do servidor =====
@@ -2816,7 +2822,7 @@
   }
 
   function emptyState() {
-    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], fridge: [], tasks: [], dashUrl: "", view: { tx: 0, ty: 0, scale: 1 } };
+    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], fridge: [], tasks: [], dashUrl: "", energyTariff: 0, view: { tx: 0, ty: 0, scale: 1 } };
   }
   function normalizeState(s) {
     if (!s || typeof s !== "object") return emptyState();
@@ -2837,6 +2843,7 @@
       fridge: Array.isArray(s.fridge) ? s.fridge.filter(g => g && typeof g.id === "string" && typeof g.name === "string") : [],
       tasks: Array.isArray(s.tasks) ? s.tasks.filter(t => t && typeof t.id === "string" && typeof t.name === "string") : [],
       dashUrl: typeof s.dashUrl === "string" ? s.dashUrl : "",
+      energyTariff: Math.max(0, Number(s.energyTariff) || 0),
       view: { tx: Number(v.tx) || 0, ty: Number(v.ty) || 0, scale: Math.min(4, Math.max(0.35, Number(v.scale) || 1)) },
     };
   }
@@ -3014,7 +3021,53 @@
       // re-render the affected bits without disturbing inputs/scroll
       renderDevicesPanel(currentRoom());
       renderRoomPins();
+      renderEnergyPill();
     } catch {}
+  }
+
+  // ===== Energia (consumo dos aparelhos monitorados) =====
+  let energyPillDetail = "";
+  function energyStats() {
+    let powerW = 0, monthKwh = 0, hasPower = false, hasMonth = false;
+    haEntities.forEach((e, id) => {
+      const a = e.attributes || {};
+      const v = parseFloat(e.state);
+      if (!Number.isFinite(v)) return;
+      if (a.device_class === "power" && a.unit_of_measurement === "W") { powerW += v; hasPower = true; }
+      else if (a.device_class === "energy" && a.unit_of_measurement === "kWh" && /this_month|_month/.test(id)) { monthKwh += v; hasMonth = true; }
+    });
+    return { powerW, monthKwh, hasPower, hasMonth };
+  }
+  function renderEnergyPill() {
+    const el = document.getElementById("energy-pill");
+    if (!el) return;
+    if (!haEnabled) { el.hidden = true; return; }
+    const s = energyStats();
+    if (!s.hasPower && !s.hasMonth) { el.hidden = true; return; }
+    const w = Math.round(s.powerW);
+    el.innerHTML = svgIcon("bolt", 15) + " " + w + " W";
+    el.classList.toggle("warm", w >= 1500 && w < 3000);
+    el.classList.toggle("hot", w >= 3000);
+    const tariff = (state && state.energyTariff) || 0;
+    const cost = s.monthKwh * tariff;
+    energyPillDetail = `${w} W agora` +
+      (s.hasMonth ? ` · ${s.monthKwh.toFixed(2)} kWh este mês` +
+        (tariff ? ` ≈ R$ ${cost.toFixed(2)}` : " (defina a tarifa no Perfil)") : "");
+    el.hidden = false;
+  }
+  function initEnergy() {
+    const el = document.getElementById("energy-pill");
+    if (el) el.addEventListener("click", () => showToast(energyPillDetail || "Sem dados de energia", "info"));
+    const t = document.getElementById("tariff-input");
+    if (t) {
+      t.value = (state && state.energyTariff) ? state.energyTariff : "";
+      t.addEventListener("change", () => {
+        state.energyTariff = Math.max(0, parseFloat(t.value) || 0);
+        scheduleSave();
+        renderEnergyPill();
+      });
+    }
+    renderEnergyPill();
   }
   async function haCall(domain, service, body, btn) {
     if (btn) btn.disabled = true;
