@@ -1316,6 +1316,19 @@
   .toast.leaving { animation: toast-out .18s ease-in forwards; }
   .toast .toast-icon { font-size: 15px; line-height: 1.2; flex-shrink: 0; }
   .toast .toast-msg { flex: 1; }
+  .toast .toast-action {
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .toast .toast-action:hover { background: var(--accent-soft); }
   .toast .toast-close {
     border: none; background: transparent; color: var(--muted);
     cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; flex-shrink: 0;
@@ -4833,14 +4846,36 @@
     render();
   });
 
-  document.getElementById("delete-room").addEventListener("click", async () => {
-    const r = currentRoom(); if (!r) return;
-    if (!await customConfirm(`Excluir "${r.name || "este cômodo"}"?`)) return;
+  let lastDeletedRoom = null;
+  function deleteRoom(r) {
+    if (!r) return;
+    lastDeletedRoom = JSON.parse(JSON.stringify(r)); // snapshot para desfazer
     state.rooms = state.rooms.filter(x => x.id !== r.id);
     state.selectedId = null;
     logActivity(`Cômodo <b>${escapeHtml(r.name)}</b> excluído`);
     scheduleSave();
     render();
+    const snap = lastDeletedRoom;
+    showToast(`Cômodo "${r.name || "sem nome"}" excluído`, "info", 8000, {
+      label: "Desfazer",
+      onClick: () => {
+        if (!snap) return;
+        if (!state.rooms.some(x => x.id === snap.id)) {
+          state.rooms.push(snap);
+          state.selectedId = snap.id;
+        }
+        lastDeletedRoom = null;
+        logActivity(`Exclusão de <b>${escapeHtml(snap.name)}</b> desfeita`);
+        scheduleSave();
+        render();
+      },
+    });
+  }
+
+  document.getElementById("delete-room").addEventListener("click", async () => {
+    const r = currentRoom(); if (!r) return;
+    if (!await customConfirm(`Excluir "${r.name || "este cômodo"}"?`)) return;
+    deleteRoom(r);
   });
 
   document.addEventListener("keydown", (e) => {
@@ -4849,11 +4884,7 @@
     if (tag === "input" || tag === "textarea" || e.target.isContentEditable) return;
     const r = currentRoom(); if (!r) return;
     e.preventDefault();
-    state.rooms = state.rooms.filter(x => x.id !== r.id);
-    state.selectedId = null;
-    logActivity(`Cômodo <b>${escapeHtml(r.name)}</b> excluído`);
-    scheduleSave();
-    render();
+    deleteRoom(r);
   });
 
   // ===== Profile modal =====
@@ -5373,7 +5404,7 @@
 
   // Toast não-bloqueante (substitui alert() nativo)
   const toastContainer = document.getElementById("toast-container");
-  function showToast(message, type = "info", ms = 4000) {
+  function showToast(message, type = "info", ms = 4000, action = null) {
     const el = document.createElement("div");
     el.className = "toast " + type;
     const icon = document.createElement("span");
@@ -5397,6 +5428,14 @@
     close.addEventListener("click", dismiss);
     el.appendChild(icon);
     el.appendChild(msg);
+    if (action && action.label) {
+      const act = document.createElement("button");
+      act.className = "toast-action";
+      act.type = "button";
+      act.textContent = action.label;
+      act.addEventListener("click", () => { try { action.onClick && action.onClick(); } finally { dismiss(); } });
+      el.appendChild(act);
+    }
     el.appendChild(close);
     toastContainer.appendChild(el);
     if (ms > 0) timer = setTimeout(dismiss, ms);
