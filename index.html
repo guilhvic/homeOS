@@ -1393,6 +1393,30 @@
     border-color: var(--accent-soft);
     box-shadow: 0 8px 25px -4px rgba(0, 0, 0, 0.45), 0 4px 10px -2px rgba(0, 0, 0, 0.35);
   }
+  /* Banner "HA offline" */
+  #ha-banner {
+    position: fixed;
+    top: 56px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 8000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #b5760a;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 6px 20px rgba(0,0,0,.25);
+    max-width: calc(100% - 24px);
+  }
+  #ha-banner[hidden] { display: none; }
+  #ha-banner .ic { width: 16px; height: 16px; }
+  #room-power-off { padding: 4px 8px; }
+  #room-power-off .ic, #power-off-all .ic { width: 18px; height: 18px; }
+
   /* ===== Ícones SVG ===== */
   .ic { display: inline-block; vertical-align: middle; flex-shrink: 0; width: 20px; height: 20px; }
   h1 .ic, h2 .ic, h3 .ic, h4 .ic { vertical-align: -0.16em; }
@@ -2078,14 +2102,21 @@
     </div>
     <span class="sub" id="status">— monte o mapa da sua casa</span>
     <div class="spacer"></div>
+    <span id="weather-pill" class="cpu-temp" title="Clima" hidden></span>
     <span id="energy-pill" class="cpu-temp" title="Consumo dos aparelhos monitorados" hidden></span>
     <span id="cpu-temp" class="cpu-temp" title="Temperatura da CPU do servidor" hidden></span>
     <button id="profile-btn" class="profile" title="Conta">
       <span class="avatar" id="profile-avatar"></span>
       <span class="pname" id="profile-name">…</span>
     </button>
+    <button id="power-off-all" class="ghost map-only" title="Apagar todas as luzes e tomadas da casa" aria-label="Apagar tudo" hidden><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v9"/><path d="M6.6 6.6a8 8 0 1 0 10.8 0"/></svg></button>
     <button id="sync-btn" class="ghost map-only" title="Sincronizar dispositivos do Home Assistant" aria-label="Sincronizar dispositivos"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-.5 4"/><path d="M20 4v5h-5"/></svg></button>
   </header>
+
+  <div id="ha-banner" hidden>
+    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg>
+    <span>Home Assistant offline — dispositivos podem estar desatualizados</span>
+  </div>
 
   <div id="map-wrap">
     <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
@@ -2131,6 +2162,7 @@
       <section class="devices-widget" id="devices-widget">
         <div class="devices-widget-head">
           <h4>Dispositivos <span class="tab-count" id="devices-widget-count" hidden></span></h4>
+          <button id="room-power-off" class="ghost" type="button" title="Apagar luzes e tomadas deste cômodo" hidden><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v9"/><path d="M6.6 6.6a8 8 0 1 0 10.8 0"/></svg></button>
         </div>
         <ul class="devices" id="devices"></ul>
         <button id="open-device-picker" class="add-device" type="button">+ Vincular dispositivo</button>
@@ -2896,6 +2928,8 @@
   // ===== Home Assistant integration =====
   const haEntities = new Map(); // entity_id -> entity object
   let haEnabled = false;
+  let haConfigured = false;
+  let haOnline = false;
   let haPollTimer = null;
   const HA_POLL_MS = 7000;
 
@@ -2940,6 +2974,10 @@
     dot: '<circle cx="12" cy="12" r="4"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     camera: '<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M17 10l4-2v8l-4-2z"/>',
+    cloud: '<path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A3.5 3.5 0 0 1 17 18z"/>',
+    rain: '<path d="M7 15a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A3.5 3.5 0 0 1 17 15z"/><path d="M8 19l-1 2M12 19l-1 2M16 19l-1 2"/>',
+    fog: '<path d="M7 13a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A3.5 3.5 0 0 1 17 13z"/><path d="M5 17h14M7 21h12"/>',
+    power: '<path d="M12 3v9"/><path d="M6.6 6.6a8 8 0 1 0 10.8 0"/>',
     leaf: '<path d="M4 20c0-8 6-14 16-14 0 10-6 16-16 14z"/><path d="M4 20l9-9"/>',
     bread: '<path d="M6 11a4 4 0 0 1 4-4h4a4 4 0 0 1 0 8H10a4 4 0 0 1-4-4z"/><path d="M10 7v8M14 7v8"/>',
     meat: '<path d="M14 4a5 5 0 0 1 3 9l-6 6-3 1-1-1 1-3 6-6a5 5 0 0 1 0-6z"/>',
@@ -3011,18 +3049,29 @@
     return { name, status: s, kind: s === "on" ? "on" : "off" };
   }
 
+  function setHaOnline(v) {
+    if (haOnline === v) return;
+    haOnline = v;
+    updateHaBanner();
+  }
+  function updateHaBanner() {
+    const b = document.getElementById("ha-banner");
+    if (b) b.hidden = !(haConfigured && !haOnline);
+  }
   async function haPoll() {
     if (!haEnabled) return;
     try {
       const r = await api("GET", "/ha/states");
-      if (!r.ok) return;
+      if (!r.ok) { setHaOnline(false); return; }
       haEntities.clear();
       for (const e of (r.data.entities || [])) haEntities.set(e.entity_id, e);
       // re-render the affected bits without disturbing inputs/scroll
       renderDevicesPanel(currentRoom());
       renderRoomPins();
       renderEnergyPill();
-    } catch {}
+      renderWeatherPill();
+      setHaOnline(true);
+    } catch { setHaOnline(false); }
   }
 
   // ===== Energia (consumo dos aparelhos monitorados) =====
@@ -3091,7 +3140,11 @@
 
   async function haInit() {
     const r = await api("GET", "/ha/status");
-    haEnabled = !!(r.ok && r.data && r.data.configured && r.data.ok);
+    haConfigured = !!(r.ok && r.data && r.data.configured);
+    haEnabled = haConfigured;
+    const powerBtn = document.getElementById("power-off-all");
+    if (powerBtn) powerBtn.hidden = !haEnabled;
+    updateHaBanner();
     if (haEnabled) {
       await haPoll();
       clearInterval(haPollTimer);
@@ -3102,7 +3155,77 @@
         if (document.visibilityState === "visible") haPoll();
       });
     }
+    renderWeatherPill();
+    renderEnergyPill();
   }
+
+  // ===== Clima (entidade weather.* do HA) =====
+  const WEATHER_ICON = {
+    "sunny": "sun", "clear-night": "moon", "cloudy": "cloud", "partlycloudy": "cloud",
+    "rainy": "rain", "pouring": "rain", "lightning": "rain", "lightning-rainy": "rain",
+    "snowy": "snowflake", "snowy-rainy": "snowflake", "fog": "fog", "hail": "rain",
+    "windy": "wind", "windy-variant": "wind", "exceptional": "warning",
+  };
+  const WEATHER_PT = {
+    "sunny": "Ensolarado", "clear-night": "Céu limpo", "cloudy": "Nublado",
+    "partlycloudy": "Parc. nublado", "rainy": "Chuva", "pouring": "Chuva forte",
+    "lightning": "Trovoada", "lightning-rainy": "Trovoada", "snowy": "Neve",
+    "snowy-rainy": "Neve/chuva", "fog": "Neblina", "windy": "Ventando",
+    "windy-variant": "Ventando", "hail": "Granizo", "exceptional": "Extremo",
+  };
+  function findWeatherEntity() {
+    for (const id of haEntities.keys()) if (id.startsWith("weather.")) return id;
+    return null;
+  }
+  function weatherChip() {
+    const id = findWeatherEntity();
+    const e = id && haEntities.get(id);
+    if (!e) return null;
+    const temp = e.attributes?.temperature;
+    const icon = WEATHER_ICON[e.state] || "cloud";
+    const nome = WEATHER_PT[e.state] || e.state;
+    return `${svgIcon(icon, 16)} ${escapeHtml(nome)}${temp != null ? " " + Math.round(temp) + "°" : ""}`;
+  }
+  function renderWeatherPill() {
+    const el = document.getElementById("weather-pill");
+    if (!el) return;
+    const id = findWeatherEntity();
+    const e = id && haEntities.get(id);
+    if (!e) { el.hidden = true; return; }
+    const temp = e.attributes?.temperature;
+    const icon = WEATHER_ICON[e.state] || "cloud";
+    const nome = WEATHER_PT[e.state] || e.state;
+    el.innerHTML = svgIcon(icon, 15) + (temp != null ? " " + Math.round(temp) + "°" : "");
+    el.title = `${nome}${temp != null ? " · " + Math.round(temp) + "°C" : ""}`;
+    el.hidden = false;
+  }
+
+  // ===== Apagar tudo (luzes + tomadas) =====
+  async function turnOffLightsSwitches(ids, label) {
+    const byDomain = {};
+    for (const id of ids) {
+      const dom = entityDomain(id);
+      if (dom === "light" || dom === "switch") (byDomain[dom] = byDomain[dom] || []).push(id);
+    }
+    const domains = Object.keys(byDomain);
+    if (!domains.length) { showToast("Nenhuma luz ou tomada para apagar", "info"); return; }
+    let n = 0;
+    for (const dom of domains) { await haCall(dom, "turn_off", { entity_id: byDomain[dom] }); n += byDomain[dom].length; }
+    showToast(`${n} ${n === 1 ? "desligado" : "desligados"}${label ? " · " + label : ""}`, "success");
+  }
+
+  document.getElementById("power-off-all").addEventListener("click", async () => {
+    if (!haEnabled) return;
+    const ids = [...haEntities.keys()].filter(id => { const d = entityDomain(id); return d === "light" || d === "switch"; });
+    if (!ids.length) { showToast("Nenhuma luz/tomada encontrada", "info"); return; }
+    if (!await customConfirm(`Apagar todas as luzes e tomadas da casa (${ids.length})?`)) return;
+    turnOffLightsSwitches(ids, "casa");
+  });
+  document.getElementById("room-power-off").addEventListener("click", () => {
+    const room = currentRoom(); if (!room) return;
+    const ids = (room.devices || []).map(devId).filter(id => { const d = entityDomain(id); return d === "light" || d === "switch"; });
+    turnOffLightsSwitches(ids, room.name);
+  });
 
   // ===== DOM refs (app) =====
   const svg = document.getElementById("svg");
@@ -3425,6 +3548,8 @@
   function renderDevicesPanel(room) {
     const list = document.getElementById("devices");
     const addBtn = document.getElementById("open-device-picker");
+    const roomPowerBtn = document.getElementById("room-power-off");
+    if (roomPowerBtn) roomPowerBtn.hidden = true;
     if (!room) return;
     if (!haEnabled) {
       list.innerHTML = "";
@@ -3464,6 +3589,7 @@
         list.appendChild(li);
       }
       if (sensors.length) list.appendChild(buildSensorsBlock(sensors, room));
+      if (roomPowerBtn) roomPowerBtn.hidden = !interactive.some(dev => { const d = entityDomain(devId(dev)); return d === "light" || d === "switch"; });
     }
   }
 
@@ -4316,6 +4442,7 @@
     const assigned = assignedMap();
     const newDevs = [];
     for (const e of haEntities.values()) {
+      if (entityDomain(e.entity_id) === "weather") continue;
       if (!assigned.has(e.entity_id)) newDevs.push(e);
     }
     newDevs.sort((a, b) => {
@@ -4540,6 +4667,7 @@
     let shown = 0;
     for (const e of entries) {
       const dom = entityDomain(e.entity_id);
+      if (dom === "weather") continue; // clima é só pro cabeçalho/descanso, não é dispositivo de cômodo
       const name = e.attributes.friendly_name || e.entity_id;
       if (q && !(name.toLowerCase().includes(q) || dom.includes(q) || e.entity_id.includes(q))) continue;
       shown++;
@@ -6106,6 +6234,7 @@
     if (dt) dt.textContent = now.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
     if (ex) {
       const chips = [];
+      const w = weatherChip(); if (w) chips.push(`<span class="ss-chip">${w}</span>`);
       const t = indoorTempText(); if (t) chips.push(`<span class="ss-chip">${t}</span>`);
       const nr = nextRoutineText(); if (nr) chips.push(`<span class="ss-chip">${nr}</span>`);
       ex.innerHTML = chips.join("");

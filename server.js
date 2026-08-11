@@ -296,7 +296,7 @@ app.put("/api/state", authRequired, (req, res) => {
 // --- Home Assistant proxy (per-user) ---
 const HA_DOMAINS = new Set([
   "light", "switch", "climate", "fan", "cover", "media_player",
-  "binary_sensor", "sensor", "lock", "vacuum", "humidifier", "camera",
+  "binary_sensor", "sensor", "lock", "vacuum", "humidifier", "camera", "weather",
 ]);
 
 // One-time migration: seed the env values into any user that has no config yet.
