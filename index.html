@@ -2062,23 +2062,25 @@
       grid-template-areas: "top" "map";
     }
 
-    /* Header compacto em uma linha, rolável se necessário */
+    /* Header compacto; quebra em 2 linhas em vez de rolar na horizontal */
     header {
-      gap: 8px;
+      gap: 6px;
       padding: 8px 12px;
       min-height: 52px;
-      overflow-x: auto;
-      scrollbar-width: none;
-      -webkit-overflow-scrolling: touch;
+      flex-wrap: wrap;
+      row-gap: 6px;
     }
-    header::-webkit-scrollbar { display: none; }
     header h1 { font-size: 17px; flex: none; }
     header #status { display: none; }
     header .spacer { min-width: 0; }
-    .cpu-temp { flex: none; }
+    .cpu-temp { flex: none; padding: 4px 8px; font-size: 11px; }
+    .cpu-temp .ic, .cpu-temp svg { width: 13px; height: 13px; }
     .profile { flex: none; padding: 3px; }
     .profile .pname { display: none; }
-    .profile .avatar { width: 32px; height: 32px; }
+    .profile .avatar { width: 30px; height: 30px; }
+    /* Sync (ação de edição) não faz sentido no celular — grade fica travada */
+    header #sync-btn { display: none; }
+    header #power-off-all { flex: none; }
 
     /* Abas viram barra de navegação inferior (thumb-friendly) */
     .view-tabs {
@@ -2125,7 +2127,7 @@
     #app-shell.has-selection aside {
       position: fixed;
       left: 0; right: 0;
-      top: 57px;
+      top: var(--app-header-h, 57px);
       bottom: 0;
       z-index: 480;
       max-height: none;
@@ -2876,6 +2878,21 @@
     initNightDim();
     initExternalDash();
     initEnergy();
+    initHeaderHeightVar();
+  }
+
+  // Mantém --app-header-h atualizado (o painel de cômodo em tela cheia no mobile
+  // se ancora logo abaixo do header, que pode ter 1 ou 2 linhas).
+  function initHeaderHeightVar() {
+    const header = document.querySelector("#app-shell header");
+    if (!header) return;
+    const apply = () => document.documentElement.style.setProperty("--app-header-h", header.offsetHeight + "px");
+    apply();
+    if (typeof ResizeObserver !== "undefined") {
+      new ResizeObserver(apply).observe(header);
+    }
+    window.addEventListener("resize", apply);
+    window.addEventListener("orientationchange", () => setTimeout(apply, 200));
   }
 
   // ===== Temperatura da CPU do servidor =====
@@ -5022,11 +5039,25 @@
     const id = target.getAttribute("data-id");
     const room = state.rooms.find(r => r.id === id);
     if (!room) return;
+    const corner = e.target.getAttribute("data-handle");
+    // Grade travada (padrão / kiosk / mobile): arrastar sobre um cômodo faz PAN
+    // do mapa; um toque simples (sem mover) abre o cômodo. Assim dá pra navegar
+    // o mapa a partir de qualquer ponto, mesmo com a tela toda coberta de cômodos.
+    if (gridLocked) {
+      drag = {
+        mode: "pan",
+        startX: p.x, startY: p.y,
+        origTx: state.view.tx, origTy: state.view.ty,
+        moved: false,
+        tapRoomId: id,
+      };
+      svg.classList.add("panning");
+      svg.setPointerCapture(e.pointerId);
+      return;
+    }
     state.selectedId = id;
     const w = svgWorld(e);
-    const corner = e.target.getAttribute("data-handle");
     if (corner) {
-      if (gridLocked) return;
       drag = {
         mode: "resize", id, corner,
         startX: w.x, startY: w.y,
@@ -5034,10 +5065,6 @@
         startW: room.w, startH: room.h,
       };
     } else {
-      if (gridLocked) {
-        render();
-        return;
-      }
       drag = { mode: "move", id, dx: w.x - room.x, dy: w.y - room.y, origX: room.x, origY: room.y };
     }
     svg.setPointerCapture(e.pointerId);
@@ -5072,7 +5099,7 @@
       const p = svgPoint(e);
       const ndx = p.x - drag.startX;
       const ndy = p.y - drag.startY;
-      if (Math.abs(ndx) + Math.abs(ndy) > 2) drag.moved = true;
+      if (Math.abs(ndx) + Math.abs(ndy) > 6) drag.moved = true;
       state.view.tx = drag.origTx + ndx;
       state.view.ty = drag.origTy + ndy;
       updateViewportOnly();
@@ -5137,8 +5164,8 @@
     if (drag.mode === "pan") {
       svg.classList.remove("panning");
       if (!drag.moved) {
-        // treated as click on empty area → deselect
-        state.selectedId = null;
+        // Toque simples sem mover: sobre um cômodo → abre; em área vazia → fecha.
+        state.selectedId = drag.tapRoomId || null;
         render();
         scheduleSave();
       } else {
@@ -6461,6 +6488,9 @@
     const on = kioskActive();
     document.body.classList.toggle("kiosk", on);
     if (on && !gridLocked) { gridLocked = true; updateGridLockUI(); }
+    // Fora do kiosk, o seletor de apps some (e fecha o dash externo se estiver aberto).
+    if (!on) { try { hideDash(); } catch {} }
+    try { refreshDashToggle(); } catch {}
   }
   function initKiosk() {
     applyKiosk();
@@ -6533,8 +6563,10 @@
   }
   function refreshDashToggle() {
     const btn = document.getElementById("dash-toggle");
-    if (btn) btn.hidden = !dashUrl();
-    if (!dashUrl()) closeSwitcher();
+    // O seletor de apps só aparece no modo kiosk (uso no painel de parede).
+    const show = !!dashUrl() && kioskActive();
+    if (btn) btn.hidden = !show;
+    if (!show) closeSwitcher();
   }
   function markSwitcherCurrent() {
     const onDash = dashVisible();
