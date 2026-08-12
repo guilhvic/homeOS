@@ -754,6 +754,16 @@
     font-weight: 600;
     letter-spacing: .2px;
   }
+  #home-logo {
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 8px;
+    user-select: none;
+    transition: background .15s, color .15s;
+  }
+  #home-logo:hover { background: var(--accent-soft); color: var(--accent); }
+  #home-logo:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #home-logo.home-active { color: var(--accent); }
   header .sub { color: var(--muted); font-size: 12px; }
   header .spacer { flex: 1; }
   .cpu-temp {
@@ -2047,11 +2057,14 @@
   .detail-back-btn { display: none; }
 
   /* ==========================================================================
-     MOBILE — navegação inferior, header compacto, painel de cômodo em tela cheia
+     MOBILE / TABLET — navegação inferior, header compacto, cômodo em tela cheia.
+     Cobre até iPad no retrato (768/810/820/834). Acima disso, layout desktop.
      ========================================================================== */
-  @media (max-width: 760px) {
+  @media (max-width: 834px) {
     /* Evita zoom automático do iOS ao focar campos (fonte < 16px dispara zoom) */
     input, select, textarea, .room-title { font-size: 16px; }
+    /* Rede de segurança: nada rola na horizontal no tablet/celular */
+    html, body { max-width: 100%; overflow-x: hidden; }
 
     /* Shell: só header + área principal; a navegação vira barra inferior fixa */
     #app-shell,
@@ -2115,7 +2128,30 @@
     #map-wrap { padding-bottom: 0; }
     #grocery-view, #profile-view, #tasks-view, #routines-view, #fridge-view {
       padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+      padding-left: 12px;
+      padding-right: 12px;
+      overflow-x: hidden;
     }
+
+    /* Formulários de adicionar (mercado/geladeira) empilham em 1 coluna.
+       min-width:0 impede que o conteúdo intrínseco dos campos estoure o grid. */
+    .grocery-add, .fridge-add {
+      grid-template-columns: 1fr;
+    }
+    .grocery-add > *, .fridge-add > * {
+      min-width: 0;
+      width: auto;
+      grid-column: auto;
+    }
+    .grocery-add button, .fridge-add button { width: 100%; }
+
+    /* Cabeçalho de card com toggles (Saúde do servidor) quebra em linhas */
+    .card-head-toggles { flex-wrap: wrap; gap: 8px; }
+    .toggle-group { flex-wrap: wrap; gap: 10px 14px; }
+
+    /* Cards de perfil com menos padding no mobile */
+    .profile-card { padding: 18px; border-radius: 16px; }
+    .profile-page-header { padding: 0 4px; }
 
     /* Controles do mapa acima da barra de navegação inferior (~58px) */
     .map-controls { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); right: 14px; }
@@ -2188,9 +2224,8 @@
 <!-- ============================ APP SHELL ============================ -->
 <div id="app-shell" hidden>
   <header>
-    <h1>homeOS</h1>
+    <h1 id="home-logo" role="button" tabindex="0" title="Ir para a casa (início)">homeOS</h1>
     <div class="view-tabs" role="tablist">
-      <button class="view-tab active" data-view="map" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span>Casa</span></button>
       <button class="view-tab" data-view="fridge" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M6 10h12M9 6v1M9 13v3"/></svg><span>Geladeira</span></button>
       <button class="view-tab" data-view="grocery" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12h11l1.9-8H6"/></svg><span>Mercado</span></button>
       <button class="view-tab" data-view="routines" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span>Rotinas</span></button>
@@ -2449,9 +2484,9 @@
 
       <!-- Bento Card 7: Saúde do servidor (Span 2) -->
       <div class="profile-card bento-2">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="card-head-toggles" style="display:flex; justify-content:space-between; align-items:center;">
           <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg> Saúde do servidor</h3>
-          <div style="display:flex; align-items:center; gap:14px;">
+          <div class="toggle-group" style="display:flex; align-items:center; gap:14px;">
             <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); cursor:pointer;">
               <input type="checkbox" id="kiosk-toggle" style="width:auto; margin:0;" />
               Modo kiosk
@@ -6859,6 +6894,8 @@
     for (const btn of document.querySelectorAll(".view-tab")) {
       btn.classList.toggle("active", btn.dataset.view === currentView);
     }
+    const hl = document.getElementById("home-logo");
+    if (hl) hl.classList.toggle("home-active", currentView === "map");
     if (currentView === "grocery") {
       renderGrocery();
       setTimeout(() => groceryNameInput.focus(), 0);
@@ -6876,6 +6913,14 @@
   }
   for (const btn of document.querySelectorAll(".view-tab")) {
     btn.addEventListener("click", () => setView(btn.dataset.view));
+  }
+  // O logo homeOS funciona como "início": volta para a visão da casa (mapa).
+  const homeLogo = document.getElementById("home-logo");
+  if (homeLogo) {
+    homeLogo.addEventListener("click", () => setView("map"));
+    homeLogo.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setView("map"); }
+    });
   }
 
   // ===== Boot =====
