@@ -1,5 +1,5 @@
 // homeOS service worker — shell offline básico, sem tocar em /api.
-const CACHE = "homeos-v27";
+const CACHE = "homeos-v28";
 const SHELL = [
   "/", "/index.html", "/manifest.webmanifest",
   "/icon-192.png", "/icon-512.png",

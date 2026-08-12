@@ -2066,13 +2066,21 @@
     /* Rede de segurança: nada rola na horizontal no tablet/celular */
     html, body { max-width: 100%; overflow-x: hidden; }
 
-    /* Shell: só header + área principal; a navegação vira barra inferior fixa */
-    #app-shell,
-    #app-shell:not(.has-selection),
-    #app-shell.has-selection {
+    /* Shell na VISÃO DA CASA (mapa): só header + mapa; nav vira barra inferior.
+       Escopado para não pisar nas áreas das outras views (grocery/profile/etc),
+       que já definem seu próprio layout de coluna única. */
+    #app-shell:not(.view-grocery):not(.view-profile):not(.view-routines):not(.view-tasks):not(.view-fridge) {
       grid-template-columns: 1fr;
       grid-template-rows: auto 1fr;
       grid-template-areas: "top" "map";
+    }
+    /* Demais views: coluna única de conteúdo abaixo do header */
+    #app-shell.view-grocery,
+    #app-shell.view-profile,
+    #app-shell.view-routines,
+    #app-shell.view-tasks,
+    #app-shell.view-fridge {
+      grid-template-rows: auto 1fr;
     }
 
     /* Header compacto; quebra em 2 linhas em vez de rolar na horizontal */
