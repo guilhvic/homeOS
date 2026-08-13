@@ -594,8 +594,13 @@ app.post("/api/ha/services/:domain/:service", authRequired, async (req, res) => 
   const { domain, service } = req.params;
   if (!/^[a-z_]+$/.test(domain) || !/^[a-z_]+$/.test(service))
     return res.status(400).json({ error: "domain/service inválido" });
+  // Alguns serviços (ex.: weather.get_forecasts) devolvem dados só com
+  // ?return_response=true. Repassamos o parâmetro quando pedido.
+  const suffix = req.query.return_response === "true"
+    ? `/api/services/${domain}/${service}?return_response=true`
+    : `/api/services/${domain}/${service}`;
   try {
-    const r = await haFetch(req.user, `/api/services/${domain}/${service}`, {
+    const r = await haFetch(req.user, suffix, {
       method: "POST",
       body: JSON.stringify(req.body || {}),
     });

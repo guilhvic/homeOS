@@ -248,16 +248,60 @@
   /* Protetor de tela / modo descanso */
   #screensaver {
     position: fixed; inset: 0; z-index: 9700;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-    background: #05070d; color: #e8eef7; cursor: pointer; user-select: none;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 34px;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(64,110,180,.20), transparent 60%),
+      radial-gradient(900px 500px at 90% 110%, rgba(120,80,170,.16), transparent 55%),
+      #05070d;
+    color: #e8eef7; cursor: pointer; user-select: none;
     -webkit-tap-highlight-color: transparent;
+    padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom);
   }
   #screensaver[hidden] { display: none; }
-  #ss-clock { font-size: clamp(64px, 18vw, 200px); font-weight: 300; letter-spacing: 2px; line-height: 1; font-variant-numeric: tabular-nums; }
+  #ss-main { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  #ss-clock { font-size: clamp(72px, 17vw, 200px); font-weight: 200; letter-spacing: 2px; line-height: 1; font-variant-numeric: tabular-nums; }
   #ss-date { font-size: clamp(16px, 3vw, 26px); color: #9fb0c8; text-transform: capitalize; }
-  #ss-extra { margin-top: 18px; display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; color: #c7d3e6; font-size: clamp(14px, 2.4vw, 20px); }
-  #ss-extra .ss-chip { display: flex; align-items: center; gap: 8px; }
-  #ss-hint { position: absolute; bottom: 24px; font-size: 12px; color: #55627a; }
+  #ss-extra { margin-top: 14px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; color: #c7d3e6; font-size: clamp(13px, 2.2vw, 18px); }
+  #ss-extra .ss-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08);
+    padding: 8px 14px; border-radius: 999px;
+  }
+
+  /* Previsão da semana */
+  #ss-forecast {
+    display: flex; gap: clamp(6px, 1.4vw, 14px); flex-wrap: nowrap;
+    justify-content: center; width: 100%; max-width: 860px;
+  }
+  #ss-forecast:empty { display: none; }
+  .ss-day {
+    flex: 1 1 0; min-width: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: clamp(10px, 1.6vw, 16px) 6px;
+    background: rgba(255,255,255,.045);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 16px;
+  }
+  .ss-day.today {
+    background: rgba(96,150,230,.18);
+    border-color: rgba(120,170,240,.4);
+  }
+  .ss-day.nodata { opacity: .35; }
+  .ss-day-name { font-size: clamp(11px, 1.5vw, 14px); text-transform: uppercase; letter-spacing: .5px; color: #9fb0c8; font-weight: 600; }
+  .ss-day.today .ss-day-name { color: #bcd4f7; }
+  .ss-day-ic { color: #dbe6f7; display: grid; place-items: center; height: clamp(24px, 3vw, 34px); }
+  .ss-day-ic svg { width: clamp(24px, 3vw, 34px); height: clamp(24px, 3vw, 34px); }
+  .ss-day-temp { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; line-height: 1; }
+  .ss-day-hi { font-size: clamp(15px, 2vw, 21px); font-weight: 600; }
+  .ss-day-lo { font-size: clamp(12px, 1.6vw, 16px); color: #7f8da3; }
+  #ss-hint { position: absolute; bottom: 20px; font-size: 12px; color: #55627a; }
+  /* Em telas estreitas (celular), empilha máx/mín pra caber os 7 dias */
+  @media (max-width: 520px) {
+    #ss-forecast { gap: 5px; }
+    .ss-day { padding: 9px 3px; border-radius: 12px; gap: 6px; }
+    .ss-day-temp { flex-direction: column; gap: 1px; align-items: center; }
+    .ss-day-lo { font-size: 12px; }
+  }
 
   /* ===== Modo kiosk: alvos de toque grandes, edicao escondida ===== */
   body.kiosk .view-tab { font-size: 16px; padding: 10px 18px; }
@@ -2595,9 +2639,12 @@
 
 <!-- ============================ SCREENSAVER / MODO DESCANSO ============================ -->
 <div id="screensaver" hidden>
-  <div id="ss-clock">--:--</div>
-  <div id="ss-date"></div>
-  <div id="ss-extra"></div>
+  <div id="ss-main">
+    <div id="ss-clock">--:--</div>
+    <div id="ss-date"></div>
+    <div id="ss-extra"></div>
+  </div>
+  <div id="ss-forecast"></div>
   <div id="ss-hint">toque para voltar</div>
 </div>
 
@@ -6474,6 +6521,66 @@
     if (!temps.length) return null;
     return `${svgIcon("thermometer", 16)} ${(temps.reduce((s, x) => s + x, 0) / temps.length).toFixed(1)}°C dentro`;
   }
+  // ===== Previsão da semana (modo descanso) =====
+  let wxForecast = { fetchedMs: 0, byDate: null };
+  let wxFetching = false;
+  function dateKey(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  async function fetchWeeklyForecast() {
+    const id = findWeatherEntity();
+    if (!id || wxFetching) return;
+    // Cache de 30 min pra não bater no HA toda hora.
+    if (wxForecast.byDate && (Date.now() - wxForecast.fetchedMs) < 30 * 60000) return;
+    wxFetching = true;
+    try {
+      const r = await api("POST", "/ha/services/weather/get_forecasts?return_response=true", { entity_id: id, type: "daily" });
+      const resp = r.ok && r.data && (r.data.service_response || r.data);
+      const list = resp && resp[id] && resp[id].forecast;
+      if (Array.isArray(list)) {
+        const byDate = {};
+        for (const it of list) {
+          if (!it || !it.datetime) continue;
+          const d = new Date(it.datetime);
+          if (!isNaN(d)) byDate[dateKey(d)] = it;
+        }
+        wxForecast = { fetchedMs: Date.now(), byDate };
+        renderForecast();
+      }
+    } catch {} finally { wxFetching = false; }
+  }
+  function renderForecast() {
+    const el = document.getElementById("ss-forecast");
+    if (!el) return;
+    if (!wxForecast.byDate) { el.innerHTML = ""; return; }
+    const today = new Date();
+    const weekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // começa no domingo
+    const todayKey = dateKey(today);
+    const cards = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart); d.setDate(weekStart.getDate() + i);
+      const key = dateKey(d);
+      const wd = d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
+      const it = wxForecast.byDate[key];
+      const cls = ["ss-day"];
+      if (key === todayKey) cls.push("today");
+      if (!it) cls.push("nodata");
+      let inner = `<div class="ss-day-name">${escapeHtml(wd)}</div>`;
+      if (it) {
+        const icon = WEATHER_ICON[it.condition] || "cloud";
+        const hi = it.temperature != null ? Math.round(it.temperature) + "°" : "";
+        const lo = it.templow != null ? Math.round(it.templow) + "°" : "";
+        inner += `<div class="ss-day-ic">${svgIcon(icon, 30)}</div>`;
+        inner += `<div class="ss-day-temp"><span class="ss-day-hi">${hi}</span>${lo ? `<span class="ss-day-lo">${lo}</span>` : ""}</div>`;
+      } else {
+        inner += `<div class="ss-day-ic">${svgIcon("cloud", 30)}</div><div class="ss-day-temp"><span class="ss-day-lo">—</span></div>`;
+      }
+      cards.push(`<div class="${cls.join(" ")}">${inner}</div>`);
+    }
+    el.innerHTML = cards.join("");
+  }
+
   function updateScreensaver() {
     const now = new Date();
     const clk = document.getElementById("ss-clock");
@@ -6483,11 +6590,12 @@
     if (dt) dt.textContent = now.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
     if (ex) {
       const chips = [];
-      const w = weatherChip(); if (w) chips.push(`<span class="ss-chip">${w}</span>`);
       const t = indoorTempText(); if (t) chips.push(`<span class="ss-chip">${t}</span>`);
       const nr = nextRoutineText(); if (nr) chips.push(`<span class="ss-chip">${nr}</span>`);
       ex.innerHTML = chips.join("");
     }
+    // Atualiza a previsão se o cache expirou (também cobre a virada do dia).
+    fetchWeeklyForecast();
   }
   function showScreensaver() {
     if (ssActive) return;
@@ -6495,6 +6603,8 @@
     if (!ss || appShell.hidden || dashVisible()) return;
     ssActive = true;
     updateScreensaver();
+    renderForecast();
+    fetchWeeklyForecast();
     ss.hidden = false;
     ssClockTimer = setInterval(updateScreensaver, 1000);
   }
