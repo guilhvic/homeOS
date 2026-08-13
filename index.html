@@ -237,6 +237,20 @@
 
   /* Card de saúde do servidor (perfil) */
   .health-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 8px; }
+
+  /* Gráfico de barras do consumo de energia (7 dias) */
+  #energy-chart { margin-top: 6px; }
+  .energy-bars { display: flex; align-items: flex-end; gap: 8px; padding-top: 8px; }
+  .energy-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
+  .energy-bar-val { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .energy-bar {
+    width: 100%; max-width: 46px; min-height: 3px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-soft));
+    border-radius: 6px 6px 0 0; transition: height .3s ease;
+  }
+  .energy-bar-col.today .energy-bar { background: linear-gradient(180deg, #e0a020, #b5760a); }
+  .energy-bar-day { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+  .energy-bar-col.today .energy-bar-day { color: var(--accent); font-weight: 700; }
   .health-metric { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--bg); }
   .health-metric .hm-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
   .health-metric .hm-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
@@ -1559,6 +1573,15 @@
     color: #9fb0c8; font-size: 13px; font-weight: 600;
   }
   .camera-status[hidden] { display: none; }
+  .camera-retry {
+    position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+    background: rgba(255,255,255,.14); color: #e8eef7;
+    border: 1px solid rgba(255,255,255,.25); border-radius: 999px;
+    padding: 7px 16px; font-size: 12px; font-weight: 600; cursor: pointer;
+    -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  }
+  .camera-retry:hover { background: rgba(255,255,255,.24); }
+  .camera-retry[hidden] { display: none; }
 
   .dev-icon {
     width: 44px; height: 44px;
@@ -2566,6 +2589,16 @@
           <div class="sub" style="grid-column:1/-1;">Carregando…</div>
         </div>
       </div>
+
+      <!-- Bento Card 8: Consumo de energia (7 dias) (Span 3) -->
+      <div class="profile-card bento-3">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap;">
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12l1-9z"/></svg> Consumo de energia</h3>
+          <span class="sub" id="energy-week-total" style="margin:0;"></span>
+        </div>
+        <p class="sub">Últimos 7 dias, a partir dos sensores de energia (kWh) monitorados.</p>
+        <div id="energy-chart"><div class="sub">Carregando…</div></div>
+      </div>
     </div>
   </main>
 
@@ -3345,6 +3378,80 @@
     }
     renderEnergyPill();
   }
+
+  // ===== Histórico de energia (consumo diário dos últimos 7 dias) =====
+  function energySensorIds() {
+    const ids = [];
+    haEntities.forEach((e, id) => {
+      const a = e.attributes || {};
+      if (a.device_class === "energy" && a.unit_of_measurement === "kWh" && /this_month|_month|daily|_day|total/.test(id)) ids.push(id);
+    });
+    return ids;
+  }
+  async function energyHistoryDaily(days) {
+    days = days || 7;
+    const ids = energySensorIds();
+    if (!ids.length) return null;
+    const hours = days * 24;
+    const results = await Promise.all(ids.map(id =>
+      api("GET", `/ha/history?entity_id=${encodeURIComponent(id)}&hours=${hours}`)));
+    const now = new Date();
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const buckets = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(dayStart); d.setDate(dayStart.getDate() - i);
+      buckets.push({ key: dateKey(d), date: d, kwh: 0 });
+    }
+    const byKey = {}; buckets.forEach(b => byKey[b.key] = b);
+    for (const r of results) {
+      if (!r.ok || !r.data || !Array.isArray(r.data.points)) continue;
+      const byDay = {};
+      for (const p of r.data.points) {
+        const dk = dateKey(new Date(p.t));
+        (byDay[dk] = byDay[dk] || []).push(p.v);
+      }
+      // Sensor cumulativo (kWh crescente): consumo do dia = último - primeiro.
+      for (const dk in byDay) {
+        if (!byKey[dk]) continue;
+        const arr = byDay[dk];
+        let delta = arr[arr.length - 1] - arr[0];
+        if (!(delta >= 0)) delta = 0; // reset mensal/diário ou dado ruim
+        byKey[dk].kwh += delta;
+      }
+    }
+    return buckets;
+  }
+  async function renderEnergyChart() {
+    const wrap = document.getElementById("energy-chart");
+    const totalEl = document.getElementById("energy-week-total");
+    if (!wrap) return;
+    if (!haEnabled) { wrap.innerHTML = `<div class="sub">Conecte ao Home Assistant para ver o consumo.</div>`; if (totalEl) totalEl.textContent = ""; return; }
+    wrap.innerHTML = `<div class="sub">Carregando…</div>`;
+    let buckets = null;
+    try { buckets = await energyHistoryDaily(7); } catch { buckets = null; }
+    if (!buckets) { wrap.innerHTML = `<div class="sub">Nenhum sensor de energia (kWh) encontrado no Home Assistant.</div>`; if (totalEl) totalEl.textContent = ""; return; }
+    const max = Math.max(0.001, ...buckets.map(b => b.kwh));
+    const todayKey = dateKey(new Date());
+    const tariff = (state && state.energyTariff) || 0;
+    const TRACK = 120; // altura máxima da barra, em px
+    const cols = buckets.map(b => {
+      const h = Math.max(3, Math.round((b.kwh / max) * TRACK));
+      const wd = b.date.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
+      const isToday = b.key === todayKey;
+      const val = b.kwh >= 0.1 ? b.kwh.toFixed(1) : (b.kwh > 0 ? b.kwh.toFixed(2) : "0");
+      return `<div class="energy-bar-col${isToday ? " today" : ""}">
+        <div class="energy-bar-val">${val}</div>
+        <div class="energy-bar" style="height:${h}px"></div>
+        <div class="energy-bar-day">${escapeHtml(wd)}</div>
+      </div>`;
+    }).join("");
+    wrap.innerHTML = `<div class="energy-bars">${cols}</div>`;
+    const total = buckets.reduce((s, b) => s + b.kwh, 0);
+    if (totalEl) {
+      totalEl.textContent = `${total.toFixed(1)} kWh na semana` + (tariff ? ` ≈ R$ ${(total * tariff).toFixed(2)}` : "");
+    }
+  }
+
   async function haCall(domain, service, body, btn) {
     if (btn) btn.disabled = true;
     try {
@@ -4248,22 +4355,75 @@
     const status = document.createElement("div");
     status.className = "camera-status";
     status.textContent = "Conectando…";
+    const retry = document.createElement("button");
+    retry.className = "camera-retry";
+    retry.type = "button";
+    retry.textContent = "Reconectar";
+    retry.hidden = true;
     frame.appendChild(img);
     frame.appendChild(status);
+    frame.appendChild(retry);
 
-    // Auto-refresh do snapshot; para sozinho quando o elemento sai do DOM.
-    const base = `/api/ha/camera/${encodeURIComponent(id)}`;
-    const tick = () => { if (img.isConnected) img.src = base + "?t=" + Date.now(); };
-    img.addEventListener("load", () => {
-      status.hidden = true;
-      if (img.isConnected) setTimeout(tick, 1500);
-    });
-    img.addEventListener("error", () => {
+    const streamUrl = `/api/ha/camera_stream/${encodeURIComponent(id)}`;
+    const snapUrl = `/api/ha/camera/${encodeURIComponent(id)}`;
+    let mode = "stream";        // "stream" (MJPEG ao vivo) ou "snapshot" (fallback)
+    let watchdog = null;
+    let snapTimer = null;
+    let live = false;
+
+    const clearTimers = () => {
+      if (watchdog) { clearTimeout(watchdog); watchdog = null; }
+      if (snapTimer) { clearTimeout(snapTimer); snapTimer = null; }
+    };
+    const showError = () => {
+      clearTimers();
       status.hidden = false;
       status.textContent = "Sem sinal";
-      if (img.isConnected) setTimeout(tick, 4000);
+      retry.hidden = false;
+    };
+    const snapTick = () => {
+      if (!img.isConnected) { clearTimers(); return; }
+      img.src = snapUrl + "?t=" + Date.now();
+    };
+    const startStream = () => {
+      clearTimers();
+      live = false;
+      mode = "stream";
+      retry.hidden = true;
+      status.hidden = false;
+      status.textContent = "Conectando…";
+      img.src = streamUrl + "?t=" + Date.now();
+      // Se o stream não abrir em 12s, cai pro snapshot.
+      watchdog = setTimeout(() => { if (!live && img.isConnected) startSnapshots(); }, 12000);
+    };
+    const startSnapshots = () => {
+      clearTimers();
+      live = false;
+      mode = "snapshot";
+      status.hidden = false;
+      status.textContent = "Conectando…";
+      // Se nem o snapshot vier em 10s, mostra "Sem sinal" + botão.
+      watchdog = setTimeout(() => { if (!live) showError(); }, 10000);
+      snapTick();
+    };
+
+    img.addEventListener("load", () => {
+      live = true;
+      status.hidden = true;
+      retry.hidden = true;
+      if (watchdog) { clearTimeout(watchdog); watchdog = null; }
+      // No modo snapshot, agenda o próximo frame; no stream, o <img> se atualiza sozinho.
+      if (mode === "snapshot" && img.isConnected) snapTimer = setTimeout(snapTick, 1500);
     });
-    tick();
+    img.addEventListener("error", () => {
+      live = false;
+      if (!img.isConnected) { clearTimers(); return; }
+      if (mode === "stream") startSnapshots();          // stream falhou → tenta snapshot
+      else { status.hidden = false; status.textContent = "Sem sinal"; snapTimer = setTimeout(snapTick, 4000); }
+    });
+    retry.addEventListener("click", (e) => { e.stopPropagation(); startStream(); });
+
+    startStream();
 
     li.appendChild(head);
     li.appendChild(frame);
@@ -5645,7 +5805,8 @@
       : `Cole a URL e o Long-Lived Token para mostrar dispositivos no mapa.`;
     renderProfileDevices();
     renderActivity();
-    
+    renderEnergyChart();
+
     const themeSelect = document.getElementById("theme-select");
     if (themeSelect) {
       themeSelect.value = localStorage.getItem(THEME_KEY) || "system";

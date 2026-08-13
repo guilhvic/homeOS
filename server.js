@@ -406,8 +406,12 @@ app.get("/api/ha/camera/:entityId", authRequired, async (req, res) => {
   if (!userHaEnabled(req.user)) return res.status(503).end();
   const id = String(req.params.entityId || "");
   if (!/^camera\.[a-z0-9_]+$/.test(id)) return res.status(400).end();
+  // Timeout: câmeras RTSP (ex.: Tapo) podem demorar a gerar o snapshot.
+  // Sem isso a requisição fica pendurada e o cliente "carrega pra sempre".
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), 8000);
   try {
-    const r = await haFetch(req.user, "/api/camera_proxy/" + encodeURIComponent(id));
+    const r = await haFetch(req.user, "/api/camera_proxy/" + encodeURIComponent(id), { signal: ctrl.signal });
     if (!r.ok) return res.status(502).end();
     const buf = Buffer.from(await r.arrayBuffer());
     res.set("Content-Type", r.headers.get("content-type") || "image/jpeg");
@@ -415,6 +419,32 @@ app.get("/api/ha/camera/:entityId", authRequired, async (req, res) => {
     res.send(buf);
   } catch (e) {
     res.status(502).end();
+  } finally {
+    clearTimeout(to);
+  }
+});
+
+// Stream MJPEG ao vivo (multipart/x-mixed-replace). Muito melhor que snapshot
+// para câmeras RTSP: o <img> renderiza o fluxo contínuo direto.
+app.get("/api/ha/camera_stream/:entityId", authRequired, async (req, res) => {
+  if (!userHaEnabled(req.user)) return res.status(503).end();
+  const id = String(req.params.entityId || "");
+  if (!/^camera\.[a-z0-9_]+$/.test(id)) return res.status(400).end();
+  const ctrl = new AbortController();
+  req.on("close", () => ctrl.abort());
+  try {
+    const r = await haFetch(req.user, "/api/camera_proxy_stream/" + encodeURIComponent(id), { signal: ctrl.signal });
+    if (!r.ok || !r.body) return res.status(502).end();
+    res.set("Content-Type", r.headers.get("content-type") || "multipart/x-mixed-replace");
+    res.set("Cache-Control", "no-store");
+    res.set("Connection", "close");
+    const { Readable } = require("node:stream");
+    const nodeStream = Readable.fromWeb(r.body);
+    nodeStream.on("error", () => { try { res.end(); } catch {} });
+    res.on("close", () => { try { nodeStream.destroy(); } catch {} });
+    nodeStream.pipe(res);
+  } catch (e) {
+    try { res.status(502).end(); } catch {}
   }
 });
 
