@@ -111,12 +111,20 @@ function parseCookies(req) {
   }
   return out;
 }
-function setSessionCookie(res, token) {
+function reqIsHttps(req) {
+  const xf = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+  return xf === "https" || Boolean(req.socket && req.socket.encrypted);
+}
+function setSessionCookie(req, res, token) {
   const maxAge = Math.floor(SESSION_TTL_MS / 1000);
   const flags = ["HttpOnly", "SameSite=Lax", "Path=/", `Max-Age=${maxAge}`];
-  // Secure exige HTTPS — ative COOKIE_SECURE=1 só depois que o HTTPS estiver no ar
-  // (ex: via Tailscale). Sem isso, dá pra testar em http:// no primeiro boot.
-  if (process.env.COOKIE_SECURE === "1") flags.push("Secure");
+  // COOKIE_SECURE:
+  //   "1"    -> sempre Secure (só funciona em HTTPS; quebra acesso http://).
+  //   "auto" -> Secure só quando a requisição chega por HTTPS (ex.: via Tailscale
+  //             serve, que envia X-Forwarded-Proto: https). Mantém o quiosque em
+  //             http://localhost funcionando. Recomendado.
+  const mode = process.env.COOKIE_SECURE;
+  if (mode === "1" || (mode === "auto" && reqIsHttps(req))) flags.push("Secure");
   res.setHeader("Set-Cookie", `${SESSION_COOKIE}=${token}; ${flags.join("; ")}`);
 }
 function clearSessionCookie(res) {
@@ -188,7 +196,7 @@ app.post("/api/auth/signup", (req, res) => {
   ).run(uname, hashPassword(password), dn.slice(0, 60), av.slice(0, 8));
 
   const token = createSession(info.lastInsertRowid);
-  setSessionCookie(res, token);
+  setSessionCookie(req, res, token);
   const u = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid);
   res.status(201).json(publicUser(u));
 });
@@ -201,7 +209,7 @@ app.post("/api/auth/login", (req, res) => {
   if (!u || !verifyPassword(password, u.password_hash))
     return res.status(401).json({ error: "usuário ou senha incorretos" });
   const token = createSession(u.id);
-  setSessionCookie(res, token);
+  setSessionCookie(req, res, token);
   res.json(publicUser(u));
 });
 

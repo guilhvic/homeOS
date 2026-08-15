@@ -30,7 +30,8 @@ services:
       - PORT=3030
       - DB_PATH=/data/data.db
       - TZ=America/Sao_Paulo
-      # Depois que o HTTPS (Tailscale) estiver funcionando, descomente a linha
-      # abaixo e rode `docker compose -f docker-compose.prod.yml up -d` de novo,
-      # pra o cookie de sessão só trafegar por HTTPS:
-      # - COOKIE_SECURE=1
+      # "auto": o cookie de sessão ganha a flag Secure quando o acesso chega por
+      # HTTPS (via Tailscale serve, que envia X-Forwarded-Proto: https), mas segue
+      # funcionando em http://localhost no quiosque. Use "1" para exigir HTTPS
+      # sempre (aí o acesso por http:// para de logar).
+      - COOKIE_SECURE=auto
