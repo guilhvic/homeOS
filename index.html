@@ -223,46 +223,6 @@
   .si-row { font-size: 12px; color: var(--muted); }
   .si-row b { color: var(--ink); font-weight: 600; }
 
-  /* Tasks (afazeres) view replaces map+aside */
-  #app-shell.view-tasks {
-    grid-template-columns: 1fr;
-    grid-template-areas: "top" "tasks";
-  }
-  #app-shell.view-tasks #map-wrap,
-  #app-shell.view-tasks aside { display: none; }
-  #app-shell:not(.view-tasks) #tasks-view { display: none; }
-  #app-shell.view-tasks .map-only { display: none; }
-  #tasks-view { grid-area: tasks; overflow-y: auto; background: var(--bg); padding: 24px 16px 64px; }
-  .tasks-shell { max-width: 780px; margin: 0 auto; }
-  .tasks-head h2 { margin: 0 0 2px; font-size: 22px; }
-  .task-add { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
-  .task-add input, .task-add select {
-    border: 1px solid var(--line); background: var(--paper); color: var(--ink);
-    border-radius: 8px; padding: 10px 12px; font: inherit;
-  }
-  .task-add input.tname { flex: 1; min-width: 160px; }
-  .task-add input.tdays { width: 130px; }
-  .task-add input.twho { width: 130px; }
-  #tasks-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
-  .task-item {
-    display: flex; align-items: center; gap: 12px; padding: 12px 14px;
-    border: 1px solid var(--line); border-radius: 12px; background: var(--paper);
-  }
-  .task-item.overdue { border-color: var(--danger-soft, rgba(221,51,51,.4)); }
-  .task-item .tinfo { flex: 1; min-width: 0; }
-  .task-item .tname { font-weight: 600; font-size: 15px; }
-  .task-item .tmeta { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .task-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
-  .task-badge.ok   { color: #1a7f4b; background: rgba(26,127,75,.12); }
-  .task-badge.soon { color: #b5760a; background: rgba(181,118,10,.14); }
-  .task-badge.due  { color: var(--danger, #d33); background: var(--danger-soft, rgba(221,51,51,.14)); }
-  .task-done-btn {
-    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
-    border-radius: 8px; padding: 8px 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
-  }
-  .task-done-btn:hover { background: rgba(26,127,75,.1); border-color: rgba(26,127,75,.4); }
-  .task-del { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px; }
-  .task-del:hover { color: var(--danger, #d33); }
 
   /* Card de saúde do servidor (perfil) */
   .health-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 8px; }
@@ -380,9 +340,6 @@
   body.kiosk .climate-temp .display { font-size: 30px; }
   body.kiosk .detail-tabs button { padding: 12px 14px; font-size: 15px; }
   body.kiosk .devices li { padding: 16px; }
-  body.kiosk .task-done-btn { padding: 12px 16px; font-size: 15px; }
-  body.kiosk .task-add input, body.kiosk .task-add select,
-  body.kiosk .fridge-add input, body.kiosk .fridge-add select,
   body.kiosk .grocery-add input { min-height: 46px; font-size: 15px; }
   body.kiosk button.primary, body.kiosk button.ghost { min-height: 46px; }
   /* Evita selecao de texto acidental ao tocar (inputs seguem selecionaveis) */
@@ -405,109 +362,6 @@
     padding: 24px 16px 64px;
   }
 
-  /* Fridge view replaces map+aside */
-  #app-shell.view-fridge {
-    grid-template-columns: 1fr;
-    grid-template-areas: "top" "fridge";
-  }
-  #app-shell.view-fridge #map-wrap,
-  #app-shell.view-fridge aside { display: none; }
-  #app-shell:not(.view-fridge) #fridge-view { display: none; }
-  #app-shell.view-fridge .map-only { display: none; }
-  #fridge-view {
-    grid-area: fridge;
-    overflow-y: auto;
-    background: var(--bg);
-    padding: 24px 16px 64px;
-  }
-
-  /* Fridge item styling (reaproveita a linguagem da lista de compras) */
-  .fridge-add {
-    display: grid;
-    grid-template-columns: 1fr 110px 160px 150px auto;
-    gap: 8px;
-    background: var(--paper);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 10px;
-  }
-  .fridge-add input, .fridge-add select {
-    border: 1px solid var(--line);
-    background: var(--bg);
-    color: var(--ink);
-    border-radius: 6px;
-    padding: 8px 10px;
-    font: inherit;
-  }
-  .fridge-add input:focus, .fridge-add select:focus {
-    outline: 2px solid var(--accent-soft);
-    border-color: var(--accent);
-  }
-  @media (max-width: 720px) {
-    .fridge-add { grid-template-columns: 1fr 1fr; }
-    .fridge-add button { grid-column: 1 / -1; }
-  }
-
-  .fridge-summary-cards {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .fridge-stat {
-    flex: 1;
-    min-width: 120px;
-    background: var(--paper);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 12px 14px;
-  }
-  .fridge-stat .n { font-size: 24px; font-weight: 700; line-height: 1; }
-  .fridge-stat .l { font-size: 12px; color: var(--muted); margin-top: 4px; }
-  .fridge-stat.warn { border-color: #f59e0b; }
-  .fridge-stat.warn .n { color: #f59e0b; }
-  .fridge-stat.danger { border-color: #ef4444; }
-  .fridge-stat.danger .n { color: #ef4444; }
-
-  .fridge-loc { }
-  .fridge-loc-head {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 14px;
-    font-weight: 700; font-size: 13px;
-    text-transform: uppercase; letter-spacing: .5px;
-    color: var(--muted);
-  }
-  .fridge-items { list-style: none; margin: 0; padding: 0;
-    background: var(--paper); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-  .fridge-items li {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--line);
-  }
-  .fridge-items li:last-child { border-bottom: none; }
-  .fridge-items .fi-name { flex: 1; font-size: 14px; }
-  .fridge-items .fi-qty {
-    font-size: 12px; color: var(--muted);
-    background: var(--bg); border: 1px solid var(--line);
-    padding: 2px 8px; border-radius: 999px; font-variant-numeric: tabular-nums;
-  }
-  .fi-exp {
-    font-size: 11px; font-weight: 600;
-    padding: 2px 8px; border-radius: 999px;
-    background: var(--bg); border: 1px solid var(--line); color: var(--muted);
-    white-space: nowrap;
-  }
-  .fi-exp.soon { background: #fef3c7; color: #92400e; border-color: #f59e0b; }
-  html[data-theme="dark"] .fi-exp.soon { background: #422006; color: #fbbf24; }
-  .fi-exp.expired { background: #fee2e2; color: #b91c1c; border-color: #ef4444; }
-  html[data-theme="dark"] .fi-exp.expired { background: #450a0a; color: #fca5a5; }
-  .fridge-items li.expired { box-shadow: inset 3px 0 0 0 #ef4444; }
-  .fi-actions { display: flex; gap: 2px; }
-  .fi-btn {
-    border: none; background: transparent; color: var(--muted);
-    cursor: pointer; padding: 4px 6px; font-size: 14px; line-height: 1; border-radius: 6px;
-  }
-  .fi-btn:hover { background: var(--bg); color: var(--ink); }
-  .fi-btn.rm:hover { color: var(--danger); background: var(--danger-soft); }
   .routines-shell {
     max-width: 760px;
     margin: 0 auto;
@@ -2233,7 +2087,7 @@
     /* Shell na VISÃO DA CASA (mapa): só header + mapa; nav vira barra inferior.
        Escopado para não pisar nas áreas das outras views (grocery/profile/etc),
        que já definem seu próprio layout de coluna única. */
-    #app-shell:not(.view-grocery):not(.view-profile):not(.view-routines):not(.view-tasks):not(.view-fridge):not(.view-server) {
+    #app-shell:not(.view-grocery):not(.view-profile):not(.view-routines):not(.view-server) {
       grid-template-columns: 1fr;
       grid-template-rows: auto 1fr;
       grid-template-areas: "top" "map";
@@ -2242,8 +2096,6 @@
     #app-shell.view-grocery,
     #app-shell.view-profile,
     #app-shell.view-routines,
-    #app-shell.view-tasks,
-    #app-shell.view-fridge,
     #app-shell.view-server {
       grid-template-rows: auto 1fr;
     }
@@ -2300,24 +2152,24 @@
 
     /* Área principal e views deixam espaço para a barra inferior */
     #map-wrap { padding-bottom: 0; }
-    #grocery-view, #profile-view, #tasks-view, #routines-view, #fridge-view {
+    #grocery-view, #profile-view, #routines-view {
       padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
       padding-left: 12px;
       padding-right: 12px;
       overflow-x: hidden;
     }
 
-    /* Formulários de adicionar (mercado/geladeira) empilham em 1 coluna.
+    /* Formulário de adicionar (mercado) empilha em 1 coluna.
        min-width:0 impede que o conteúdo intrínseco dos campos estoure o grid. */
-    .grocery-add, .fridge-add {
+    .grocery-add {
       grid-template-columns: 1fr;
     }
-    .grocery-add > *, .fridge-add > * {
+    .grocery-add > * {
       min-width: 0;
       width: auto;
       grid-column: auto;
     }
-    .grocery-add button, .fridge-add button { width: 100%; }
+    .grocery-add button { width: 100%; }
 
     /* Cabeçalho de card com toggles (Saúde do servidor) quebra em linhas */
     .card-head-toggles { flex-wrap: wrap; gap: 8px; }
@@ -2531,32 +2383,6 @@
 
       <div class="grocery-footer">
         <button id="grocery-clear-bought" class="ghost" type="button" hidden>Limpar comprados</button>
-      </div>
-    </div>
-  </main>
-
-  <!-- ============================ FRIDGE VIEW ============================ -->
-  <main id="fridge-view">
-    <div class="grocery-shell">
-      <header class="grocery-head">
-        <h2>Geladeira</h2>
-        <span id="fridge-summary" class="grocery-summary"></span>
-      </header>
-
-      <div class="fridge-summary-cards" id="fridge-stats"></div>
-
-      <form id="fridge-add" class="fridge-add" autocomplete="off">
-        <input id="fridge-name" type="text" placeholder="Adicionar item..." required maxlength="60" />
-        <input id="fridge-qty" type="text" placeholder="qt (ex: 2)" maxlength="20" />
-        <select id="fridge-loc"></select>
-        <input id="fridge-exp" type="date" title="Validade" />
-        <button type="submit" class="primary">Adicionar</button>
-      </form>
-
-      <div id="fridge-list" class="grocery-list"></div>
-
-      <div id="fridge-empty" class="grocery-empty">
-        Geladeira vazia. Adicione o que você guardou aí.
       </div>
     </div>
   </main>
@@ -2777,26 +2603,6 @@
       </form>
 
       <ul id="routines-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px;"></ul>
-    </div>
-  </main>
-
-  <!-- ============================ TASKS (AFAZERES) VIEW ============================ -->
-  <main id="tasks-view">
-    <div class="tasks-shell">
-      <header class="tasks-head">
-        <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M8.5 13l2 2 4-4"/></svg> Afazeres da casa</h2>
-        <span class="sub">Tarefas recorrentes — quem faz e de quanto em quanto tempo.</span>
-      </header>
-
-      <form id="task-add" class="task-add" autocomplete="off">
-        <input class="tname" id="task-name" type="text" placeholder="ex: Regar as plantas" required maxlength="60" />
-        <input class="twho" id="task-who" type="text" placeholder="quem faz (opcional)" maxlength="30" />
-        <input class="tdays" id="task-days" type="number" min="1" max="365" placeholder="cada N dias" required />
-        <button type="submit" class="primary">Adicionar</button>
-      </form>
-
-      <ul id="tasks-list"></ul>
-      <div id="tasks-empty" class="sub" style="padding: 12px 0; font-style: italic; display:none;">Nenhum afazer cadastrado ainda.</div>
     </div>
   </main>
 </div>
@@ -3245,7 +3051,7 @@
   }
 
   function emptyState() {
-    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], fridge: [], tasks: [], dashUrl: "", energyTariff: 0, view: { tx: 0, ty: 0, scale: 1 } };
+    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], dashUrl: "", energyTariff: 0, view: { tx: 0, ty: 0, scale: 1 } };
   }
   function normalizeState(s) {
     if (!s || typeof s !== "object") return emptyState();
@@ -3263,8 +3069,6 @@
       history: Array.isArray(s.history) ? s.history : [],
       routines: Array.isArray(s.routines) ? s.routines : [],
       groceries: Array.isArray(s.groceries) ? s.groceries.filter(g => g && typeof g.id === "string" && typeof g.name === "string") : [],
-      fridge: Array.isArray(s.fridge) ? s.fridge.filter(g => g && typeof g.id === "string" && typeof g.name === "string") : [],
-      tasks: Array.isArray(s.tasks) ? s.tasks.filter(t => t && typeof t.id === "string" && typeof t.name === "string") : [],
       dashUrl: typeof s.dashUrl === "string" ? s.dashUrl : "",
       energyTariff: Math.max(0, Number(s.energyTariff) || 0),
       view: { tx: Number(v.tx) || 0, ty: Number(v.ty) || 0, scale: Math.min(4, Math.max(0.35, Number(v.scale) || 1)) },
@@ -3327,10 +3131,8 @@
   // ===== Sistema de ícones (SVG minimalista, stroke, currentColor) =====
   const ICON = {
     home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
-    fridge: '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M6 10h12M9 6v1M9 13v3"/>',
     cart: '<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12h11l1.9-8H6"/>',
     calendar: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>',
-    tasks: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M8.5 13l2 2 4-4"/>',
     user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
     refresh: '<path d="M20 11a8 8 0 1 0-.5 4"/><path d="M20 4v5h-5"/>',
     moon: '<path d="M20 13A8 8 0 1 1 11 4a6 6 0 0 0 9 9z"/>',
@@ -6654,94 +6456,6 @@
     renderGrocery();
   });
 
-  // ===== Afazeres (tarefas recorrentes) =====
-  function todayStr() {
-    const d = new Date();
-    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-  }
-  function daysBetween(aStr, bStr) {
-    const a = new Date(aStr + "T00:00:00"), b = new Date(bStr + "T00:00:00");
-    return Math.round((b - a) / 86400000);
-  }
-  function renderTasksList() {
-    const ul = document.getElementById("tasks-list");
-    const empty = document.getElementById("tasks-empty");
-    if (!ul) return;
-    ul.innerHTML = "";
-    const tasks = state.tasks || [];
-    if (empty) empty.style.display = tasks.length ? "none" : "block";
-    const withStatus = tasks.map(t => {
-      const every = Math.max(1, parseInt(t.everyDays, 10) || 1);
-      const remaining = t.lastDone ? every - daysBetween(t.lastDone, todayStr()) : -9999;
-      return { t, every, remaining };
-    }).sort((x, y) => x.remaining - y.remaining);
-
-    for (const { t, every, remaining } of withStatus) {
-      const li = document.createElement("li");
-      li.className = "task-item";
-      let badgeClass, badgeText, metaText;
-      if (!t.lastDone) {
-        badgeClass = "due"; badgeText = "fazer"; metaText = "nunca feito";
-      } else if (remaining < 0) {
-        badgeClass = "due"; badgeText = `${-remaining}d atrasado`;
-        metaText = `a cada ${every}d · última há ${daysBetween(t.lastDone, todayStr())}d`;
-      } else if (remaining === 0) {
-        badgeClass = "soon"; badgeText = "hoje"; metaText = `a cada ${every}d`;
-      } else {
-        badgeClass = "ok"; badgeText = `em ${remaining}d`;
-        metaText = `a cada ${every}d · última há ${daysBetween(t.lastDone, todayStr())}d`;
-      }
-      if (badgeClass === "due") li.classList.add("overdue");
-      const who = t.who ? ` · ${svgIcon("user", 13)} ${escapeHtml(t.who)}` : "";
-      li.innerHTML = `
-        <div class="tinfo">
-          <div class="tname">${escapeHtml(t.name)}</div>
-          <div class="tmeta">${metaText}${who}</div>
-        </div>
-        <span class="task-badge ${badgeClass}">${badgeText}</span>`;
-      const doneBtn = document.createElement("button");
-      doneBtn.className = "task-done-btn";
-      doneBtn.innerHTML = svgIcon("check", 15) + " Feito";
-      doneBtn.addEventListener("click", () => {
-        t.lastDone = todayStr();
-        logActivity(`Afazer <b>${escapeHtml(t.name)}</b> marcado como feito`);
-        scheduleSave();
-        renderTasksList();
-      });
-      const del = document.createElement("button");
-      del.className = "task-del";
-      del.innerHTML = svgIcon("trash", 16);
-      del.title = "Remover";
-      del.addEventListener("click", async () => {
-        if (!(await customConfirm(`Remover o afazer "${t.name}"?`))) return;
-        state.tasks = (state.tasks || []).filter(x => x.id !== t.id);
-        scheduleSave();
-        renderTasksList();
-      });
-      li.appendChild(doneBtn);
-      li.appendChild(del);
-      ul.appendChild(li);
-    }
-  }
-  (function initTaskForm() {
-    const form = document.getElementById("task-add");
-    if (!form) return;
-    form.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const name = document.getElementById("task-name").value.trim();
-      const who = document.getElementById("task-who").value.trim();
-      const days = Math.max(1, parseInt(document.getElementById("task-days").value, 10) || 0);
-      if (!name || !days) return;
-      state.tasks = state.tasks || [];
-      state.tasks.push({ id: "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, who, everyDays: days, lastDone: null });
-      logActivity(`Afazer <b>${escapeHtml(name)}</b> criado`);
-      scheduleSave();
-      form.reset();
-      renderTasksList();
-      document.getElementById("task-name").focus();
-    });
-  })();
-
   // ===== Saúde do servidor =====
   let healthTimer = null;
   function fmtBytes(b) {
@@ -7197,210 +6911,6 @@
   // ===== View switcher =====
   const VIEW_KEY = "homeOS/view";
   let currentView = localStorage.getItem(VIEW_KEY) || "map";
-  // ===== Geladeira (inventário com validade) =====
-  const FRIDGE_LOCATIONS = [
-    { id: "prateleiras", label: "Prateleiras", icon: "shelf" },
-    { id: "porta",       label: "Porta",       icon: "door" },
-    { id: "gavetas",     label: "Gavetas",      icon: "leaf" },
-    { id: "freezer",     label: "Freezer",      icon: "snowflake" },
-    { id: "outros",      label: "Outros",       icon: "box" },
-  ];
-  const FRIDGE_LOC_MAP = Object.fromEntries(FRIDGE_LOCATIONS.map(l => [l.id, l]));
-  function fridgeLoc(id) { return FRIDGE_LOC_MAP[id] || FRIDGE_LOC_MAP.outros; }
-  function fid() { return "f_" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
-
-  const fridgeNameInput = document.getElementById("fridge-name");
-  const fridgeQtyInput = document.getElementById("fridge-qty");
-  const fridgeLocSelect = document.getElementById("fridge-loc");
-  const fridgeExpInput = document.getElementById("fridge-exp");
-  const fridgeForm = document.getElementById("fridge-add");
-  const fridgeListEl = document.getElementById("fridge-list");
-  const fridgeEmpty = document.getElementById("fridge-empty");
-  const fridgeSummary = document.getElementById("fridge-summary");
-  const fridgeStatsEl = document.getElementById("fridge-stats");
-
-  for (const l of FRIDGE_LOCATIONS) {
-    const opt = document.createElement("option");
-    opt.value = l.id;
-    opt.textContent = l.label;
-    if (l.id === "prateleiras") opt.selected = true;
-    fridgeLocSelect.appendChild(opt);
-  }
-
-  // Dias até vencer (>=0 futuro, <0 vencido, null sem validade)
-  function daysUntil(iso) {
-    if (!iso) return null;
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const exp = new Date(iso + "T00:00:00");
-    if (Number.isNaN(exp.getTime())) return null;
-    return Math.round((exp - today) / 86400000);
-  }
-  function expInfo(iso) {
-    const d = daysUntil(iso);
-    if (d === null) return null;
-    if (d < 0)  return { cls: "expired", text: `venceu há ${Math.abs(d)}d`, rank: 0 };
-    if (d === 0) return { cls: "soon", text: "vence hoje", rank: 1 };
-    if (d <= 3) return { cls: "soon", text: `vence em ${d}d`, rank: 1 };
-    if (d <= 7) return { cls: "", text: `${d}d`, rank: 2 };
-    return { cls: "", text: `${d}d`, rank: 3 };
-  }
-
-  function renderFridge() {
-    const list = state.fridge || [];
-    const expired = list.filter(i => { const d = daysUntil(i.expiresAt); return d !== null && d < 0; }).length;
-    const soon = list.filter(i => { const d = daysUntil(i.expiresAt); return d !== null && d >= 0 && d <= 3; }).length;
-
-    fridgeSummary.textContent = list.length ? `${list.length} ${list.length === 1 ? "item" : "itens"}` : "";
-    fridgeEmpty.hidden = list.length > 0;
-    fridgeListEl.hidden = list.length === 0;
-
-    // Stat cards
-    fridgeStatsEl.innerHTML = "";
-    if (list.length) {
-      const stats = [
-        { n: list.length, l: "itens guardados", cls: "" },
-        { n: soon, l: "vencendo (≤3 dias)", cls: soon ? "warn" : "" },
-        { n: expired, l: "vencidos", cls: expired ? "danger" : "" },
-      ];
-      for (const s of stats) {
-        const c = document.createElement("div");
-        c.className = "fridge-stat " + s.cls;
-        c.innerHTML = `<div class="n">${s.n}</div><div class="l">${s.l}</div>`;
-        fridgeStatsEl.appendChild(c);
-      }
-    }
-
-    fridgeListEl.innerHTML = "";
-    if (!list.length) return;
-
-    const byLoc = {};
-    for (const it of list) {
-      const lid = fridgeLoc(it.location).id;
-      (byLoc[lid] = byLoc[lid] || []).push(it);
-    }
-    for (const loc of FRIDGE_LOCATIONS) {
-      const items = byLoc[loc.id];
-      if (!items || !items.length) continue;
-      // ordena por validade (vencidos/vencendo primeiro), depois nome
-      items.sort((a, b) => {
-        const ra = expInfo(a.expiresAt)?.rank ?? 4;
-        const rb = expInfo(b.expiresAt)?.rank ?? 4;
-        if (ra !== rb) return ra - rb;
-        return a.name.localeCompare(b.name, "pt-BR");
-      });
-
-      const section = document.createElement("section");
-      section.className = "fridge-loc";
-      const head = document.createElement("div");
-      head.className = "fridge-loc-head";
-      const title = document.createElement("span");
-      title.innerHTML = `${svgIcon(loc.icon, 16)} ${escapeHtml(loc.label)}`;
-      const count = document.createElement("span");
-      count.className = "count";
-      count.style.cssText = "font-size:11px;color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0;";
-      count.textContent = `${items.length}`;
-      head.appendChild(title); head.appendChild(count);
-      section.appendChild(head);
-
-      const ul = document.createElement("ul");
-      ul.className = "fridge-items";
-      for (const it of items) {
-        const info = expInfo(it.expiresAt);
-        const li = document.createElement("li");
-        if (info && info.cls === "expired") li.classList.add("expired");
-
-        const nm = document.createElement("span");
-        nm.className = "fi-name";
-        nm.textContent = it.name;
-        nm.contentEditable = "true";
-        nm.spellcheck = false;
-        const prevName = it.name;
-        nm.addEventListener("blur", () => {
-          const t = nm.textContent.trim();
-          if (!t) { state.fridge = state.fridge.filter(x => x.id !== it.id); logActivity(`Item <b>${escapeHtml(prevName)}</b> removido da geladeira`); }
-          else if (t !== prevName) { it.name = t; }
-          else return;
-          scheduleSave(); renderFridge();
-        });
-        nm.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); nm.blur(); } });
-        li.appendChild(nm);
-
-        if (it.qty) {
-          const q = document.createElement("span");
-          q.className = "fi-qty";
-          q.textContent = it.qty;
-          li.appendChild(q);
-        }
-        if (info) {
-          const exp = document.createElement("span");
-          exp.className = "fi-exp " + info.cls;
-          exp.textContent = info.text;
-          exp.title = it.expiresAt;
-          li.appendChild(exp);
-        }
-
-        const actions = document.createElement("div");
-        actions.className = "fi-actions";
-        // Enviar pra lista de compras (acabou / repor)
-        const cart = document.createElement("button");
-        cart.className = "fi-btn";
-        cart.type = "button";
-        cart.title = "Adicionar à lista de compras";
-        cart.innerHTML = svgIcon("cart", 16);
-        cart.addEventListener("click", () => {
-          state.groceries = state.groceries || [];
-          if (!state.groceries.some(g => g.name.toLowerCase() === it.name.toLowerCase() && !g.bought)) {
-            state.groceries.push({ id: gid(), name: it.name, qty: it.qty || null, category: "outros", bought: false, addedAt: new Date().toISOString() });
-          }
-          logActivity(`Item <b>${escapeHtml(it.name)}</b> enviado da geladeira para a lista de compras`);
-          scheduleSave();
-          cart.innerHTML = svgIcon("check", 16);
-          setTimeout(() => { cart.innerHTML = svgIcon("cart", 16); }, 1200);
-        });
-        const rm = document.createElement("button");
-        rm.className = "fi-btn rm";
-        rm.type = "button";
-        rm.title = "Remover";
-        rm.textContent = "×";
-        rm.addEventListener("click", () => {
-          state.fridge = state.fridge.filter(x => x.id !== it.id);
-          logActivity(`Item <b>${escapeHtml(it.name)}</b> removido da geladeira`);
-          scheduleSave(); renderFridge();
-        });
-        actions.appendChild(cart);
-        actions.appendChild(rm);
-        li.appendChild(actions);
-
-        ul.appendChild(li);
-      }
-      section.appendChild(ul);
-      fridgeListEl.appendChild(section);
-    }
-  }
-
-  fridgeForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const name = fridgeNameInput.value.trim();
-    if (!name) return;
-    const item = {
-      id: fid(),
-      name,
-      qty: fridgeQtyInput.value.trim() || null,
-      location: fridgeLocSelect.value,
-      expiresAt: fridgeExpInput.value || null,
-      addedAt: new Date().toISOString(),
-    };
-    state.fridge = state.fridge || [];
-    state.fridge.push(item);
-    logActivity(`Item <b>${escapeHtml(name)}</b> adicionado à geladeira (${fridgeLoc(item.location).label})`);
-    fridgeNameInput.value = "";
-    fridgeQtyInput.value = "";
-    fridgeExpInput.value = "";
-    scheduleSave();
-    renderFridge();
-    fridgeNameInput.focus();
-  });
-
   const KNOWN_VIEWS = new Set(["map", "grocery", "routines", "profile", "server"]);
   function setView(v) {
     currentView = KNOWN_VIEWS.has(v) ? v : "map";
@@ -7408,8 +6918,6 @@
     appShell.classList.toggle("view-grocery", currentView === "grocery");
     appShell.classList.toggle("view-profile", currentView === "profile");
     appShell.classList.toggle("view-routines", currentView === "routines");
-    appShell.classList.toggle("view-tasks", currentView === "tasks");
-    appShell.classList.toggle("view-fridge", currentView === "fridge");
     appShell.classList.toggle("view-server", currentView === "server");
     for (const btn of document.querySelectorAll(".view-tab")) {
       btn.classList.toggle("active", btn.dataset.view === currentView);
@@ -7419,17 +6927,12 @@
     if (currentView === "grocery") {
       renderGrocery();
       setTimeout(() => groceryNameInput.focus(), 0);
-    } else if (currentView === "fridge") {
-      renderFridge();
-      setTimeout(() => fridgeNameInput.focus(), 0);
     } else if (currentView === "profile") {
       renderProfilePage();
     } else if (currentView === "server") {
       renderServerPage();
     } else if (currentView === "routines") {
       renderRoutinesList();
-    } else if (currentView === "tasks") {
-      renderTasksList();
     }
   }
   for (const btn of document.querySelectorAll(".view-tab")) {
