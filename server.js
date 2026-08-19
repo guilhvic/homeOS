@@ -361,7 +361,7 @@ app.get("/api/system/temp", authRequired, (req, res) => {
 });
 
 // Saúde do servidor (host): uptime, RAM, disco, carga e temperatura.
-app.get("/api/system/health", authRequired, (req, res) => {
+function readSystemHealth() {
   const out = { ok: true };
   // Uptime (segundos do host)
   try {
@@ -406,7 +406,52 @@ app.get("/api/system/health", authRequired, (req, res) => {
     }
     if (max !== null) out.tempC = max;
   } catch {}
-  res.json(out);
+  return out;
+}
+app.get("/api/system/health", authRequired, (req, res) => {
+  res.json(readSystemHealth());
+});
+
+// ===== Histórico de saúde: amostrado a cada 60s, buffer de 24h, persistido =====
+const HEALTH_SAMPLE_MS = 60 * 1000;
+const HEALTH_MAX = 1440;                        // 24h a 60s
+const HEALTH_FILE = fs.existsSync("/data") ? "/data/health-history.json" : null;
+let healthHistory = [];
+(function loadHealthHistory() {
+  if (!HEALTH_FILE) return;
+  try {
+    const arr = JSON.parse(fs.readFileSync(HEALTH_FILE, "utf8"));
+    if (Array.isArray(arr)) healthHistory = arr.slice(-HEALTH_MAX);
+  } catch {}
+})();
+let healthDirty = false;
+function sampleHealth() {
+  const h = readSystemHealth();
+  healthHistory.push({
+    t: Date.now(),
+    temp: typeof h.tempC === "number" ? h.tempC : null,
+    mem: h.mem ? h.mem.pct : null,
+    disk: h.disk ? h.disk.pct : null,
+    load: h.load ? h.load["1m"] : null,
+  });
+  if (healthHistory.length > HEALTH_MAX) healthHistory = healthHistory.slice(-HEALTH_MAX);
+  healthDirty = true;
+}
+function persistHealthHistory() {
+  if (!HEALTH_FILE || !healthDirty) return;
+  try { fs.writeFileSync(HEALTH_FILE, JSON.stringify(healthHistory)); healthDirty = false; } catch {}
+}
+sampleHealth();
+setInterval(sampleHealth, HEALTH_SAMPLE_MS).unref?.();
+setInterval(persistHealthHistory, 2 * 60 * 1000).unref?.();
+process.on("SIGTERM", persistHealthHistory);
+process.on("SIGINT", persistHealthHistory);
+
+app.get("/api/system/health/history", authRequired, (req, res) => {
+  const hours = Math.min(24, Math.max(1, parseInt(req.query.hours, 10) || 6));
+  const since = Date.now() - hours * 3600 * 1000;
+  const pts = healthHistory.filter(p => p.t >= since);
+  res.json({ hours, sampleMs: HEALTH_SAMPLE_MS, points: pts });
 });
 
 // Proxy de snapshot de câmera: repassa o JPEG do HA (camera_proxy) já autenticado.

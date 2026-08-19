@@ -259,6 +259,22 @@
   .health-bar.warm > span { background: #d99a2b; }
   .health-bar.hot > span { background: var(--danger, #d33); }
 
+  /* Histórico de saúde (sparklines) */
+  .health-hist-head { display: flex; align-items: center; justify-content: space-between; margin: 16px 0 8px; }
+  .hh-title { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; }
+  .hh-period { display: inline-flex; gap: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
+  .hh-period button { border: none; background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px; cursor: pointer; }
+  .hh-period button.active { background: var(--paper); color: var(--ink); box-shadow: var(--shadow); }
+  .health-spark { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); }
+  .health-spark:first-child { border-top: none; }
+  .hs-info { width: 96px; flex: none; }
+  .hs-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+  .hs-now { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 1px; }
+  .hs-chart { flex: 1; min-width: 0; height: 40px; }
+  .hs-chart svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .hs-range { width: 78px; flex: none; text-align: right; font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.5; }
+  .hs-range b { color: var(--ink); font-weight: 600; }
+
   /* Protetor de tela / modo descanso */
   #screensaver {
     position: fixed; inset: 0; z-index: 9700;
@@ -2588,6 +2604,15 @@
         <div class="health-grid" id="health-grid">
           <div class="sub" style="grid-column:1/-1;">Carregando…</div>
         </div>
+        <div class="health-hist-head">
+          <span class="hh-title">Histórico</span>
+          <div class="hh-period" id="health-period">
+            <button type="button" data-h="6" class="active">6h</button>
+            <button type="button" data-h="12">12h</button>
+            <button type="button" data-h="24">24h</button>
+          </div>
+        </div>
+        <div id="health-history"><div class="sub">Carregando…</div></div>
       </div>
 
       <!-- Bento Card 8: Consumo de energia (7 dias) (Span 3) -->
@@ -6647,7 +6672,66 @@
       grid.innerHTML = '<div class="sub" style="grid-column:1/-1;">Erro ao ler saúde.</div>';
     }
     if (!healthTimer) healthTimer = setInterval(() => { if (currentView === "profile") pollHealth(); }, 15000);
+    renderHealthHistory();
   }
+
+  // ===== Histórico de saúde (sparklines) =====
+  let healthHours = 6;
+  function sparklineSvg(vals, color) {
+    const pts = vals.map((v, i) => ({ v, i })).filter(p => p.v != null && isFinite(p.v));
+    if (pts.length < 2) return `<svg viewBox="0 0 100 40" preserveAspectRatio="none"></svg>`;
+    let min = Infinity, max = -Infinity;
+    for (const p of pts) { if (p.v < min) min = p.v; if (p.v > max) max = p.v; }
+    const span = (max - min) || 1;
+    const n = vals.length;
+    const X = i => n <= 1 ? 0 : (i / (n - 1)) * 100;
+    const Y = v => 38 - ((v - min) / span) * 36;
+    const line = pts.map(p => `${X(p.i).toFixed(2)},${Y(p.v).toFixed(2)}`).join(" ");
+    const first = pts[0], last = pts[pts.length - 1];
+    const area = `${X(first.i).toFixed(2)},40 ${line} ${X(last.i).toFixed(2)},40`;
+    return `<svg viewBox="0 0 100 40" preserveAspectRatio="none">`
+      + `<polygon points="${area}" fill="${color}" opacity="0.12" stroke="none"/>`
+      + `<polyline points="${line}" fill="none" stroke="${color}" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>`
+      + `</svg>`;
+  }
+  async function renderHealthHistory(hours) {
+    if (hours) healthHours = hours;
+    const wrap = document.getElementById("health-history");
+    if (!wrap) return;
+    let data = null;
+    try { const r = await api("GET", `/system/health/history?hours=${healthHours}`); if (r.ok) data = r.data; } catch {}
+    if (!data || !Array.isArray(data.points) || data.points.length < 2) {
+      wrap.innerHTML = `<div class="sub">Coletando dados… o histórico aparece após alguns minutos com o servidor no ar.</div>`;
+      return;
+    }
+    const pts = data.points;
+    const metrics = [
+      { key: "temp", label: "Temp",  unit: "°C", color: "#e0894a", dec: 0 },
+      { key: "mem",  label: "RAM",   unit: "%",  color: "#c2592a", dec: 0 },
+      { key: "disk", label: "Disco", unit: "%",  color: "#4a90d9", dec: 0 },
+      { key: "load", label: "Carga", unit: "",   color: "#2fa37a", dec: 2 },
+    ];
+    const rows = metrics.map(m => {
+      const vals = pts.map(p => p[m.key]);
+      const valid = vals.filter(v => v != null && isFinite(v));
+      if (!valid.length) return "";
+      const now = valid[valid.length - 1];
+      const min = Math.min(...valid), max = Math.max(...valid);
+      const fmt = v => v.toFixed(m.dec) + m.unit;
+      return `<div class="health-spark">
+        <div class="hs-info"><div class="hs-label">${m.label}</div><div class="hs-now" style="color:${m.color}">${fmt(now)}</div></div>
+        <div class="hs-chart">${sparklineSvg(vals, m.color)}</div>
+        <div class="hs-range"><div>máx <b>${fmt(max)}</b></div><div>mín <b>${fmt(min)}</b></div></div>
+      </div>`;
+    }).join("");
+    wrap.innerHTML = rows || `<div class="sub">Sem dados.</div>`;
+  }
+  document.getElementById("health-period")?.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-h]");
+    if (!b) return;
+    for (const x of e.currentTarget.querySelectorAll("button")) x.classList.toggle("active", x === b);
+    renderHealthHistory(parseInt(b.dataset.h, 10));
+  });
 
   // ===== Modo descanso / protetor de tela =====
   const SS_KEY = "homeOS/screensaver";
