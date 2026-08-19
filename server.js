@@ -848,6 +848,9 @@ function tickScheduler() {
       if (!r || r.enabled === false) continue;
       if (!r.trigger || r.trigger.type !== "time") continue;
       if (r.trigger.time !== hhmm) continue;
+      // Dias da semana (0=Dom..6=Sáb). Vazio/ausente = todos os dias.
+      const days = r.trigger.days;
+      if (Array.isArray(days) && days.length && !days.includes(now.getDay())) continue;
       const key = `${u.id}:${r.id}`;
       if (lastFiredKey.get(key) === hhmm) continue;
       lastFiredKey.set(key, hhmm);

@@ -523,6 +523,58 @@
   }
   .routines-head h2 { margin: 0; font-size: 22px; }
 
+  /* ===== Rotinas (cards + editor) ===== */
+  .day-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .day-chip {
+    width: 38px; height: 38px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--muted);
+    font-size: 12px; font-weight: 600; cursor: pointer; padding: 0;
+  }
+  .day-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .day-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .day-presets button {
+    font-size: 11px; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--paper); color: var(--muted); cursor: pointer;
+  }
+  .day-presets button:hover { border-color: var(--accent); color: var(--accent); }
+
+  .routine-card {
+    border: 1px solid var(--line); border-radius: 14px; background: var(--paper);
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+    box-shadow: var(--shadow);
+  }
+  .routine-card.off { opacity: .62; }
+  .routine-card-top { display: flex; align-items: center; gap: 12px; }
+  .routine-ic {
+    width: 40px; height: 40px; flex: none; border-radius: 12px;
+    display: grid; place-items: center; background: var(--accent-soft); color: var(--accent);
+  }
+  .routine-ic svg { width: 20px; height: 20px; }
+  .routine-idn { flex: 1; min-width: 0; }
+  .routine-name { font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
+  .routine-when { font-size: 12px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .routine-when .rw-days { display: inline-flex; gap: 3px; }
+  .routine-when .rw-day { font-size: 10px; font-weight: 700; padding: 1px 4px; border-radius: 4px; background: var(--bg); color: var(--muted); text-transform: uppercase; }
+  .routine-when .rw-day.on { background: var(--accent-soft); color: var(--accent); }
+  .routine-next { font-size: 11px; color: var(--accent); font-weight: 600; }
+  /* Switch de ativa/inativa */
+  .rt-switch { position: relative; width: 40px; height: 23px; flex: none; cursor: pointer; }
+  .rt-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .rt-switch .rt-track { position: absolute; inset: 0; background: var(--line); border-radius: 999px; transition: background .15s; }
+  .rt-switch .rt-thumb { position: absolute; top: 2px; left: 2px; width: 19px; height: 19px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  .rt-switch input:checked + .rt-track { background: var(--accent); }
+  .rt-switch input:checked + .rt-track + .rt-thumb { transform: translateX(17px); }
+  .routine-devices { display: flex; flex-wrap: wrap; gap: 6px; }
+  .routine-dev-chip {
+    font-size: 11px; padding: 3px 9px; border-radius: 999px; background: var(--bg);
+    border: 1px solid var(--line); color: var(--muted); display: inline-flex; align-items: center; gap: 5px;
+  }
+  .routine-dev-chip.on { color: #1a7f4b; }
+  .routine-dev-chip.off { color: var(--danger); }
+  .routine-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .routine-card-actions button { padding: 7px 14px; font-size: 13px; border-radius: 8px; }
+  .routine-run { flex: 1; min-width: 110px; }
+
   .profile-page-header {
     display: flex;
     align-items: center;
@@ -2348,12 +2400,9 @@
   <header>
     <h1 id="home-logo" role="button" tabindex="0" title="Ir para a casa (início)">homeOS</h1>
     <div class="view-tabs" role="tablist">
-      <button class="view-tab" data-view="fridge" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M6 10h12M9 6v1M9 13v3"/></svg><span>Geladeira</span></button>
       <button class="view-tab" data-view="grocery" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12h11l1.9-8H6"/></svg><span>Mercado</span></button>
       <button class="view-tab" data-view="routines" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span>Rotinas</span></button>
-      <button class="view-tab" data-view="tasks" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M8.5 13l2 2 4-4"/></svg><span>Afazeres</span></button>
       <button class="view-tab" data-view="server" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg><span>Servidor</span></button>
-      <button class="view-tab" data-view="profile" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Perfil</span></button>
     </div>
     <span class="sub" id="status">— monte o mapa da sua casa</span>
     <div class="spacer"></div>
@@ -2704,6 +2753,14 @@
             <input type="checkbox" id="routine-time-enabled" style="width: auto; margin: 0; cursor: pointer;" />
             <span style="font-size: 13px;">Habilitar horário</span>
             <input id="routine-time" type="time" style="width: 120px;" disabled />
+          </div>
+          <div id="routine-days-wrap" style="margin-top:10px; display:none;">
+            <div class="day-chips" id="routine-days"></div>
+            <div class="day-presets">
+              <button type="button" data-preset="all">Todos os dias</button>
+              <button type="button" data-preset="week">Dias úteis</button>
+              <button type="button" data-preset="weekend">Fim de semana</button>
+            </div>
           </div>
         </div>
 
@@ -5898,8 +5955,42 @@
   document.getElementById("routine-cancel-btn").addEventListener("click", () => { routineForm.hidden = true; });
   addActionBtn.addEventListener("click", () => addRoutineActionRow(null));
 
+  // ===== Dias da semana (0=Dom..6=Sáb) =====
+  const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const routineDaysWrap = document.getElementById("routine-days-wrap");
+  const routineDaysEl = document.getElementById("routine-days");
+  function buildDayChips() {
+    routineDaysEl.innerHTML = "";
+    for (let i = 0; i < 7; i++) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "day-chip";
+      b.dataset.day = String(i);
+      b.textContent = DAY_LABELS[i];
+      b.addEventListener("click", () => b.classList.toggle("on"));
+      routineDaysEl.appendChild(b);
+    }
+  }
+  function setSelectedDays(days) {
+    const set = new Set(Array.isArray(days) ? days : []);
+    for (const b of routineDaysEl.children) b.classList.toggle("on", set.has(Number(b.dataset.day)));
+  }
+  function getSelectedDays() {
+    const out = [];
+    for (const b of routineDaysEl.children) if (b.classList.contains("on")) out.push(Number(b.dataset.day));
+    return out; // vazio = todos os dias
+  }
+  buildDayChips();
+  document.querySelectorAll(".day-presets button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const p = btn.dataset.preset;
+      setSelectedDays(p === "week" ? [1, 2, 3, 4, 5] : p === "weekend" ? [0, 6] : []);
+    });
+  });
+
   routineTimeEnabled.addEventListener("change", () => {
     routineTimeInput.disabled = !routineTimeEnabled.checked;
+    routineDaysWrap.style.display = routineTimeEnabled.checked ? "block" : "none";
     if (!routineTimeEnabled.checked) routineTimeInput.value = "";
   });
 
@@ -5921,7 +6012,7 @@
     }
 
     const trigger = routineTimeEnabled.checked
-      ? { type: "time", time: routineTimeInput.value }
+      ? { type: "time", time: routineTimeInput.value, days: getSelectedDays() }
       : null;
 
     state.routines = state.routines || [];
@@ -5943,6 +6034,38 @@
 
 
 
+  function nextRunDate(trigger) {
+    if (!trigger || trigger.type !== "time" || !trigger.time) return null;
+    const [h, m] = trigger.time.split(":").map(Number);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+    const days = (Array.isArray(trigger.days) && trigger.days.length) ? trigger.days : [0, 1, 2, 3, 4, 5, 6];
+    const now = new Date();
+    for (let add = 0; add < 8; add++) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + add, h, m, 0, 0);
+      if (d > now && days.includes(d.getDay())) return d;
+    }
+    return null;
+  }
+  function nextRunText(trigger) {
+    const d = nextRunDate(trigger);
+    if (!d) return "";
+    const now = new Date();
+    const diffMin = Math.round((d - now) / 60000);
+    const dayDiff = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+    if (diffMin < 60) return `em ${diffMin} min`;
+    if (dayDiff === 0) return `hoje ${trigger.time}`;
+    if (dayDiff === 1) return `amanhã ${trigger.time}`;
+    return `${DAY_LABELS[d.getDay()]} ${trigger.time}`;
+  }
+  function daysSummaryHtml(days) {
+    const d = Array.isArray(days) ? days : [];
+    if (!d.length || d.length === 7) return "todos os dias";
+    const set = [...d].sort((a, b) => a - b).join(",");
+    if (set === "1,2,3,4,5") return "dias úteis";
+    if (set === "0,6") return "fim de semana";
+    const chips = DAY_LABELS.map((lab, i) => `<span class="rw-day ${d.includes(i) ? "on" : ""}">${lab[0]}</span>`).join("");
+    return `<span class="rw-days">${chips}</span>`;
+  }
   function renderRoutinesList() {
     routinesList.innerHTML = "";
     const routines = state.routines || [];
@@ -5950,132 +6073,69 @@
       const li = document.createElement("li");
       li.style.color = "var(--muted)";
       li.style.fontStyle = "italic";
-      li.style.padding = "12px 0";
-      li.textContent = "Nenhuma rotina criada ainda.";
+      li.style.padding = "16px 0";
+      li.textContent = "Nenhuma rotina criada ainda. Crie uma para ligar/desligar dispositivos por horário ou num toque.";
       routinesList.appendChild(li);
       return;
     }
     for (const r of routines) {
       const li = document.createElement("li");
-      li.style.border = "1px solid var(--line)";
-      li.style.borderRadius = "8px";
-      li.style.padding = "12px";
-      li.style.background = "var(--paper)";
-      li.style.display = "flex";
-      li.style.flexDirection = "column";
-      li.style.gap = "8px";
-
-      const top = document.createElement("div");
-      top.style.display = "flex";
-      top.style.alignItems = "center";
-      top.style.justifyContent = "space-between";
-
-      const title = document.createElement("div");
-      title.style.fontWeight = "600";
-      title.style.fontSize = "14px";
-      title.textContent = r.name;
-
-      const right = document.createElement("div");
-      right.style.display = "flex";
-      right.style.alignItems = "center";
-      right.style.gap = "8px";
-
-      const timeText = document.createElement("span");
-      timeText.style.fontSize = "12px";
-      timeText.style.color = "var(--muted)";
-      if (r.trigger && r.trigger.type === "time") {
-        timeText.innerHTML = `${svgIcon("clock", 13)} ${r.trigger.time}`;
-      } else {
-        timeText.textContent = "Sem agendamento";
-      }
-
-      const activeLabel = document.createElement("label");
-      activeLabel.style.display = "flex";
-      activeLabel.style.alignItems = "center";
-      activeLabel.style.gap = "4px";
-      activeLabel.style.fontSize = "12px";
-      activeLabel.style.cursor = "pointer";
-
-      const activeCheck = document.createElement("input");
-      activeCheck.type = "checkbox";
-      activeCheck.checked = r.enabled !== false;
-      activeCheck.style.width = "auto";
-      activeCheck.style.margin = "0";
-      activeCheck.addEventListener("change", () => {
-        r.enabled = activeCheck.checked;
+      li.className = "routine-card" + (r.enabled === false ? " off" : "");
+      const sched = r.trigger && r.trigger.type === "time" && r.trigger.time;
+      const whenHtml = sched
+        ? `${svgIcon("clock", 13)} <b>${r.trigger.time}</b> · ${daysSummaryHtml(r.trigger.days)}`
+        : `${svgIcon("bolt", 13)} execução manual`;
+      const nr = (sched && r.enabled !== false) ? nextRunText(r.trigger) : "";
+      const last = r.lastRunAt ? ` · executada ${timeAgo(r.lastRunAt)}` : "";
+      const devChips = (r.actions || []).map(a => {
+        const nm = entityDisplay(a.entityId).name;
+        const on = a.preset === "on";
+        return `<span class="routine-dev-chip ${on ? "on" : "off"}">${on ? "▲" : "▼"} ${escapeHtml(nm)}</span>`;
+      }).join("") || `<span class="sub" style="font-size:12px;">Nenhuma ação configurada</span>`;
+      li.innerHTML = `
+        <div class="routine-card-top">
+          <div class="routine-ic">${svgIcon("bolt", 20)}</div>
+          <div class="routine-idn">
+            <div class="routine-name">${escapeHtml(r.name)}</div>
+            <div class="routine-when">${whenHtml}${nr ? ` <span class="routine-next">· próxima ${nr}</span>` : ""}${last}</div>
+          </div>
+          <label class="rt-switch" title="Ativa"><input type="checkbox" ${r.enabled !== false ? "checked" : ""}><span class="rt-track"></span><span class="rt-thumb"></span></label>
+        </div>
+        <div class="routine-devices">${devChips}</div>
+        <div class="routine-card-actions">
+          <button type="button" class="primary routine-run">${svgIcon("bolt", 14)} Executar agora</button>
+          <button type="button" class="ghost routine-edit">Editar</button>
+          <button type="button" class="ghost danger routine-del">Excluir</button>
+        </div>`;
+      const sw = li.querySelector(".rt-switch input");
+      sw.addEventListener("change", () => {
+        r.enabled = sw.checked;
+        li.classList.toggle("off", !sw.checked);
         logActivity(`Rotina <b>${escapeHtml(r.name)}</b> ${r.enabled ? "ativada" : "desativada"}`);
         scheduleSave();
+        renderRoutinesList();
       });
-      activeLabel.appendChild(activeCheck);
-      activeLabel.appendChild(document.createTextNode("Ativa"));
-
-      right.appendChild(timeText);
-      right.appendChild(activeCheck);
-      right.appendChild(activeLabel);
-      top.appendChild(title);
-      top.appendChild(right);
-
-      const mid = document.createElement("div");
-      mid.style.fontSize = "12px";
-      mid.style.color = "var(--muted)";
-      const actionsCount = (r.actions || []).length;
-      mid.textContent = `${actionsCount} ação/ações` + (r.lastRunAt ? ` · Executada ${timeAgo(r.lastRunAt)}` : "");
-
-      const actionsRow = document.createElement("div");
-      actionsRow.style.display = "flex";
-      actionsRow.style.gap = "6px";
-      actionsRow.style.marginTop = "4px";
-
-      const runBtn = document.createElement("button");
-      runBtn.type = "button";
-      runBtn.className = "primary";
-      runBtn.style.padding = "4px 10px";
-      runBtn.style.fontSize = "12px";
-      runBtn.textContent = "Executar";
-      runBtn.addEventListener("click", async () => {
-        runBtn.disabled = true;
+      li.querySelector(".routine-run").addEventListener("click", async (e) => {
+        const b = e.currentTarget; b.disabled = true;
         const res = await api("POST", `/routines/${r.id}/run`);
-        runBtn.disabled = false;
+        b.disabled = false;
         if (res.ok) {
-          logActivity(`Rotina <b>${escapeHtml(r.name)}</b> executada com sucesso`);
+          logActivity(`Rotina <b>${escapeHtml(r.name)}</b> executada`);
           r.lastRunAt = new Date().toISOString();
           scheduleSave();
           renderRoutinesList();
         } else {
-          showToast("Erro ao executar rotina: " + ((res.data && res.data.error) || "erro desconhecido"), "error");
+          showToast("Erro ao executar: " + ((res.data && res.data.error) || "erro desconhecido"), "error");
         }
       });
-
-      const editBtn = document.createElement("button");
-      editBtn.type = "button";
-      editBtn.style.padding = "4px 10px";
-      editBtn.style.fontSize = "12px";
-      editBtn.textContent = "Editar";
-      editBtn.addEventListener("click", () => {
-        showRoutineEditor(r);
-      });
-
-      const delBtn = document.createElement("button");
-      delBtn.type = "button";
-      delBtn.className = "danger";
-      delBtn.style.padding = "4px 10px";
-      delBtn.style.fontSize = "12px";
-      delBtn.textContent = "Excluir";
-      delBtn.addEventListener("click", async () => {
+      li.querySelector(".routine-edit").addEventListener("click", () => showRoutineEditor(r));
+      li.querySelector(".routine-del").addEventListener("click", async () => {
         if (!await customConfirm(`Excluir a rotina "${r.name}"?`)) return;
         state.routines = state.routines.filter(x => x.id !== r.id);
         logActivity(`Rotina <b>${escapeHtml(r.name)}</b> excluída`);
         scheduleSave();
         renderRoutinesList();
       });
-
-      actionsRow.appendChild(runBtn);
-      actionsRow.appendChild(editBtn);
-      actionsRow.appendChild(delBtn);
-
-      li.appendChild(top);
-      li.appendChild(mid);
-      li.appendChild(actionsRow);
       routinesList.appendChild(li);
     }
   }
@@ -6093,6 +6153,8 @@
       routineTimeEnabled.checked = hasTime;
       routineTimeInput.disabled = !hasTime;
       routineTimeInput.value = hasTime ? routine.trigger.time : "";
+      routineDaysWrap.style.display = hasTime ? "block" : "none";
+      setSelectedDays(hasTime ? routine.trigger.days : []);
 
       if (Array.isArray(routine.actions)) {
         for (const action of routine.actions) {
@@ -6105,6 +6167,8 @@
       routineTimeEnabled.checked = false;
       routineTimeInput.disabled = true;
       routineTimeInput.value = "";
+      routineDaysWrap.style.display = "none";
+      setSelectedDays([]);
       addRoutineActionRow();
     }
   }
@@ -7337,7 +7401,7 @@
     fridgeNameInput.focus();
   });
 
-  const KNOWN_VIEWS = new Set(["map", "fridge", "grocery", "routines", "tasks", "profile", "server"]);
+  const KNOWN_VIEWS = new Set(["map", "grocery", "routines", "profile", "server"]);
   function setView(v) {
     currentView = KNOWN_VIEWS.has(v) ? v : "map";
     localStorage.setItem(VIEW_KEY, currentView);
