@@ -412,10 +412,21 @@ app.get("/api/system/health", authRequired, (req, res) => {
   res.json(readSystemHealth());
 });
 
-// ===== Histórico de saúde: amostrado a cada 60s, buffer de 24h, persistido =====
+// ===== Histórico de saúde =====
+// Dois níveis de retenção:
+//  - Buffer recente em alta resolução: 1 amostra/60s, últimas 48h (para os
+//    gráficos detalhados), persistido em health-history.json.
+//  - Log de longo prazo: 1 resumo/hora (média/mín/máx), append-only em
+//    health-log.jsonl, mantido por ~2 anos. É o "log" consultável de qualquer
+//    momento futuro.
 const HEALTH_SAMPLE_MS = 60 * 1000;
-const HEALTH_MAX = 1440;                        // 24h a 60s
-const HEALTH_FILE = fs.existsSync("/data") ? "/data/health-history.json" : null;
+const HEALTH_MAX = 2880;                                  // 48h a 60s
+const HEALTH_DIR = fs.existsSync("/data") ? "/data" : null;
+const HEALTH_FILE = HEALTH_DIR ? HEALTH_DIR + "/health-history.json" : null;
+const HEALTH_LOG = HEALTH_DIR ? HEALTH_DIR + "/health-log.jsonl" : null;
+const HEALTH_LOG_MAX = 17520;                             // ~2 anos de resumos horários
+const HEALTH_METRICS = ["temp", "mem", "disk", "load"];
+
 let healthHistory = [];
 (function loadHealthHistory() {
   if (!HEALTH_FILE) return;
@@ -424,34 +435,99 @@ let healthHistory = [];
     if (Array.isArray(arr)) healthHistory = arr.slice(-HEALTH_MAX);
   } catch {}
 })();
+
+// Acumulador da hora corrente para o resumo horário.
+let hourAccum = null; // { hourStart, temp:[...], mem:[...], disk:[...], load:[...] }
+function hourStartOf(ms) { return Math.floor(ms / 3600000) * 3600000; }
+function summarize(vals) {
+  const v = vals.filter(x => x != null && Number.isFinite(x));
+  if (!v.length) return null;
+  const sum = v.reduce((s, x) => s + x, 0);
+  return { avg: +(sum / v.length).toFixed(2), min: Math.min(...v), max: Math.max(...v) };
+}
+function flushHourAccum() {
+  if (!hourAccum || !HEALTH_LOG) { hourAccum = null; return; }
+  const row = { t: hourAccum.hourStart };
+  let any = false;
+  for (const k of HEALTH_METRICS) { const s = summarize(hourAccum[k]); if (s) { row[k] = s; any = true; } }
+  hourAccum = null;
+  if (!any) return;
+  try {
+    fs.appendFileSync(HEALTH_LOG, JSON.stringify(row) + "\n");
+    trimHealthLogIfNeeded();
+  } catch {}
+}
+let healthLogAppends = 0;
+function trimHealthLogIfNeeded() {
+  if (!HEALTH_LOG) return;
+  // Só verifica de vez em quando (custa reler o arquivo).
+  if (++healthLogAppends % 24 !== 0) return;
+  try {
+    const lines = fs.readFileSync(HEALTH_LOG, "utf8").split("\n").filter(Boolean);
+    if (lines.length > HEALTH_LOG_MAX) {
+      fs.writeFileSync(HEALTH_LOG, lines.slice(-HEALTH_LOG_MAX).join("\n") + "\n");
+    }
+  } catch {}
+}
+
 let healthDirty = false;
 function sampleHealth() {
   const h = readSystemHealth();
-  healthHistory.push({
+  const pt = {
     t: Date.now(),
     temp: typeof h.tempC === "number" ? h.tempC : null,
     mem: h.mem ? h.mem.pct : null,
     disk: h.disk ? h.disk.pct : null,
     load: h.load ? h.load["1m"] : null,
-  });
+  };
+  healthHistory.push(pt);
   if (healthHistory.length > HEALTH_MAX) healthHistory = healthHistory.slice(-HEALTH_MAX);
   healthDirty = true;
+  // Agrega no resumo da hora; ao virar a hora, grava a anterior no log.
+  const hs = hourStartOf(pt.t);
+  if (!hourAccum || hourAccum.hourStart !== hs) {
+    if (hourAccum) flushHourAccum();
+    hourAccum = { hourStart: hs, temp: [], mem: [], disk: [], load: [] };
+  }
+  for (const k of HEALTH_METRICS) hourAccum[k].push(pt[k]);
 }
 function persistHealthHistory() {
   if (!HEALTH_FILE || !healthDirty) return;
   try { fs.writeFileSync(HEALTH_FILE, JSON.stringify(healthHistory)); healthDirty = false; } catch {}
 }
+function persistAll() { persistHealthHistory(); flushHourAccum(); }
 sampleHealth();
 setInterval(sampleHealth, HEALTH_SAMPLE_MS).unref?.();
 setInterval(persistHealthHistory, 2 * 60 * 1000).unref?.();
-process.on("SIGTERM", persistHealthHistory);
-process.on("SIGINT", persistHealthHistory);
+process.on("SIGTERM", persistAll);
+process.on("SIGINT", persistAll);
+
+function readHealthLog(sinceMs) {
+  if (!HEALTH_LOG) return [];
+  let out = [];
+  try {
+    const lines = fs.readFileSync(HEALTH_LOG, "utf8").split("\n");
+    for (const ln of lines) {
+      if (!ln) continue;
+      let row; try { row = JSON.parse(ln); } catch { continue; }
+      if (row && row.t >= sinceMs) {
+        // Achata o resumo horário para o mesmo formato do buffer (usa a média).
+        const p = { t: row.t };
+        for (const k of HEALTH_METRICS) p[k] = row[k] ? row[k].avg : null;
+        out.push(p);
+      }
+    }
+  } catch {}
+  return out;
+}
 
 app.get("/api/system/health/history", authRequired, (req, res) => {
-  const hours = Math.min(24, Math.max(1, parseInt(req.query.hours, 10) || 6));
+  const hours = Math.min(24 * 800, Math.max(1, parseInt(req.query.hours, 10) || 6));
   const since = Date.now() - hours * 3600 * 1000;
-  const pts = healthHistory.filter(p => p.t >= since);
-  res.json({ hours, sampleMs: HEALTH_SAMPLE_MS, points: pts });
+  // Até 48h: buffer de minuto. Acima disso: resumos horários do log.
+  const useLog = hours > 48;
+  const points = useLog ? readHealthLog(since) : healthHistory.filter(p => p.t >= since);
+  res.json({ hours, resolution: useLog ? "hour" : "minute", sampleMs: HEALTH_SAMPLE_MS, points });
 });
 
 // Proxy de snapshot de câmera: repassa o JPEG do HA (camera_proxy) já autenticado.

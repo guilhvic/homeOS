@@ -2607,9 +2607,10 @@
         <div class="health-hist-head">
           <span class="hh-title">Histórico</span>
           <div class="hh-period" id="health-period">
-            <button type="button" data-h="6" class="active">6h</button>
-            <button type="button" data-h="12">12h</button>
-            <button type="button" data-h="24">24h</button>
+            <button type="button" data-h="24" class="active">24h</button>
+            <button type="button" data-h="168">7d</button>
+            <button type="button" data-h="720">30d</button>
+            <button type="button" data-h="19200">Tudo</button>
           </div>
         </div>
         <div id="health-history"><div class="sub">Carregando…</div></div>
@@ -6676,7 +6677,7 @@
   }
 
   // ===== Histórico de saúde (sparklines) =====
-  let healthHours = 6;
+  let healthHours = 24;
   function sparklineSvg(vals, color) {
     const pts = vals.map((v, i) => ({ v, i })).filter(p => p.v != null && isFinite(p.v));
     if (pts.length < 2) return `<svg viewBox="0 0 100 40" preserveAspectRatio="none"></svg>`;
