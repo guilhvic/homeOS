@@ -360,7 +360,9 @@ app.get("/api/system/temp", authRequired, (req, res) => {
   }
 });
 
-// Saúde do servidor (host): uptime, RAM, disco, carga e temperatura.
+// Saúde do servidor (host): uptime, RAM, disco, carga, temperatura, CPU%,
+// swap, frequência, bateria, rede e Wi-Fi.
+let prevCpu = null, prevNet = null;
 function readSystemHealth() {
   const out = { ok: true };
   // Uptime (segundos do host)
@@ -406,10 +408,114 @@ function readSystemHealth() {
     }
     if (max !== null) out.tempC = max;
   } catch {}
+  // Uso de CPU (%) — delta desde a leitura anterior de /proc/stat
+  try {
+    const line = fs.readFileSync("/proc/stat", "utf8").split("\n")[0];
+    const p = line.trim().split(/\s+/).slice(1).map(Number);
+    const idle = (p[3] || 0) + (p[4] || 0);
+    const total = p.reduce((s, x) => s + (x || 0), 0);
+    if (prevCpu && total > prevCpu.total) {
+      const dt = total - prevCpu.total, di = idle - prevCpu.idle;
+      out.cpuPct = Math.max(0, Math.min(100, Math.round((1 - di / dt) * 100)));
+    }
+    prevCpu = { total, idle };
+  } catch {}
+  // Swap
+  try {
+    const mi = fs.readFileSync("/proc/meminfo", "utf8");
+    const grab = k => { const m = mi.match(new RegExp("^" + k + ":\\s+(\\d+)", "m")); return m ? parseInt(m[1], 10) * 1024 : null; };
+    const st = grab("SwapTotal"), sf = grab("SwapFree");
+    if (st != null && sf != null && st > 0) out.swap = { total: st, used: st - sf, pct: Math.round((1 - sf / st) * 100) };
+  } catch {}
+  // Frequência média da CPU (MHz)
+  try {
+    const base = "/sys/devices/system/cpu";
+    let sum = 0, n = 0;
+    for (const c of fs.readdirSync(base).filter(x => /^cpu\d+$/.test(x))) {
+      try { const khz = parseInt(fs.readFileSync(path.join(base, c, "cpufreq/scaling_cur_freq"), "utf8").trim(), 10); if (Number.isFinite(khz)) { sum += khz; n++; } } catch {}
+    }
+    if (n) out.cpuMhz = Math.round(sum / n / 1000);
+  } catch {}
+  // Bateria / energia (é um notebook)
+  try {
+    const base = "/sys/class/power_supply";
+    let bat = null, ac = null;
+    for (const e of fs.readdirSync(base)) {
+      let type = ""; try { type = fs.readFileSync(path.join(base, e, "type"), "utf8").trim(); } catch {}
+      if (type === "Battery" && !bat) bat = e;
+      if ((type === "Mains" || /^(AC|ADP|ACAD)/i.test(e)) && ac === null) {
+        try { ac = parseInt(fs.readFileSync(path.join(base, e, "online"), "utf8").trim(), 10); } catch {}
+      }
+    }
+    if (bat) {
+      const rd = f => { try { return fs.readFileSync(path.join(base, bat, f), "utf8").trim(); } catch { return null; } };
+      const cap = parseInt(rd("capacity"), 10);
+      const full = parseFloat(rd("energy_full") || rd("charge_full"));
+      const design = parseFloat(rd("energy_full_design") || rd("charge_full_design"));
+      out.battery = {
+        present: true,
+        percent: Number.isFinite(cap) ? cap : null,
+        status: rd("status"),
+        acOnline: ac === 1 ? true : (ac === 0 ? false : null),
+        healthPct: (full && design) ? Math.round((full / design) * 100) : null,
+      };
+    } else if (ac !== null) {
+      out.battery = { present: false, acOnline: ac === 1 };
+    }
+  } catch {}
+  // Rede: taxa de download/upload somando interfaces reais
+  try {
+    const rows = fs.readFileSync("/proc/net/dev", "utf8").split("\n").slice(2);
+    let rx = 0, tx = 0;
+    for (const ln of rows) {
+      const m = ln.trim().match(/^([\w.-]+):\s+(.+)$/);
+      if (!m) continue;
+      const iface = m[1];
+      if (iface === "lo" || /^(docker|veth|br-)/.test(iface)) continue;
+      const f = m[2].trim().split(/\s+/).map(Number);
+      rx += f[0] || 0; tx += f[8] || 0;
+    }
+    const now = Date.now();
+    if (prevNet && now > prevNet.t) {
+      const dt = (now - prevNet.t) / 1000;
+      out.net = { rxBps: Math.max(0, Math.round((rx - prevNet.rx) / dt)), txBps: Math.max(0, Math.round((tx - prevNet.tx) / dt)) };
+    }
+    prevNet = { t: now, rx, tx };
+  } catch {}
+  // Sinal do Wi-Fi
+  try {
+    const rows = fs.readFileSync("/proc/net/wireless", "utf8").split("\n").slice(2);
+    for (const ln of rows) {
+      const m = ln.trim().match(/^([\w.-]+):\s+(.+)$/);
+      if (!m) continue;
+      const f = m[2].trim().split(/\s+/);
+      const quality = parseFloat(f[1]); // link quality (base 70)
+      const signal = parseFloat(f[2]);  // dBm
+      out.wifi = {
+        iface: m[1],
+        qualityPct: Number.isFinite(quality) ? Math.round(Math.min(100, (quality / 70) * 100)) : null,
+        signalDbm: Number.isFinite(signal) ? Math.round(signal) : null,
+      };
+      break;
+    }
+  } catch {}
   return out;
 }
 app.get("/api/system/health", authRequired, (req, res) => {
   res.json(readSystemHealth());
+});
+
+// Info estática do host (lida uma vez pelo cliente).
+app.get("/api/system/info", authRequired, (req, res) => {
+  const os = require("os");
+  const info = {};
+  try { info.kernel = os.release(); } catch {}
+  try { info.arch = os.arch(); } catch {}
+  try { const c = os.cpus(); info.cores = c.length; info.cpuModel = (c[0] || {}).model || null; } catch {}
+  try { info.hostname = fs.readFileSync("/etc/hostname", "utf8").trim(); } catch {}
+  if (!info.hostname) { try { info.hostname = os.hostname(); } catch {} }
+  try { info.totalMem = os.totalmem(); } catch {}
+  res.json(info);
 });
 
 // ===== Histórico de saúde =====
@@ -425,7 +531,7 @@ const HEALTH_DIR = fs.existsSync("/data") ? "/data" : null;
 const HEALTH_FILE = HEALTH_DIR ? HEALTH_DIR + "/health-history.json" : null;
 const HEALTH_LOG = HEALTH_DIR ? HEALTH_DIR + "/health-log.jsonl" : null;
 const HEALTH_LOG_MAX = 17520;                             // ~2 anos de resumos horários
-const HEALTH_METRICS = ["temp", "mem", "disk", "load"];
+const HEALTH_METRICS = ["temp", "cpu", "mem", "disk", "load", "batt"];
 
 let healthHistory = [];
 (function loadHealthHistory() {
@@ -476,9 +582,11 @@ function sampleHealth() {
   const pt = {
     t: Date.now(),
     temp: typeof h.tempC === "number" ? h.tempC : null,
+    cpu: typeof h.cpuPct === "number" ? h.cpuPct : null,
     mem: h.mem ? h.mem.pct : null,
     disk: h.disk ? h.disk.pct : null,
     load: h.load ? h.load["1m"] : null,
+    batt: h.battery && typeof h.battery.percent === "number" ? h.battery.percent : null,
   };
   healthHistory.push(pt);
   if (healthHistory.length > HEALTH_MAX) healthHistory = healthHistory.slice(-HEALTH_MAX);
@@ -487,7 +595,8 @@ function sampleHealth() {
   const hs = hourStartOf(pt.t);
   if (!hourAccum || hourAccum.hourStart !== hs) {
     if (hourAccum) flushHourAccum();
-    hourAccum = { hourStart: hs, temp: [], mem: [], disk: [], load: [] };
+    hourAccum = { hourStart: hs };
+    for (const k of HEALTH_METRICS) hourAccum[k] = [];
   }
   for (const k of HEALTH_METRICS) hourAccum[k].push(pt[k]);
 }

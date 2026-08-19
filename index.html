@@ -194,6 +194,35 @@
     padding: 24px 16px 64px;
   }
 
+  /* Server view replaces map+aside */
+  #app-shell.view-server {
+    grid-template-columns: 1fr;
+    grid-template-areas: "top" "server";
+  }
+  #app-shell.view-server #map-wrap,
+  #app-shell.view-server aside { display: none; }
+  #app-shell:not(.view-server) #server-view { display: none; }
+  #app-shell.view-server .map-only { display: none; }
+  #server-view {
+    grid-area: server;
+    overflow-y: auto;
+    background: var(--bg);
+    padding: 24px 16px 64px;
+  }
+  .server-shell { max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  .server-uptime { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .server-metrics { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; }
+  .server-metrics .health-metric { background: var(--paper); }
+  .health-metric.batt-warn { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .hm-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .server-info {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px 18px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px;
+  }
+  .server-info:empty { display: none; }
+  .si-row { font-size: 12px; color: var(--muted); }
+  .si-row b { color: var(--ink); font-weight: 600; }
+
   /* Tasks (afazeres) view replaces map+aside */
   #app-shell.view-tasks {
     grid-template-columns: 1fr;
@@ -2152,7 +2181,7 @@
     /* Shell na VISÃO DA CASA (mapa): só header + mapa; nav vira barra inferior.
        Escopado para não pisar nas áreas das outras views (grocery/profile/etc),
        que já definem seu próprio layout de coluna única. */
-    #app-shell:not(.view-grocery):not(.view-profile):not(.view-routines):not(.view-tasks):not(.view-fridge) {
+    #app-shell:not(.view-grocery):not(.view-profile):not(.view-routines):not(.view-tasks):not(.view-fridge):not(.view-server) {
       grid-template-columns: 1fr;
       grid-template-rows: auto 1fr;
       grid-template-areas: "top" "map";
@@ -2162,9 +2191,11 @@
     #app-shell.view-profile,
     #app-shell.view-routines,
     #app-shell.view-tasks,
-    #app-shell.view-fridge {
+    #app-shell.view-fridge,
+    #app-shell.view-server {
       grid-template-rows: auto 1fr;
     }
+    #server-view { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
 
     /* Header compacto; quebra em 2 linhas em vez de rolar na horizontal */
     header {
@@ -2321,6 +2352,7 @@
       <button class="view-tab" data-view="grocery" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12h11l1.9-8H6"/></svg><span>Mercado</span></button>
       <button class="view-tab" data-view="routines" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span>Rotinas</span></button>
       <button class="view-tab" data-view="tasks" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M8.5 13l2 2 4-4"/></svg><span>Afazeres</span></button>
+      <button class="view-tab" data-view="server" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg><span>Servidor</span></button>
       <button class="view-tab" data-view="profile" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Perfil</span></button>
     </div>
     <span class="sub" id="status">— monte o mapa da sua casa</span>
@@ -2576,7 +2608,7 @@
       <!-- Bento Card 7: Saúde do servidor (Span 2) -->
       <div class="profile-card bento-2">
         <div class="card-head-toggles" style="display:flex; justify-content:space-between; align-items:center;">
-          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg> Saúde do servidor</h3>
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 18h6"/></svg> Este dispositivo</h3>
           <div class="toggle-group" style="display:flex; align-items:center; gap:14px;">
             <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); cursor:pointer;">
               <input type="checkbox" id="kiosk-toggle" style="width:auto; margin:0;" />
@@ -2592,7 +2624,7 @@
             </label>
           </div>
         </div>
-        <p class="sub">Estado do note que roda o homeOS. Atualiza a cada 15s.</p>
+        <p class="sub">Preferências deste aparelho e integrações. O monitor do host está na aba <b>Servidor</b>.</p>
         <div class="field" style="margin: 4px 0 12px;">
           <label for="dash-url-input" style="font-size:12px; color:var(--muted);">Painel externo (URL) — alterna com 3 dedos ou o botão ⇄</label>
           <input id="dash-url-input" type="url" inputmode="url" placeholder="https://seu-dashboard.exemplo.com" style="width:100%; border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:8px; padding:10px 12px; font:inherit; margin-top:4px;" />
@@ -2601,19 +2633,6 @@
           <label for="tariff-input" style="font-size:12px; color:var(--muted);">Tarifa de energia (R$/kWh) — para o custo do mês</label>
           <input id="tariff-input" type="number" inputmode="decimal" min="0" step="0.01" placeholder="ex: 0.95" style="width:100%; border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:8px; padding:10px 12px; font:inherit; margin-top:4px;" />
         </div>
-        <div class="health-grid" id="health-grid">
-          <div class="sub" style="grid-column:1/-1;">Carregando…</div>
-        </div>
-        <div class="health-hist-head">
-          <span class="hh-title">Histórico</span>
-          <div class="hh-period" id="health-period">
-            <button type="button" data-h="24" class="active">24h</button>
-            <button type="button" data-h="168">7d</button>
-            <button type="button" data-h="720">30d</button>
-            <button type="button" data-h="19200">Tudo</button>
-          </div>
-        </div>
-        <div id="health-history"><div class="sub">Carregando…</div></div>
       </div>
 
       <!-- Bento Card 8: Consumo de energia (7 dias) (Span 3) -->
@@ -2625,6 +2644,35 @@
         <p class="sub">Últimos 7 dias, a partir dos sensores de energia (kWh) monitorados.</p>
         <div id="energy-chart"><div class="sub">Carregando…</div></div>
       </div>
+    </div>
+  </main>
+
+  <!-- ============================ SERVER VIEW ============================ -->
+  <main id="server-view">
+    <div class="profile-page-header">
+      <div>
+        <h2>Servidor</h2>
+        <p class="sub-text">Monitor do note que roda o homeOS — atualiza a cada 10s.</p>
+      </div>
+      <span class="server-uptime" id="server-uptime"></span>
+    </div>
+    <div class="server-shell">
+      <div class="server-metrics" id="server-metrics"><div class="sub">Carregando…</div></div>
+
+      <div class="profile-card">
+        <div class="health-hist-head" style="margin-top:0;">
+          <span class="hh-title">Histórico</span>
+          <div class="hh-period" id="health-period">
+            <button type="button" data-h="24" class="active">24h</button>
+            <button type="button" data-h="168">7d</button>
+            <button type="button" data-h="720">30d</button>
+            <button type="button" data-h="19200">Tudo</button>
+          </div>
+        </div>
+        <div id="health-history"><div class="sub">Carregando…</div></div>
+      </div>
+
+      <div class="server-info" id="server-info"></div>
     </div>
   </main>
 
@@ -6646,34 +6694,75 @@
     return `${m}m`;
   }
   function barClass(pct) { return pct >= 90 ? "hot" : pct >= 75 ? "warm" : ""; }
-  function metricCard(label, value, pct, cls) {
+  function metricCard(label, value, pct, barCls, opts) {
+    opts = opts || {};
     const bar = pct != null
-      ? `<div class="health-bar ${cls}"><span style="width:${Math.min(100, Math.max(2, pct))}%"></span></div>` : "";
-    return `<div class="health-metric"><div class="hm-label">${label}</div><div class="hm-value">${value}</div>${bar}</div>`;
+      ? `<div class="health-bar ${barCls || ""}"><span style="width:${Math.min(100, Math.max(2, pct))}%"></span></div>` : "";
+    const sub = opts.sub ? `<div class="hm-sub">${opts.sub}</div>` : "";
+    return `<div class="health-metric ${opts.cls || ""}"><div class="hm-label">${label}</div><div class="hm-value">${value}</div>${bar}${sub}</div>`;
   }
-  async function pollHealth() {
-    const grid = document.getElementById("health-grid");
-    if (!grid || currentView !== "profile") return;
-    try {
-      const r = await api("GET", "/system/health");
-      if (!r.ok || !r.data) { grid.innerHTML = '<div class="sub" style="grid-column:1/-1;">Indisponível.</div>'; return; }
-      const d = r.data, cards = [];
-      if (typeof d.tempC === "number")
-        cards.push(metricCard("Temperatura", d.tempC + "°C", d.tempC >= 82 ? 100 : d.tempC >= 70 ? 70 : 40, d.tempC >= 82 ? "hot" : d.tempC >= 70 ? "warm" : ""));
-      if (d.mem)
-        cards.push(metricCard("Memória", d.mem.pct + "% · " + fmtBytes(d.mem.used) + " / " + fmtBytes(d.mem.total), d.mem.pct, barClass(d.mem.pct)));
-      if (d.disk)
-        cards.push(metricCard("Disco", d.disk.pct + "% · " + fmtBytes(d.disk.used) + " / " + fmtBytes(d.disk.total), d.disk.pct, barClass(d.disk.pct)));
-      if (d.uptimeSec != null)
-        cards.push(metricCard("Uptime", fmtUptime(d.uptimeSec), null, ""));
-      if (d.load)
-        cards.push(metricCard("Carga (1m)", d.load["1m"].toFixed(2), null, ""));
-      grid.innerHTML = cards.join("") || '<div class="sub" style="grid-column:1/-1;">Sem dados do host.</div>';
-    } catch {
-      grid.innerHTML = '<div class="sub" style="grid-column:1/-1;">Erro ao ler saúde.</div>';
+  async function renderServerLive() {
+    const grid = document.getElementById("server-metrics");
+    if (!grid) return;
+    let d = null;
+    try { const r = await api("GET", "/system/health"); if (r.ok) d = r.data; } catch {}
+    if (!d) { grid.innerHTML = '<div class="sub" style="grid-column:1/-1;">Indisponível.</div>'; return; }
+    const cards = [];
+    if (typeof d.cpuPct === "number")
+      cards.push(metricCard("CPU", d.cpuPct + "%", d.cpuPct, barClass(d.cpuPct), { sub: d.cpuMhz ? d.cpuMhz + " MHz" : "" }));
+    if (typeof d.tempC === "number")
+      cards.push(metricCard("Temperatura", d.tempC + "°C", d.tempC >= 82 ? 100 : d.tempC >= 70 ? 70 : 40, d.tempC >= 82 ? "hot" : d.tempC >= 70 ? "warm" : ""));
+    if (d.mem)
+      cards.push(metricCard("Memória", d.mem.pct + "%", d.mem.pct, barClass(d.mem.pct), { sub: fmtBytes(d.mem.used) + " / " + fmtBytes(d.mem.total) }));
+    if (d.swap)
+      cards.push(metricCard("Swap", d.swap.pct + "%", d.swap.pct, barClass(d.swap.pct), { sub: fmtBytes(d.swap.used) + " / " + fmtBytes(d.swap.total) }));
+    if (d.disk)
+      cards.push(metricCard("Disco", d.disk.pct + "%", d.disk.pct, barClass(d.disk.pct), { sub: fmtBytes(d.disk.used) + " / " + fmtBytes(d.disk.total) }));
+    if (d.battery) {
+      if (d.battery.present) {
+        const onBatt = d.battery.acOnline === false;
+        const where = onBatt ? "na bateria" : (d.battery.acOnline ? "na tomada" : "");
+        const sub = [d.battery.status, where, d.battery.healthPct ? `saúde ${d.battery.healthPct}%` : ""].filter(Boolean).join(" · ");
+        cards.push(metricCard("Bateria", (d.battery.percent != null ? d.battery.percent + "%" : "—"), d.battery.percent, onBatt ? "hot" : "", { sub, cls: onBatt ? "batt-warn" : "" }));
+      } else if (d.battery.acOnline !== undefined) {
+        cards.push(metricCard("Energia", d.battery.acOnline ? "Na tomada" : "Sem AC", null, "", {}));
+      }
     }
-    if (!healthTimer) healthTimer = setInterval(() => { if (currentView === "profile") pollHealth(); }, 15000);
+    if (d.net)
+      cards.push(metricCard("Rede", "↓ " + fmtBytes(d.net.rxBps) + "/s", null, "", { sub: "↑ " + fmtBytes(d.net.txBps) + "/s" }));
+    if (d.wifi)
+      cards.push(metricCard("Wi-Fi", (d.wifi.qualityPct != null ? d.wifi.qualityPct + "%" : "—"), d.wifi.qualityPct, (d.wifi.qualityPct != null && d.wifi.qualityPct < 40) ? "warm" : "", { sub: [d.wifi.signalDbm != null ? d.wifi.signalDbm + " dBm" : "", escapeHtml(d.wifi.iface || "")].filter(Boolean).join(" · ") }));
+    if (d.load)
+      cards.push(metricCard("Carga", d.load["1m"].toFixed(2), null, "", { sub: d.load["5m"].toFixed(2) + " · " + d.load["15m"].toFixed(2) + " (5/15m)" }));
+    grid.innerHTML = cards.join("") || '<div class="sub" style="grid-column:1/-1;">Sem dados do host.</div>';
+    const up = document.getElementById("server-uptime");
+    if (up) up.textContent = d.uptimeSec != null ? "no ar há " + fmtUptime(d.uptimeSec) : "";
+  }
+  let serverInfoLoaded = false;
+  async function renderServerInfo() {
+    const el = document.getElementById("server-info");
+    if (!el || serverInfoLoaded) return;
+    let d = null;
+    try { const r = await api("GET", "/system/info"); if (r.ok) d = r.data; } catch {}
+    if (!d) return;
+    serverInfoLoaded = true;
+    const rows = [];
+    const add = (k, v) => { if (v != null && v !== "") rows.push(`<div class="si-row">${k}: <b>${escapeHtml(String(v))}</b></div>`); };
+    add("Host", d.hostname);
+    add("CPU", d.cpuModel);
+    add("Núcleos", d.cores);
+    add("Arquitetura", d.arch);
+    add("Kernel", d.kernel);
+    if (d.totalMem) add("RAM total", fmtBytes(d.totalMem));
+    el.innerHTML = rows.join("");
+  }
+  function renderServerPage() {
+    renderServerLive();
     renderHealthHistory();
+    renderServerInfo();
+    if (!healthTimer) healthTimer = setInterval(() => {
+      if (currentView === "server") { renderServerLive(); renderHealthHistory(); }
+    }, 10000);
   }
 
   // ===== Histórico de saúde (sparklines) =====
@@ -6707,10 +6796,12 @@
     }
     const pts = data.points;
     const metrics = [
+      { key: "cpu",  label: "CPU",   unit: "%",  color: "#8a63d2", dec: 0 },
       { key: "temp", label: "Temp",  unit: "°C", color: "#e0894a", dec: 0 },
       { key: "mem",  label: "RAM",   unit: "%",  color: "#c2592a", dec: 0 },
       { key: "disk", label: "Disco", unit: "%",  color: "#4a90d9", dec: 0 },
       { key: "load", label: "Carga", unit: "",   color: "#2fa37a", dec: 2 },
+      { key: "batt", label: "Bateria", unit: "%", color: "#2f9e5e", dec: 0 },
     ];
     const rows = metrics.map(m => {
       const vals = pts.map(p => p[m.key]);
@@ -7246,7 +7337,7 @@
     fridgeNameInput.focus();
   });
 
-  const KNOWN_VIEWS = new Set(["map", "fridge", "grocery", "routines", "tasks", "profile"]);
+  const KNOWN_VIEWS = new Set(["map", "fridge", "grocery", "routines", "tasks", "profile", "server"]);
   function setView(v) {
     currentView = KNOWN_VIEWS.has(v) ? v : "map";
     localStorage.setItem(VIEW_KEY, currentView);
@@ -7255,6 +7346,7 @@
     appShell.classList.toggle("view-routines", currentView === "routines");
     appShell.classList.toggle("view-tasks", currentView === "tasks");
     appShell.classList.toggle("view-fridge", currentView === "fridge");
+    appShell.classList.toggle("view-server", currentView === "server");
     for (const btn of document.querySelectorAll(".view-tab")) {
       btn.classList.toggle("active", btn.dataset.view === currentView);
     }
@@ -7268,7 +7360,8 @@
       setTimeout(() => fridgeNameInput.focus(), 0);
     } else if (currentView === "profile") {
       renderProfilePage();
-      pollHealth();
+    } else if (currentView === "server") {
+      renderServerPage();
     } else if (currentView === "routines") {
       renderRoutinesList();
     } else if (currentView === "tasks") {
