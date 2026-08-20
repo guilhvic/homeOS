@@ -2638,6 +2638,9 @@
   <button class="app-opt" data-app="dash" type="button" role="menuitem">
     <span class="app-ico"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></span><span class="app-name">Meu Dia</span><span class="app-dot"></span>
   </button>
+  <button class="app-opt" data-app="spotify" type="button" role="menuitem">
+    <span class="app-ico"><svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm4.6 14.4a.62.62 0 01-.86.21c-2.35-1.44-5.3-1.76-8.79-.96a.63.63 0 01-.28-1.22c3.82-.87 7.09-.5 9.72 1.11.3.18.39.57.21.86zm1.23-2.74a.78.78 0 01-1.08.26c-2.69-1.65-6.79-2.13-9.97-1.17a.78.78 0 11-.45-1.5c3.63-1.1 8.15-.56 11.24 1.33.37.23.49.72.26 1.08zm.11-2.85C14.84 8.95 9.6 8.78 6.6 9.69a.94.94 0 11-.54-1.8c3.44-1.04 9.23-.84 12.87 1.32a.94.94 0 01-.96 1.62z"/></svg></span><span class="app-name">Spotify</span><span class="app-dot"></span>
+  </button>
 </div>
 
 <!-- ============================ DEVICE PICKER MODAL ============================ -->
@@ -6804,48 +6807,63 @@
     }
   }
 
-  // ===== Painel externo (iframe do outro dashboard) =====
-  // URL do painel externo fica na conta (sincroniza entre aparelhos).
+  // ===== Apps externos (iframe) + seletor =====
+  // "Meu Dia" (URL na conta, sincroniza entre aparelhos) e "Spotify" (embutido).
   function dashUrl() { return ((state && state.dashUrl) || "").trim(); }
+  function appUrl(app) {
+    if (app === "spotify") return "/apps/spotify/";
+    if (app === "dash") return dashUrl();
+    return "";
+  }
+  let currentApp = "home";
   function dashVisible() {
     const c = document.getElementById("external-dash");
     return c && !c.hidden;
   }
-  function showDash() {
-    const url = dashUrl();
+  function showExternalApp(app) {
+    const url = appUrl(app);
     if (!url) return;
     const c = document.getElementById("external-dash");
     const f = document.getElementById("dash-frame");
     if (!c || !f) return;
     if (f.getAttribute("src") !== url) f.setAttribute("src", url);
     c.hidden = false;
+    currentApp = app;
   }
   function hideDash() {
     const c = document.getElementById("external-dash");
     if (c) c.hidden = true;
+    currentApp = "home";
   }
   function toggleDash() {
-    if (!dashUrl()) return;
     closeSwitcher();
-    if (dashVisible()) hideDash(); else showDash();
+    if (dashVisible()) { hideDash(); return; }
+    const app = currentApp !== "home" ? currentApp : (dashUrl() ? "dash" : "spotify");
+    showExternalApp(app);
+  }
+  function refreshSwitcherOptions() {
+    // "Meu Dia" só aparece se houver URL configurada; Spotify é sempre embutido.
+    const dashOpt = document.querySelector('#app-switcher .app-opt[data-app="dash"]');
+    if (dashOpt) dashOpt.hidden = !dashUrl();
   }
   function refreshDashToggle() {
     const btn = document.getElementById("dash-toggle");
     // O seletor de apps só aparece no modo kiosk (uso no painel de parede).
-    const show = !!dashUrl() && kioskActive();
+    const show = kioskActive();
     if (btn) btn.hidden = !show;
     if (!show) closeSwitcher();
+    refreshSwitcherOptions();
   }
   function markSwitcherCurrent() {
-    const onDash = dashVisible();
+    const cur = dashVisible() ? currentApp : "home";
     for (const opt of document.querySelectorAll("#app-switcher .app-opt")) {
-      const isCurrent = (opt.dataset.app === "dash") === onDash;
-      opt.classList.toggle("current", isCurrent);
+      opt.classList.toggle("current", opt.dataset.app === cur);
     }
   }
   function openSwitcher() {
     const m = document.getElementById("app-switcher");
-    if (!m || !dashUrl()) return;
+    if (!m || !kioskActive()) return;
+    refreshSwitcherOptions();
     markSwitcherCurrent();
     m.hidden = false;
   }
@@ -6867,7 +6885,8 @@
     for (const opt of document.querySelectorAll("#app-switcher .app-opt")) {
       opt.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (opt.dataset.app === "dash") showDash(); else hideDash();
+        const app = opt.dataset.app;
+        if (app === "home") hideDash(); else showExternalApp(app);
         closeSwitcher();
       });
     }
@@ -6882,11 +6901,13 @@
       const save = () => {
         const v = input.value.trim();
         state.dashUrl = v;
-        if (!v) hideDash();
+        if (!v && currentApp === "dash") hideDash();
         scheduleSave();
-        // força recarregar o iframe na próxima abertura
-        const f = document.getElementById("dash-frame");
-        if (f) f.removeAttribute("src");
+        // força recarregar o "Meu Dia" na próxima abertura se ele estiver ativo
+        if (currentApp === "dash") {
+          const f = document.getElementById("dash-frame");
+          if (f) f.removeAttribute("src");
+        }
         refreshDashToggle();
       };
       input.addEventListener("change", save);

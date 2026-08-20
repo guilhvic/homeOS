@@ -1,5 +1,5 @@
 // homeOS service worker — shell offline básico, sem tocar em /api.
-const CACHE = "homeos-v35";
+const CACHE = "homeos-v36";
 const SHELL = [
   "/", "/index.html", "/manifest.webmanifest",
   "/icon-192.png", "/icon-512.png",
@@ -25,7 +25,10 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
 
   // Só lida com GET same-origin. API e métodos mutáveis passam direto (auth/dados vivos).
-  if (req.method !== "GET" || url.origin !== self.location.origin || url.pathname.startsWith("/api/")) {
+  // /apps/* são apps embutidos (ex.: Spotify) — deixa o navegador cuidar direto, pra não
+  // poluir o cache do shell do homeOS nem interferir no fluxo deles.
+  if (req.method !== "GET" || url.origin !== self.location.origin
+      || url.pathname.startsWith("/api/") || url.pathname.startsWith("/apps/")) {
     return;
   }
 
