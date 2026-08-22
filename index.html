@@ -2581,6 +2581,30 @@
         <div id="health-history"><div class="sub">Carregando…</div></div>
       </div>
 
+      <div class="profile-card" id="push-card" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div style="min-width:0;">
+          <div style="font-weight:600;">Notificações no celular</div>
+          <div class="sub" id="push-status">Receba alertas de disco, temperatura, memória e queda de energia — mesmo com o app fechado.</div>
+        </div>
+        <button id="push-toggle" class="ghost" type="button">Ativar</button>
+      </div>
+
+      <div class="profile-card" id="net-card">
+        <div class="health-hist-head" style="margin-top:0;">
+          <span class="hh-title">Internet</span>
+          <button id="speedtest-run" class="ghost" type="button" style="font-size:12px; padding:4px 10px;">Testar agora</button>
+        </div>
+        <div id="speedtest-body"><div class="sub">Carregando…</div></div>
+      </div>
+
+      <div class="profile-card" id="docker-card" hidden>
+        <div class="health-hist-head" style="margin-top:0;">
+          <span class="hh-title">Containers</span>
+          <button id="docker-refresh" class="ghost" type="button" style="font-size:12px; padding:4px 10px;">Atualizar</button>
+        </div>
+        <div id="docker-body"><div class="sub">Carregando…</div></div>
+      </div>
+
       <div class="server-info" id="server-info"></div>
     </div>
   </main>
@@ -6687,10 +6711,151 @@
     renderServerLive();
     renderHealthHistory();
     renderServerInfo();
+    renderSpeedtest();
+    renderDocker();
+    refreshPushUI();
     if (!healthTimer) healthTimer = setInterval(() => {
       if (currentView === "server") { renderServerLive(); renderHealthHistory(); }
     }, 10000);
   }
+
+  // ===== Notificações Web Push =====
+  function urlBase64ToUint8Array(base64String) {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(base64);
+    const arr = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return arr;
+  }
+  const pushSupported = () =>
+    "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  async function currentPushSub() {
+    if (!pushSupported()) return null;
+    try { const reg = await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); }
+    catch { return null; }
+  }
+  async function refreshPushUI() {
+    const btn = document.getElementById("push-toggle");
+    const status = document.getElementById("push-status");
+    if (!btn) return;
+    if (!pushSupported()) {
+      btn.hidden = true;
+      if (status) status.textContent = "Este dispositivo/navegador não suporta notificações push.";
+      return;
+    }
+    const sub = await currentPushSub();
+    if (sub) {
+      btn.textContent = "Desativar"; btn.dataset.on = "1";
+      if (status) status.textContent = "Ativado neste dispositivo — você recebe alertas do servidor mesmo com o app fechado.";
+    } else {
+      btn.textContent = "Ativar"; btn.dataset.on = "";
+      if (status) status.textContent = "Receba alertas de disco, temperatura, memória e queda de energia — mesmo com o app fechado.";
+    }
+  }
+  async function enablePush() {
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") { showToast("Permissão de notificação negada", "error"); return; }
+      const r = await api("GET", "/push/pubkey");
+      if (!r.ok || !r.data || !r.data.key) { showToast("Push indisponível no servidor", "error"); return; }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(r.data.key),
+      });
+      const s = await api("POST", "/push/subscribe", { subscription: sub.toJSON() });
+      if (!s.ok) { showToast("Falha ao registrar no servidor", "error"); return; }
+      await api("POST", "/push/test");
+      showToast("Notificações ativadas ✅", "info");
+    } catch (e) {
+      showToast("Erro ao ativar notificações: " + (e.message || e), "error");
+    }
+    refreshPushUI();
+  }
+  async function disablePush() {
+    try {
+      const sub = await currentPushSub();
+      if (sub) { await api("POST", "/push/unsubscribe", { endpoint: sub.endpoint }); await sub.unsubscribe(); }
+      showToast("Notificações desativadas", "info");
+    } catch {}
+    refreshPushUI();
+  }
+  document.getElementById("push-toggle")?.addEventListener("click", () => {
+    if (document.getElementById("push-toggle").dataset.on) disablePush(); else enablePush();
+  });
+
+  // ===== Speed test (internet) =====
+  async function renderSpeedtest() {
+    const body = document.getElementById("speedtest-body");
+    if (!body) return;
+    let d = null;
+    try { const r = await api("GET", "/speedtest/history?hours=168"); if (r.ok) d = r.data; } catch {}
+    if (!d) { body.innerHTML = '<div class="sub">Indisponível.</div>'; return; }
+    const pts = (d.points || []).filter(p => p.ok && p.downMbps != null);
+    const last = d.last || pts[pts.length - 1];
+    if (!last || last.downMbps == null) {
+      body.innerHTML = '<div class="sub">Sem medições ainda. Toque em “Testar agora”.</div>';
+      return;
+    }
+    const lat = last.latencyMs != null
+      ? `<div style="text-align:right;"><div class="hs-label">Latência</div><div class="hs-now" style="color:#2fa37a;">${last.latencyMs} ms</div></div>` : "";
+    const head = `<div class="hs-info" style="align-items:flex-start;">
+      <div><div class="hs-label">Download</div><div class="hs-now" style="color:#3aa0c9; font-size:22px;">${last.downMbps} <span style="font-size:13px;">Mbps</span></div></div>${lat}</div>`;
+    const vals = pts.map(p => p.downMbps);
+    const chart = vals.length >= 2
+      ? `<div class="hs-chart" style="height:48px; margin-top:10px;">${sparklineSvg(vals, "#3aa0c9")}</div>
+         <div class="sub" style="margin-top:4px;">${pts.length} medições · últimos 7 dias</div>` : "";
+    const when = last.t ? `<div class="sub" style="margin-top:6px;">Última: ${new Date(last.t).toLocaleString("pt-BR")}</div>` : "";
+    body.innerHTML = head + chart + when;
+  }
+  document.getElementById("speedtest-run")?.addEventListener("click", async () => {
+    const btn = document.getElementById("speedtest-run");
+    btn.disabled = true; btn.textContent = "Testando…";
+    try { const r = await api("POST", "/speedtest/run"); if (!r.ok) showToast((r.data && r.data.error) || "Falha no teste", "error"); }
+    catch {}
+    btn.disabled = false; btn.textContent = "Testar agora";
+    renderSpeedtest();
+  });
+
+  // ===== Containers (Docker) =====
+  async function renderDocker() {
+    const card = document.getElementById("docker-card");
+    const body = document.getElementById("docker-body");
+    if (!card || !body) return;
+    let d = null;
+    try { const r = await api("GET", "/docker/containers"); if (r.ok) d = r.data; } catch {}
+    if (!d || !d.available) { card.hidden = true; return; }
+    card.hidden = false;
+    const list = (d.containers || []).slice().sort((a, b) => a.name.localeCompare(b.name));
+    if (!list.length) { body.innerHTML = '<div class="sub">Nenhum container.</div>'; return; }
+    body.innerHTML = list.map(c => {
+      const running = c.state === "running";
+      const dot = running ? "#2f9e5e" : "#d33";
+      return `<div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line);">
+        <span style="width:9px; height:9px; border-radius:50%; background:${dot}; flex:0 0 auto;"></span>
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(c.name)}</div>
+          <div class="sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(c.status || c.state || "")}</div>
+        </div>
+        <button class="ghost docker-restart" data-id="${escapeHtml(c.id)}" data-name="${escapeHtml(c.name)}" type="button" style="font-size:12px; padding:4px 10px; flex:0 0 auto;">Reiniciar</button>
+      </div>`;
+    }).join("");
+  }
+  document.getElementById("docker-body")?.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".docker-restart");
+    if (!btn) return;
+    const name = btn.dataset.name || "container";
+    const self = /homeos/i.test(name);
+    const extra = self ? "\n\nAtenção: este é o próprio homeOS — a página pode recarregar." : "";
+    if (!confirm(`Reiniciar o container “${name}”? Ele ficará indisponível por alguns segundos.${extra}`)) return;
+    btn.disabled = true; btn.textContent = "Reiniciando…";
+    const r = await api("POST", `/docker/containers/${encodeURIComponent(btn.dataset.id)}/restart`);
+    if (r.ok) showToast(`Container “${name}” reiniciado`, "info");
+    else showToast((r.data && r.data.error) || "Falha ao reiniciar", "error");
+    setTimeout(renderDocker, 1500);
+  });
+  document.getElementById("docker-refresh")?.addEventListener("click", renderDocker);
 
   // ===== Histórico de saúde (sparklines) =====
   let healthHours = 24;

@@ -97,6 +97,61 @@ setInterval(() => {
   db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(Date.now());
 }, 60 * 60 * 1000).unref();
 
+// ===== Web Push (notificações no celular, mesmo com o app fechado) =====
+// Chaves VAPID: vêm do env, ou são geradas uma vez e persistidas em /data.
+// Cada dispositivo (navegador/PWA) registra uma "subscription" ligada ao usuário.
+let webpush = null, VAPID_PUBLIC = "";
+const PUSH_DIR = fs.existsSync("/data") ? "/data" : __dirname;
+const VAPID_FILE = path.join(PUSH_DIR, "vapid.json");
+db.exec(`
+  CREATE TABLE IF NOT EXISTS push_subs (
+    endpoint TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    sub TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS push_subs_user ON push_subs(user_id);
+`);
+try {
+  webpush = require("web-push");
+  let keys = null;
+  if (process.env.VAPID_PUBLIC && process.env.VAPID_PRIVATE) {
+    keys = { publicKey: process.env.VAPID_PUBLIC, privateKey: process.env.VAPID_PRIVATE };
+  } else {
+    try { keys = JSON.parse(fs.readFileSync(VAPID_FILE, "utf8")); } catch {}
+    if (!keys || !keys.publicKey || !keys.privateKey) {
+      keys = webpush.generateVAPIDKeys();
+      try { fs.writeFileSync(VAPID_FILE, JSON.stringify(keys)); }
+      catch (e) { console.warn("Não persistiu VAPID:", e.message); }
+    }
+  }
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:admin@homeos.local", keys.publicKey, keys.privateKey);
+  VAPID_PUBLIC = keys.publicKey;
+  console.log("Web Push habilitado.");
+} catch (e) {
+  console.warn("Web Push indisponível (web-push instalado?):", e.message);
+}
+
+function pushSubsForUser(uid) { return db.prepare("SELECT endpoint, sub FROM push_subs WHERE user_id = ?").all(uid); }
+function pushAllSubs() { return db.prepare("SELECT endpoint, sub FROM push_subs").all(); }
+async function sendPushRows(rows, payload) {
+  if (!webpush || !rows.length) return 0;
+  const body = JSON.stringify(payload);
+  let sent = 0;
+  await Promise.all(rows.map(async (row) => {
+    let sub; try { sub = JSON.parse(row.sub); } catch { return; }
+    try { await webpush.sendNotification(sub, body); sent++; }
+    catch (err) {
+      const code = err && err.statusCode;
+      // 404/410 = subscription expirou/foi removida no dispositivo → limpa.
+      if (code === 404 || code === 410) db.prepare("DELETE FROM push_subs WHERE endpoint = ?").run(row.endpoint);
+    }
+  }));
+  return sent;
+}
+function sendPushToUser(uid, payload) { return sendPushRows(pushSubsForUser(uid), payload); }
+function sendPushToAll(payload) { return sendPushRows(pushAllSubs(), payload); }
+
 // --- Cookies ---
 function parseCookies(req) {
   const header = req.headers.cookie;
@@ -518,6 +573,40 @@ app.get("/api/system/info", authRequired, (req, res) => {
   res.json(info);
 });
 
+// ===== Alertas proativos (Web Push) =====
+// Dispara quando uma métrica cruza o limite (edge-triggered, com histerese pra
+// não spammar). Enviados a TODOS os dispositivos inscritos (é um alerta do
+// servidor da casa, não de um usuário específico).
+const ALERT_RULES = [
+  { key: "disk", get: h => h.disk ? h.disk.pct : null, hi: 85, lo: 80, title: "💾 Disco quase cheio", msg: v => `Disco em ${v}% no servidor` },
+  { key: "temp", get: h => typeof h.tempC === "number" ? h.tempC : null, hi: 75, lo: 68, title: "🔥 Servidor quente", msg: v => `CPU a ${v}°C no servidor` },
+  { key: "mem",  get: h => h.mem ? h.mem.pct : null, hi: 90, lo: 85, title: "🧠 Memória alta", msg: v => `RAM em ${v}% no servidor` },
+];
+const alertActive = Object.create(null); // key -> bool (está acima do limite?)
+let powerAlertActive = false;
+function checkServerAlerts(h) {
+  for (const rule of ALERT_RULES) {
+    const v = rule.get(h);
+    if (v == null) continue;
+    if (!alertActive[rule.key] && v >= rule.hi) {
+      alertActive[rule.key] = true;
+      sendPushToAll({ title: rule.title, body: rule.msg(v), tag: "homeos-" + rule.key, url: "/" }).catch(() => {});
+    } else if (alertActive[rule.key] && v <= rule.lo) {
+      alertActive[rule.key] = false;
+    }
+  }
+  // Queda de energia (notebook rodando na bateria).
+  const onBatt = !!(h.battery && h.battery.present && h.battery.acOnline === false);
+  if (onBatt && !powerAlertActive) {
+    powerAlertActive = true;
+    const pct = (h.battery && typeof h.battery.percent === "number") ? ` (${h.battery.percent}%)` : "";
+    sendPushToAll({ title: "⚡ Queda de energia", body: `Servidor rodando na bateria${pct}`, tag: "homeos-power", url: "/" }).catch(() => {});
+  } else if (!onBatt && powerAlertActive && h.battery && h.battery.acOnline === true) {
+    powerAlertActive = false;
+    sendPushToAll({ title: "🔌 Energia restaurada", body: "Servidor de volta na tomada", tag: "homeos-power", url: "/" }).catch(() => {});
+  }
+}
+
 // ===== Histórico de saúde =====
 // Dois níveis de retenção:
 //  - Buffer recente em alta resolução: 1 amostra/60s, últimas 48h (para os
@@ -593,6 +682,7 @@ function sampleHealth() {
   healthHistory.push(pt);
   if (healthHistory.length > HEALTH_MAX) healthHistory = healthHistory.slice(-HEALTH_MAX);
   healthDirty = true;
+  try { checkServerAlerts(h); } catch {}
   // Agrega no resumo da hora; ao virar a hora, grava a anterior no log.
   const hs = hourStartOf(pt.t);
   if (!hourAccum || hourAccum.hourStart !== hs) {
@@ -686,6 +776,151 @@ app.get("/api/system/uptime", authRequired, (req, res) => {
   const pct = Math.max(0, Math.min(100, 100 * upFrac / hoursObserved));
   res.json({ hours, pct: +pct.toFixed(2), resolution: "hour", sinceMs: firstHour });
 });
+
+// ===== Web Push: chave pública, inscrição e teste =====
+app.get("/api/push/pubkey", authRequired, (req, res) => {
+  res.json({ key: VAPID_PUBLIC || null, enabled: !!webpush });
+});
+app.post("/api/push/subscribe", authRequired, (req, res) => {
+  const sub = req.body && req.body.subscription;
+  if (!sub || !sub.endpoint || typeof sub.endpoint !== "string")
+    return res.status(400).json({ error: "subscription inválida" });
+  db.prepare(`INSERT INTO push_subs (endpoint, user_id, sub, created_at) VALUES (?,?,?,?)
+    ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id, sub=excluded.sub`)
+    .run(sub.endpoint, req.user.id, JSON.stringify(sub), Date.now());
+  res.status(201).json({ ok: true });
+});
+app.post("/api/push/unsubscribe", authRequired, (req, res) => {
+  const ep = req.body && req.body.endpoint;
+  if (ep) db.prepare("DELETE FROM push_subs WHERE endpoint = ? AND user_id = ?").run(ep, req.user.id);
+  res.json({ ok: true });
+});
+app.post("/api/push/test", authRequired, async (req, res) => {
+  if (!webpush) return res.status(503).json({ error: "push indisponível" });
+  const sent = await sendPushToUser(req.user.id, { title: "homeOS", body: "Notificações ativadas ✅", tag: "homeos-test", url: "/" });
+  res.json({ ok: true, sent });
+});
+
+// ===== Docker (listar e reiniciar containers pela página Servidor) =====
+// Usa a Engine API pelo socket unix montado no container (ver docker-compose).
+const DOCKER_SOCK = "/var/run/docker.sock";
+function dockerAvailable() { try { return fs.existsSync(DOCKER_SOCK); } catch { return false; } }
+function dockerRequest(method, urlPath) {
+  return new Promise((resolve, reject) => {
+    const http = require("http");
+    const r = http.request({ socketPath: DOCKER_SOCK, path: urlPath, method, timeout: 20000 }, (resp) => {
+      let body = "";
+      resp.on("data", c => body += c);
+      resp.on("end", () => resolve({ status: resp.statusCode, body }));
+    });
+    r.on("error", reject);
+    r.on("timeout", () => r.destroy(new Error("timeout")));
+    r.end();
+  });
+}
+app.get("/api/docker/containers", authRequired, async (req, res) => {
+  if (!dockerAvailable()) return res.json({ available: false, containers: [] });
+  try {
+    const r = await dockerRequest("GET", "/containers/json?all=1");
+    if (r.status !== 200) return res.status(502).json({ available: true, error: "docker respondeu " + r.status });
+    const list = JSON.parse(r.body).map(c => ({
+      id: c.Id,
+      name: ((c.Names && c.Names[0]) || "").replace(/^\//, ""),
+      image: c.Image,
+      state: c.State,
+      status: c.Status,
+    }));
+    res.json({ available: true, containers: list });
+  } catch (e) {
+    res.status(502).json({ available: true, error: String(e.message || e) });
+  }
+});
+app.post("/api/docker/containers/:id/restart", authRequired, async (req, res) => {
+  if (!dockerAvailable()) return res.status(503).json({ error: "docker indisponível" });
+  const id = String(req.params.id || "");
+  if (!/^[a-zA-Z0-9][\w.-]{0,127}$/.test(id)) return res.status(400).json({ error: "id inválido" });
+  try {
+    const r = await dockerRequest("POST", `/containers/${encodeURIComponent(id)}/restart?t=10`);
+    if (r.status === 204) return res.json({ ok: true });
+    return res.status(502).json({ error: "docker respondeu " + r.status });
+  } catch (e) {
+    res.status(502).json({ error: String(e.message || e) });
+  }
+});
+
+// ===== Speed test agendado (mede download via Cloudflare, sem binário extra) =====
+const SPEED_LOG = HEALTH_DIR ? HEALTH_DIR + "/speedtest-log.jsonl" : null;
+const SPEED_LOG_MAX = 4000;
+const SPEED_INTERVAL_MS = 6 * 3600 * 1000; // a cada 6h
+const SPEED_BYTES = 25 * 1000 * 1000;      // baixa ~25 MB por medição
+let lastSpeedtest = null, speedtestRunning = false;
+async function measureLatency() {
+  let best = null;
+  for (let i = 0; i < 3; i++) {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 5000);
+    const t0 = Date.now();
+    try {
+      await fetch("https://speed.cloudflare.com/__down?bytes=0", { signal: ctrl.signal, cache: "no-store" });
+      const dt = Date.now() - t0;
+      if (best == null || dt < best) best = dt;
+    } catch {} finally { clearTimeout(to); }
+  }
+  return best;
+}
+async function runSpeedtest() {
+  if (speedtestRunning) return lastSpeedtest;
+  speedtestRunning = true;
+  const result = { t: Date.now(), ok: false, downMbps: null, latencyMs: null };
+  try {
+    result.latencyMs = await measureLatency();
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 30000);
+    const t0 = Date.now();
+    try {
+      const r = await fetch("https://speed.cloudflare.com/__down?bytes=" + SPEED_BYTES, { signal: ctrl.signal, cache: "no-store" });
+      const buf = await r.arrayBuffer();
+      const secs = (Date.now() - t0) / 1000;
+      if (secs > 0 && buf.byteLength > 0) {
+        result.downMbps = +((buf.byteLength * 8) / secs / 1e6).toFixed(1);
+        result.ok = true;
+      }
+    } finally { clearTimeout(to); }
+  } catch (e) { result.error = String(e.message || e); }
+  speedtestRunning = false;
+  lastSpeedtest = result;
+  if (SPEED_LOG && result.ok) {
+    try {
+      fs.appendFileSync(SPEED_LOG, JSON.stringify(result) + "\n");
+      const lines = fs.readFileSync(SPEED_LOG, "utf8").split("\n").filter(Boolean);
+      if (lines.length > SPEED_LOG_MAX) fs.writeFileSync(SPEED_LOG, lines.slice(-SPEED_LOG_MAX).join("\n") + "\n");
+    } catch {}
+  }
+  return result;
+}
+function readSpeedLog(sinceMs) {
+  if (!SPEED_LOG) return [];
+  const out = [];
+  try {
+    for (const ln of fs.readFileSync(SPEED_LOG, "utf8").split("\n")) {
+      if (!ln) continue;
+      let row; try { row = JSON.parse(ln); } catch { continue; }
+      if (row && row.t >= sinceMs) out.push(row);
+    }
+  } catch {}
+  return out;
+}
+app.get("/api/speedtest/history", authRequired, (req, res) => {
+  const hours = Math.min(24 * 400, Math.max(1, parseInt(req.query.hours, 10) || 168));
+  res.json({ hours, last: lastSpeedtest, points: readSpeedLog(Date.now() - hours * 3600 * 1000) });
+});
+app.post("/api/speedtest/run", authRequired, async (req, res) => {
+  if (speedtestRunning) return res.status(409).json({ error: "teste já em andamento" });
+  try { const r = await runSpeedtest(); res.json({ ok: r.ok, result: r }); }
+  catch (e) { res.status(502).json({ error: String(e.message || e) }); }
+});
+setTimeout(() => runSpeedtest().catch(() => {}), 60 * 1000).unref?.();
+setInterval(() => runSpeedtest().catch(() => {}), SPEED_INTERVAL_MS).unref?.();
 
 // Proxy de snapshot de câmera: repassa o JPEG do HA (camera_proxy) já autenticado.
 app.get("/api/ha/camera/:entityId", authRequired, async (req, res) => {
@@ -989,7 +1224,7 @@ app.get("/sw.js", (req, res) => {
 // express.static serviria QUALQUER arquivo do diretório (inclusive .env e o DB).
 const BLOCKED_STATIC = new Set([
   ".env", "data.db", "server.js", "generate-icons.js",
-  "package.json", "package-lock.json", "docker-compose.yml",
+  "package.json", "package-lock.json", "docker-compose.yml", "vapid.json",
 ]);
 app.use((req, res, next) => {
   const clean = decodeURIComponent(req.path).replace(/^\/+/, "").toLowerCase();

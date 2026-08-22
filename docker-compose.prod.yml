@@ -25,6 +25,9 @@ services:
       - homeassistant
     volumes:
       - ./data:/data           # persiste o banco (data.db) fora do container
+      # Socket do Docker: permite listar/reiniciar containers pela página Servidor.
+      # Dá acesso root-equivalente ao host — ok num servidor pessoal fechado.
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - NODE_ENV=production
       - PORT=3030
