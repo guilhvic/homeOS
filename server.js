@@ -531,7 +531,7 @@ const HEALTH_DIR = fs.existsSync("/data") ? "/data" : null;
 const HEALTH_FILE = HEALTH_DIR ? HEALTH_DIR + "/health-history.json" : null;
 const HEALTH_LOG = HEALTH_DIR ? HEALTH_DIR + "/health-log.jsonl" : null;
 const HEALTH_LOG_MAX = 17520;                             // ~2 anos de resumos horários
-const HEALTH_METRICS = ["temp", "cpu", "mem", "disk", "load", "batt"];
+const HEALTH_METRICS = ["temp", "cpu", "mem", "disk", "load", "batt", "net"];
 
 let healthHistory = [];
 (function loadHealthHistory() {
@@ -587,6 +587,8 @@ function sampleHealth() {
     disk: h.disk ? h.disk.pct : null,
     load: h.load ? h.load["1m"] : null,
     batt: h.battery && typeof h.battery.percent === "number" ? h.battery.percent : null,
+    // Rede: throughput total (download+upload) em KB/s
+    net: h.net ? Math.round((h.net.rxBps + h.net.txBps) / 1024) : null,
   };
   healthHistory.push(pt);
   if (healthHistory.length > HEALTH_MAX) healthHistory = healthHistory.slice(-HEALTH_MAX);
@@ -795,20 +797,38 @@ const ACTION_PRESETS = {
   },
 };
 
+// Resolve uma ação (entity + preset [+ value]) para { domain, service, data }.
+// Além de on/off (tabela acima), suporta ações com valor: brilho da luz,
+// temperatura do climate e volume do media_player.
+function resolveAction(action) {
+  const entityId = action.entityId || "";
+  const domain = entityId.split(".")[0];
+  const preset = action.preset;
+  const val = Number(action.value);
+  if (preset === "brightness" && domain === "light" && Number.isFinite(val))
+    return { domain: "light", service: "turn_on", data: { brightness_pct: Math.max(0, Math.min(100, Math.round(val))) } };
+  if (preset === "temperature" && domain === "climate" && Number.isFinite(val))
+    return { domain: "climate", service: "set_temperature", data: { temperature: val } };
+  if (preset === "volume" && domain === "media_player" && Number.isFinite(val))
+    return { domain: "media_player", service: "volume_set", data: { volume_level: Math.max(0, Math.min(1, val / 100)) } };
+  const p = ACTION_PRESETS[domain] && ACTION_PRESETS[domain][preset];
+  if (p) return { domain, service: p.service, data: p.data || {} };
+  return null;
+}
+
 async function runRoutineFor(u, routine) {
   if (!userHaEnabled(u)) throw new Error("HA não configurado");
   const results = [];
   for (const action of (routine.actions || [])) {
     const entityId = action.entityId;
-    const domain = (entityId || "").split(".")[0];
-    const preset = ACTION_PRESETS[domain] && ACTION_PRESETS[domain][action.preset];
-    if (!preset) { results.push({ entityId, ok: false, error: "ação não suportada" }); continue; }
+    const r = resolveAction(action);
+    if (!r) { results.push({ entityId, ok: false, error: "ação não suportada" }); continue; }
     try {
-      const r = await haFetch(u, `/api/services/${domain}/${preset.service}`, {
+      const resp = await haFetch(u, `/api/services/${r.domain}/${r.service}`, {
         method: "POST",
-        body: JSON.stringify({ entity_id: entityId, ...(preset.data || {}) }),
+        body: JSON.stringify({ entity_id: entityId, ...r.data }),
       });
-      results.push({ entityId, service: preset.service, ok: r.ok, status: r.status });
+      results.push({ entityId, service: r.service, ok: resp.ok, status: resp.status });
     } catch (e) {
       results.push({ entityId, ok: false, error: String(e.message || e) });
     }
@@ -834,31 +854,56 @@ app.post("/api/routines/:id/run", authRequired, async (req, res) => {
   }
 });
 
-// Time-trigger scheduler — every minute, check all users for due routines.
-// Tracks the last "HH:MM" we already fired for each routine so each schedule fires once per minute.
-const lastFiredKey = new Map(); // `${userId}:${routineId}` -> "HH:MM"
-function tickScheduler() {
+// Scheduler — a cada minuto, checa rotinas com gatilho de horário OU de sol.
+// lastFiredKey guarda o último "marcador" já disparado por rotina (dedup por minuto).
+const lastFiredKey = new Map(); // `${userId}:${routineId}` -> marcador
+function dayBlocked(days, dow) {
+  return Array.isArray(days) && days.length && !days.includes(dow);
+}
+async function loadSun(u) {
+  try {
+    const r = await haFetch(u, "/api/states/sun.sun");
+    if (!r.ok) return null;
+    const s = await r.json();
+    return (s && s.attributes) ? s.attributes : null; // { next_rising, next_setting, ... }
+  } catch { return null; }
+}
+async function tickScheduler() {
   const now = new Date();
+  const nowMin = Math.floor(now.getTime() / 60000);
   const hhmm = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
   const users = db.prepare("SELECT * FROM users WHERE ha_url <> '' AND ha_token <> ''").all();
   for (const u of users) {
     const st = loadUserState(u);
     const routines = Array.isArray(st.routines) ? st.routines : [];
-    for (const r of routines) {
-      if (!r || r.enabled === false) continue;
-      if (!r.trigger || r.trigger.type !== "time") continue;
-      if (r.trigger.time !== hhmm) continue;
-      // Dias da semana (0=Dom..6=Sáb). Vazio/ausente = todos os dias.
-      const days = r.trigger.days;
-      if (Array.isArray(days) && days.length && !days.includes(now.getDay())) continue;
+    let sun; // carregado sob demanda (só se houver rotina de sol)
+    const fire = (r, marker) => {
       const key = `${u.id}:${r.id}`;
-      if (lastFiredKey.get(key) === hhmm) continue;
-      lastFiredKey.set(key, hhmm);
+      if (lastFiredKey.get(key) === marker) return;
+      lastFiredKey.set(key, marker);
       runRoutineFor(u, r).catch(err => console.error(`Routine ${r.id} for user ${u.id} failed:`, err));
+    };
+    for (const r of routines) {
+      if (!r || r.enabled === false || !r.trigger) continue;
+      const tr = r.trigger;
+      if (tr.type === "time") {
+        if (tr.time !== hhmm) continue;
+        if (dayBlocked(tr.days, now.getDay())) continue;
+        fire(r, hhmm);
+      } else if (tr.type === "sun") {
+        if (sun === undefined) sun = await loadSun(u);
+        if (!sun) continue;
+        const iso = tr.event === "sunrise" ? sun.next_rising : sun.next_setting;
+        if (!iso) continue;
+        const target = new Date(iso).getTime() + (Number(tr.offsetMin) || 0) * 60000;
+        if (!Number.isFinite(target) || Math.floor(target / 60000) !== nowMin) continue;
+        if (dayBlocked(tr.days, new Date(target).getDay())) continue;
+        fire(r, "sun:" + Math.floor(target / 60000));
+      }
     }
   }
 }
-setInterval(tickScheduler, 60 * 1000).unref();
+setInterval(() => tickScheduler().catch(() => {}), 60 * 1000).unref();
 
 app.post("/api/ha/services/:domain/:service", authRequired, async (req, res) => {
   if (!userHaEnabled(req.user)) return res.status(503).json({ error: "HA não configurado" });

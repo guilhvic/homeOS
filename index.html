@@ -1433,6 +1433,32 @@
   }
   #ha-banner[hidden] { display: none; }
   #ha-banner .ic { width: 16px; height: 16px; }
+
+  /* Banner de queda de energia (notebook na bateria) */
+  #power-banner {
+    position: fixed;
+    top: 56px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 8100;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--danger, #a02020);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 6px 20px rgba(0,0,0,.3);
+    max-width: calc(100% - 24px);
+    animation: pb-pulse 2s ease-in-out infinite;
+  }
+  /* Se o banner do HA também estiver visível, empilha embaixo dele */
+  #ha-banner:not([hidden]) ~ #power-banner { top: 100px; }
+  #power-banner[hidden] { display: none; }
+  #power-banner .ic { width: 16px; height: 16px; }
+  @keyframes pb-pulse { 0%,100% { opacity: 1; } 50% { opacity: .78; } }
   #room-power-off { padding: 4px 8px; }
   #room-power-off .ic, #power-off-all .ic { width: 18px; height: 18px; }
 
@@ -2274,6 +2300,11 @@
     <span>Home Assistant offline — dispositivos podem estar desatualizados</span>
   </div>
 
+  <div id="power-banner" hidden>
+    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4.5 13H11l-1 9 8.5-11H12l1-9z"/></svg>
+    <span class="pb-text">Queda de energia — rodando na bateria</span>
+  </div>
+
   <div id="map-wrap">
     <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
     <div class="hint" id="hint">
@@ -2574,11 +2605,19 @@
         </div>
 
         <div class="field">
-          <label>Agendamento (Gatilho de Horário)</label>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="checkbox" id="routine-time-enabled" style="width: auto; margin: 0; cursor: pointer;" />
-            <span style="font-size: 13px;">Habilitar horário</span>
-            <input id="routine-time" type="time" style="width: 120px;" disabled />
+          <label for="routine-trigger-type">Gatilho</label>
+          <select id="routine-trigger-type" style="width:100%; max-width:280px; border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:8px; padding:8px 10px; font:inherit;">
+            <option value="none">Sem agendamento (só manual)</option>
+            <option value="time">Horário fixo</option>
+            <option value="sunrise">Nascer do sol</option>
+            <option value="sunset">Pôr do sol</option>
+          </select>
+          <div id="routine-time-row" style="margin-top:8px; display:none;">
+            <input id="routine-time" type="time" style="width: 120px;" />
+          </div>
+          <div id="routine-sun-row" style="margin-top:8px; display:none;">
+            <label style="display:block; font-size:12px; color:var(--muted); margin-bottom:4px;">Deslocamento em minutos (negativo = antes do evento)</label>
+            <input id="routine-sun-offset" type="number" step="5" value="0" style="width:120px;" />
           </div>
           <div id="routine-days-wrap" style="margin-top:10px; display:none;">
             <div class="day-chips" id="routine-days"></div>
@@ -2998,7 +3037,18 @@
 
   // ===== Alertas de saúde do servidor (toast quando passa do limite) =====
   let healthAlertTimer = null;
-  const healthAlerted = { temp: false, disk: false, ram: false };
+  const healthAlerted = { temp: false, disk: false, ram: false, power: false };
+  function updatePowerBanner(onBattery, pct) {
+    const el = document.getElementById("power-banner");
+    if (!el) return;
+    if (onBattery) {
+      const t = el.querySelector(".pb-text");
+      if (t) t.textContent = `Queda de energia — rodando na bateria${pct != null ? ` · ${pct}%` : ""}`;
+      el.hidden = false;
+    } else {
+      el.hidden = true;
+    }
+  }
   async function checkHealthAlerts() {
     try {
       const r = await api("GET", "/system/health");
@@ -3011,6 +3061,22 @@
       if (typeof d.tempC === "number") edge("temp", d.tempC >= 85, `Servidor quente — CPU a ${d.tempC}°C`);
       if (d.disk) edge("disk", d.disk.pct >= 90, `Disco quase cheio — ${d.disk.pct}% usado`);
       if (d.mem) edge("ram", d.mem.pct >= 92, `Memória alta — ${d.mem.pct}% usada`);
+      // Queda de energia: o notebook saiu da tomada e está na bateria.
+      const b = d.battery;
+      if (b && b.present && typeof b.acOnline === "boolean") {
+        const onBattery = b.acOnline === false;
+        const pct = b.percent != null ? b.percent : null;
+        if (onBattery && !healthAlerted.power) {
+          healthAlerted.power = true;
+          showToast(`⚡ Queda de energia — rodando na bateria${pct != null ? ` (${pct}%)` : ""}`, "error", 12000);
+        } else if (!onBattery && healthAlerted.power) {
+          healthAlerted.power = false;
+          showToast("🔌 Energia restaurada", "info", 6000);
+        }
+        updatePowerBanner(onBattery, pct);
+      } else {
+        updatePowerBanner(false, null);
+      }
     } catch {}
   }
   function startHealthAlerts() {
@@ -3505,8 +3571,11 @@
   const routineFormTitle = document.getElementById("routine-form-title");
   const routineEditId = document.getElementById("routine-edit-id");
   const routineNameInput = document.getElementById("routine-name");
-  const routineTimeEnabled = document.getElementById("routine-time-enabled");
+  const routineTriggerType = document.getElementById("routine-trigger-type");
+  const routineTimeRow = document.getElementById("routine-time-row");
+  const routineSunRow = document.getElementById("routine-sun-row");
   const routineTimeInput = document.getElementById("routine-time");
+  const routineSunOffset = document.getElementById("routine-sun-offset");
   const routineActionsList = document.getElementById("routine-actions-list");
   const addActionBtn = document.getElementById("add-action-btn");
   const nameInput = document.getElementById("name");
@@ -5793,11 +5862,13 @@
     });
   });
 
-  routineTimeEnabled.addEventListener("change", () => {
-    routineTimeInput.disabled = !routineTimeEnabled.checked;
-    routineDaysWrap.style.display = routineTimeEnabled.checked ? "block" : "none";
-    if (!routineTimeEnabled.checked) routineTimeInput.value = "";
-  });
+  function applyTriggerType() {
+    const t = routineTriggerType.value;
+    routineTimeRow.style.display = t === "time" ? "block" : "none";
+    routineSunRow.style.display = (t === "sunrise" || t === "sunset") ? "block" : "none";
+    routineDaysWrap.style.display = t === "none" ? "none" : "block";
+  }
+  routineTriggerType.addEventListener("change", applyTriggerType);
 
   routineForm.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -5809,16 +5880,23 @@
 
     const actions = [];
     for (const row of routineActionsList.children) {
-      const entitySel = row.children[0];
-      const presetSel = row.children[1];
-      if (entitySel.value) {
-        actions.push({ entityId: entitySel.value, preset: presetSel.value });
+      const entitySel = row.querySelector(".ra-entity");
+      const presetSel = row.querySelector(".ra-preset");
+      const valInput = row.querySelector(".ra-value");
+      if (entitySel && entitySel.value) {
+        const a = { entityId: entitySel.value, preset: presetSel.value };
+        if (valInput && !valInput.hidden && valInput.value !== "") a.value = Number(valInput.value);
+        actions.push(a);
       }
     }
 
-    const trigger = routineTimeEnabled.checked
-      ? { type: "time", time: routineTimeInput.value, days: getSelectedDays() }
-      : null;
+    const tt = routineTriggerType.value;
+    let trigger = null;
+    if (tt === "time" && routineTimeInput.value) {
+      trigger = { type: "time", time: routineTimeInput.value, days: getSelectedDays() };
+    } else if (tt === "sunrise" || tt === "sunset") {
+      trigger = { type: "sun", event: tt, offsetMin: Number(routineSunOffset.value) || 0, days: getSelectedDays() };
+    }
 
     state.routines = state.routines || [];
     let routine = state.routines.find(x => x.id === id);
@@ -5886,11 +5964,21 @@
     for (const r of routines) {
       const li = document.createElement("li");
       li.className = "routine-card" + (r.enabled === false ? " off" : "");
-      const sched = r.trigger && r.trigger.type === "time" && r.trigger.time;
-      const whenHtml = sched
-        ? `${svgIcon("clock", 13)} <b>${r.trigger.time}</b> · ${daysSummaryHtml(r.trigger.days)}`
-        : `${svgIcon("bolt", 13)} execução manual`;
-      const nr = (sched && r.enabled !== false) ? nextRunText(r.trigger) : "";
+      const tr = r.trigger || {};
+      const isTime = tr.type === "time" && tr.time;
+      const isSun = tr.type === "sun";
+      let whenHtml;
+      if (isTime) {
+        whenHtml = `${svgIcon("clock", 13)} <b>${tr.time}</b> · ${daysSummaryHtml(tr.days)}`;
+      } else if (isSun) {
+        const off = Number(tr.offsetMin) || 0;
+        const offTxt = off ? ` ${off > 0 ? "+" : ""}${off}min` : "";
+        const evt = tr.event === "sunset" ? "🌇 Pôr do sol" : "🌅 Nascer do sol";
+        whenHtml = `${evt}${offTxt} · ${daysSummaryHtml(tr.days)}`;
+      } else {
+        whenHtml = `${svgIcon("bolt", 13)} execução manual`;
+      }
+      const nr = (isTime && r.enabled !== false) ? nextRunText(tr) : "";
       const last = r.lastRunAt ? ` · executada ${timeAgo(r.lastRunAt)}` : "";
       const devChips = (r.actions || []).map(a => {
         const nm = entityDisplay(a.entityId).name;
@@ -5954,28 +6042,51 @@
       routineFormTitle.textContent = "Editar Rotina";
       routineEditId.value = routine.id;
       routineNameInput.value = routine.name;
-      const hasTime = routine.trigger && routine.trigger.type === "time";
-      routineTimeEnabled.checked = hasTime;
-      routineTimeInput.disabled = !hasTime;
-      routineTimeInput.value = hasTime ? routine.trigger.time : "";
-      routineDaysWrap.style.display = hasTime ? "block" : "none";
-      setSelectedDays(hasTime ? routine.trigger.days : []);
+      const tr = routine.trigger || null;
+      if (tr && tr.type === "time") {
+        routineTriggerType.value = "time";
+        routineTimeInput.value = tr.time || "";
+        setSelectedDays(tr.days);
+      } else if (tr && tr.type === "sun") {
+        routineTriggerType.value = tr.event === "sunset" ? "sunset" : "sunrise";
+        routineSunOffset.value = Number(tr.offsetMin) || 0;
+        setSelectedDays(tr.days);
+      } else {
+        routineTriggerType.value = "none";
+        setSelectedDays([]);
+      }
+      applyTriggerType();
 
       if (Array.isArray(routine.actions)) {
-        for (const action of routine.actions) {
-          addRoutineActionRow(action);
-        }
+        for (const action of routine.actions) addRoutineActionRow(action);
       }
     } else {
       routineFormTitle.textContent = "Criar Rotina";
       routineEditId.value = "";
-      routineTimeEnabled.checked = false;
-      routineTimeInput.disabled = true;
+      routineTriggerType.value = "none";
       routineTimeInput.value = "";
-      routineDaysWrap.style.display = "none";
+      routineSunOffset.value = 0;
       setSelectedDays([]);
+      applyTriggerType();
       addRoutineActionRow();
     }
+  }
+
+  // Presets por domínio. "value" indica que a ação pede um número (com unidade/limites).
+  const ACTION_OPTIONS = {
+    light:        [{ v: "on", t: "Ligar" }, { v: "off", t: "Desligar" }, { v: "brightness", t: "Brilho…", value: { min: 0, max: 100, step: 5, unit: "%", def: 60 } }],
+    switch:       [{ v: "on", t: "Ligar" }, { v: "off", t: "Desligar" }],
+    fan:          [{ v: "on", t: "Ligar" }, { v: "off", t: "Desligar" }],
+    humidifier:   [{ v: "on", t: "Ligar" }, { v: "off", t: "Desligar" }],
+    cover:        [{ v: "on", t: "Abrir" }, { v: "off", t: "Fechar" }],
+    lock:         [{ v: "on", t: "Trancar" }, { v: "off", t: "Destrancar" }],
+    vacuum:       [{ v: "on", t: "Iniciar" }, { v: "off", t: "Voltar à base" }],
+    climate:      [{ v: "on", t: "Ligar (frio)" }, { v: "off", t: "Desligar" }, { v: "temperature", t: "Temperatura…", value: { min: 16, max: 30, step: 1, unit: "°C", def: 23 } }],
+    media_player: [{ v: "on", t: "Ligar" }, { v: "off", t: "Desligar" }, { v: "volume", t: "Volume…", value: { min: 0, max: 100, step: 5, unit: "%", def: 30 } }],
+  };
+  function actionOptionsFor(entityId) {
+    const dom = (entityId || "").split(".")[0];
+    return ACTION_OPTIONS[dom] || [{ v: "on", t: "Ligar" }, { v: "off", t: "Desligar" }];
   }
 
   function addRoutineActionRow(actionData = null) {
@@ -5986,17 +6097,15 @@
     li.style.marginBottom = "4px";
 
     const selectEntity = document.createElement("select");
+    selectEntity.className = "ra-entity";
     selectEntity.style.flex = "1";
     selectEntity.style.fontSize = "12px";
     selectEntity.style.padding = "4px";
-    
+    selectEntity.style.minWidth = "0";
     const optNone = document.createElement("option");
-    optNone.value = "";
-    optNone.textContent = "Escolher dispositivo…";
+    optNone.value = ""; optNone.textContent = "Escolher dispositivo…";
     selectEntity.appendChild(optNone);
-
-    const sortedEntities = Array.from(haEntities.keys()).sort();
-    for (const ent of sortedEntities) {
+    for (const ent of Array.from(haEntities.keys()).sort()) {
       const opt = document.createElement("option");
       opt.value = ent;
       const d = haEntities.get(ent);
@@ -6006,18 +6115,46 @@
     }
 
     const selectPreset = document.createElement("select");
-    selectPreset.style.width = "100px";
+    selectPreset.className = "ra-preset";
+    selectPreset.style.width = "120px";
     selectPreset.style.fontSize = "12px";
     selectPreset.style.padding = "4px";
 
-    const presets = ["on", "off"];
-    for (const p of presets) {
-      const opt = document.createElement("option");
-      opt.value = p;
-      opt.textContent = p === "on" ? "Ligar" : "Desligar";
-      if (actionData && actionData.preset === p) opt.selected = true;
-      selectPreset.appendChild(opt);
-    }
+    const valueInput = document.createElement("input");
+    valueInput.className = "ra-value";
+    valueInput.type = "number";
+    valueInput.style.width = "70px";
+    valueInput.style.fontSize = "12px";
+    valueInput.style.padding = "4px";
+    valueInput.hidden = true;
+
+    const refreshPresets = () => {
+      const opts = actionOptionsFor(selectEntity.value);
+      const keep = selectPreset.value;
+      selectPreset.innerHTML = "";
+      for (const o of opts) {
+        const opt = document.createElement("option");
+        opt.value = o.v; opt.textContent = o.t;
+        selectPreset.appendChild(opt);
+      }
+      // mantém seleção se ainda existir, senão primeira
+      if (opts.some(o => o.v === keep)) selectPreset.value = keep;
+      refreshValue();
+    };
+    const refreshValue = () => {
+      const opts = actionOptionsFor(selectEntity.value);
+      const chosen = opts.find(o => o.v === selectPreset.value);
+      if (chosen && chosen.value) {
+        valueInput.hidden = false;
+        valueInput.min = chosen.value.min; valueInput.max = chosen.value.max;
+        valueInput.step = chosen.value.step; valueInput.title = chosen.value.unit;
+        if (valueInput.value === "") valueInput.value = chosen.value.def;
+      } else {
+        valueInput.hidden = true;
+      }
+    };
+    selectEntity.addEventListener("change", refreshPresets);
+    selectPreset.addEventListener("change", refreshValue);
 
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
@@ -6028,8 +6165,14 @@
 
     li.appendChild(selectEntity);
     li.appendChild(selectPreset);
+    li.appendChild(valueInput);
     li.appendChild(removeBtn);
     routineActionsList.appendChild(li);
+
+    // popula presets conforme a entidade escolhida e restaura o preset/valor salvos
+    refreshPresets();
+    if (actionData && actionData.preset) { selectPreset.value = actionData.preset; refreshValue(); }
+    if (actionData && actionData.value != null) valueInput.value = actionData.value;
   }
 
   document.addEventListener("keydown", (e) => {
@@ -6583,6 +6726,7 @@
       { key: "disk", label: "Disco", unit: "%",  color: "#4a90d9", dec: 0 },
       { key: "load", label: "Carga", unit: "",   color: "#2fa37a", dec: 2 },
       { key: "batt", label: "Bateria", unit: "%", color: "#2f9e5e", dec: 0 },
+      { key: "net",  label: "Rede",  unit: " KB/s", color: "#3aa0c9", dec: 0 },
     ];
     const rows = metrics.map(m => {
       const vals = pts.map(p => p[m.key]);
