@@ -31,8 +31,18 @@ async function login() {
     alert('Edite app.js e coloque seu Spotify Client ID antes de logar.');
     return;
   }
+  const embedded = window.self !== window.top;
+  // IMPORTANTE: dentro de um iframe (embutido no homeOS) a tela de login do Spotify
+  // é bloqueada (X-Frame-Options), então usamos popup. O popup precisa ser aberto
+  // SINCRONAMENTE no clique — se abrir depois de um `await`, o navegador bloqueia.
+  // Abrimos em branco já, e navegamos para a URL do Spotify após o PKCE.
+  let popup = null;
+  if (embedded) {
+    const w = 480, h = 720, x = (screen.width - w) / 2, y = (screen.height - h) / 2;
+    popup = window.open('about:blank', 'spotify_login', `width=${w},height=${h},left=${x},top=${y}`);
+  }
   const { verifier, challenge } = await pkcePair();
-  // localStorage (não sessionStorage) para o popup de login conseguir ler o verifier,
+  // localStorage (não sessionStorage) para o popup conseguir ler o verifier,
   // já que sessionStorage não é compartilhado entre janelas.
   localStorage.setItem('pkce_verifier', verifier);
   const params = new URLSearchParams({
@@ -44,12 +54,9 @@ async function login() {
     code_challenge: challenge,
   });
   const url = `${AUTH_URL}?${params}`;
-  // Dentro de um iframe (embutido no homeOS) a tela de login do Spotify é bloqueada
-  // (X-Frame-Options). Abre num popup; o token vai pro localStorage (mesma origem)
-  // e a versão embutida recarrega já logada.
-  if (window.self !== window.top) {
-    const w = 480, h = 720, x = (screen.width - w) / 2, y = (screen.height - h) / 2;
-    window.open(url, 'spotify_login', `width=${w},height=${h},left=${x},top=${y}`);
+  if (embedded) {
+    if (popup && !popup.closed) popup.location.href = url;
+    else window.location.href = url; // popup bloqueado → cai pro redirect no próprio iframe
   } else {
     window.location.href = url;
   }

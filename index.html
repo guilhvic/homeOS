@@ -251,6 +251,9 @@
   /* Histórico de saúde (sparklines) */
   .health-hist-head { display: flex; align-items: center; justify-content: space-between; margin: 16px 0 8px; }
   .hh-title { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; }
+  .uptime-pct { text-transform: none; letter-spacing: 0; font-weight: 600; color: #2f9e5e; margin-left: 6px; }
+  .uptime-pct.warn { color: #d99a2b; }
+  .uptime-pct.bad { color: var(--danger, #d33); }
   .hh-period { display: inline-flex; gap: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
   .hh-period button { border: none; background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px; cursor: pointer; }
   .hh-period button.active { background: var(--paper); color: var(--ink); box-shadow: var(--shadow); }
@@ -2567,7 +2570,7 @@
 
       <div class="profile-card">
         <div class="health-hist-head" style="margin-top:0;">
-          <span class="hh-title">Histórico</span>
+          <span class="hh-title">Histórico <span id="uptime-pct" class="uptime-pct"></span></span>
           <div class="hh-period" id="health-period">
             <button type="button" data-h="24" class="active">24h</button>
             <button type="button" data-h="168">7d</button>
@@ -6708,8 +6711,19 @@
       + `<polyline points="${line}" fill="none" stroke="${color}" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>`
       + `</svg>`;
   }
+  async function renderUptimePct() {
+    const el = document.getElementById("uptime-pct");
+    if (!el) return;
+    let d = null;
+    try { const r = await api("GET", `/system/uptime?hours=${healthHours}`); if (r.ok) d = r.data; } catch {}
+    if (!d || d.pct == null) { el.textContent = ""; el.className = "uptime-pct"; return; }
+    el.textContent = `· ${d.pct}% no ar`;
+    el.className = "uptime-pct" + (d.pct < 95 ? " bad" : d.pct < 99 ? " warn" : "");
+    el.title = "Disponibilidade no período (cobertura das amostras coletadas)";
+  }
   async function renderHealthHistory(hours) {
     if (hours) healthHours = hours;
+    renderUptimePct();
     const wrap = document.getElementById("health-history");
     if (!wrap) return;
     let data = null;

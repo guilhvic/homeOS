@@ -553,11 +553,11 @@ function summarize(vals) {
 }
 function flushHourAccum() {
   if (!hourAccum || !HEALTH_LOG) { hourAccum = null; return; }
-  const row = { t: hourAccum.hourStart };
-  let any = false;
-  for (const k of HEALTH_METRICS) { const s = summarize(hourAccum[k]); if (s) { row[k] = s; any = true; } }
+  const n = (hourAccum[HEALTH_METRICS[0]] || []).length; // nº de amostras na hora (p/ uptime)
+  const row = { t: hourAccum.hourStart, n };
+  for (const k of HEALTH_METRICS) { const s = summarize(hourAccum[k]); if (s) row[k] = s; }
   hourAccum = null;
-  if (!any) return;
+  if (n <= 0) return;
   try {
     fs.appendFileSync(HEALTH_LOG, JSON.stringify(row) + "\n");
     trimHealthLogIfNeeded();
@@ -639,6 +639,52 @@ app.get("/api/system/health/history", authRequired, (req, res) => {
   const useLog = hours > 48;
   const points = useLog ? readHealthLog(since) : healthHistory.filter(p => p.t >= since);
   res.json({ hours, resolution: useLog ? "hour" : "minute", sampleMs: HEALTH_SAMPLE_MS, points });
+});
+
+// Lê as linhas cruas do log (com `n`) desde `since` — usado pelo cálculo de uptime.
+function readHealthLogRaw(sinceMs) {
+  if (!HEALTH_LOG) return [];
+  const out = [];
+  try {
+    for (const ln of fs.readFileSync(HEALTH_LOG, "utf8").split("\n")) {
+      if (!ln) continue;
+      let row; try { row = JSON.parse(ln); } catch { continue; }
+      if (row && row.t >= sinceMs) out.push(row);
+    }
+  } catch {}
+  return out;
+}
+
+// Disponibilidade (uptime %) num período: mede a cobertura das amostras.
+// - Até 48h: buffer de minuto, somando lacunas (gaps) como downtime.
+// - Acima: resumos horários (n amostras/hora), medindo desde o 1º registro
+//   (não penaliza por o período ser maior que o histórico disponível).
+app.get("/api/system/uptime", authRequired, (req, res) => {
+  const hours = Math.min(24 * 800, Math.max(1, parseInt(req.query.hours, 10) || 24));
+  const now = Date.now();
+  const since = now - hours * 3600 * 1000;
+  const EXPECT_PER_HOUR = 3600000 / HEALTH_SAMPLE_MS;
+  if (hours <= 48) {
+    const ts = healthHistory.filter(p => p.t >= since).map(p => p.t).sort((a, b) => a - b);
+    if (ts.length < 2) return res.json({ hours, pct: null, resolution: "minute", sinceMs: ts[0] || null });
+    const grace = HEALTH_SAMPLE_MS * 2.5;
+    let downtime = 0;
+    for (let i = 1; i < ts.length; i++) {
+      const gap = ts[i] - ts[i - 1];
+      if (gap > grace) downtime += gap - HEALTH_SAMPLE_MS;
+    }
+    const span = now - ts[0];
+    const pct = span > 0 ? Math.max(0, Math.min(100, 100 * (1 - downtime / span))) : 100;
+    return res.json({ hours, pct: +pct.toFixed(2), resolution: "minute", sinceMs: ts[0] });
+  }
+  const rows = readHealthLogRaw(since);
+  if (!rows.length) return res.json({ hours, pct: null, resolution: "hour", sinceMs: null });
+  let upFrac = 0;
+  for (const r of rows) upFrac += Math.min(1, (r.n || 0) / EXPECT_PER_HOUR);
+  const firstHour = rows[0].t;
+  const hoursObserved = Math.max(1, (now - firstHour) / 3600000);
+  const pct = Math.max(0, Math.min(100, 100 * upFrac / hoursObserved));
+  res.json({ hours, pct: +pct.toFixed(2), resolution: "hour", sinceMs: firstHour });
 });
 
 // Proxy de snapshot de câmera: repassa o JPEG do HA (camera_proxy) já autenticado.
