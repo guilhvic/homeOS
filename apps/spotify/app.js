@@ -36,28 +36,32 @@ async function login() {
     alert('Edite app.js e coloque seu Spotify Client ID antes de logar.');
     return;
   }
-  const embedded = window.self !== window.top;
-  const { verifier, challenge } = pendingPkce || await pkcePair();
-  pendingPkce = null;
-  localStorage.setItem('pkce_verifier', verifier);
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    redirect_uri: REDIRECT_URI,
-    code_challenge_method: 'S256',
-    code_challenge: challenge,
-  });
-  // Embutido (homeOS): popup em iframe no iPad/kiosk é bloqueado/fica em branco.
-  // Fazemos redirect de PÁGINA INTEIRA (janela de topo). Se você já estiver logado
-  // no Spotify no navegador, é só um toque em "Concordar". O state=homeos faz o app
-  // te levar de volta ao painel depois do login.
-  if (embedded) params.set('state', 'homeos');
-  const url = `${AUTH_URL}?${params}`;
-  if (embedded) {
-    try { window.top.location.href = url; } catch (e) { window.location.href = url; }
-  } else {
-    window.location.href = url;
+  try {
+    const embedded = window.self !== window.top;
+    const { verifier, challenge } = pendingPkce || await pkcePair();
+    pendingPkce = null;
+    localStorage.setItem('pkce_verifier', verifier);
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      redirect_uri: REDIRECT_URI,
+      code_challenge_method: 'S256',
+      code_challenge: challenge,
+    });
+    if (embedded) params.set('state', 'homeos');
+    const url = `${AUTH_URL}?${params}`;
+    if (!embedded) { window.location.href = url; return; }
+    // Embutido no homeOS (iOS PWA): navegar o Spotify a partir do iframe é
+    // bloqueado. Pedimos para a JANELA PRINCIPAL (o próprio PWA) se navegar —
+    // é a forma mais confiável no iOS. O homeOS escuta esta mensagem.
+    try { window.parent.postMessage({ type: 'spotify-login', url: url }, location.origin); } catch (e) {}
+    // Fallback (caso o homeOS não trate a mensagem): tenta navegar o topo.
+    setTimeout(function () {
+      try { window.top.location.href = url; } catch (e) { window.location.href = url; }
+    }, 250);
+  } catch (e) {
+    alert('Falha ao iniciar login: ' + (e && e.message ? e.message : e));
   }
 }
 

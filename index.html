@@ -7035,6 +7035,17 @@
   }
   function initExternalDash() {
     refreshDashToggle();
+    // O app Spotify embutido pede que a janela do PWA se navegue para o login
+    // (no iOS PWA, navegar a partir do iframe é bloqueado). Aceita só same-origin
+    // e só URLs de autorização do Spotify.
+    window.addEventListener("message", (e) => {
+      if (e.origin !== location.origin) return;
+      const d = e.data;
+      if (d && d.type === "spotify-login" && typeof d.url === "string"
+          && d.url.indexOf("https://accounts.spotify.com/") === 0) {
+        window.location.href = d.url;
+      }
+    });
     const btn = document.getElementById("dash-toggle");
     if (btn) btn.addEventListener("click", (e) => {
       e.stopPropagation();
