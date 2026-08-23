@@ -395,6 +395,37 @@
   }
   .day-presets button:hover { border-color: var(--accent); color: var(--accent); }
 
+  /* Editor de rotina — controles com o visual da ferramenta */
+  #routine-form[hidden] { display: none !important; }
+  .routine-actions-row { display: flex; gap: 8px; align-items: center; }
+  #routine-form select,
+  #routine-form input[type="text"],
+  #routine-form input[type="time"],
+  #routine-form input[type="number"] {
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+    border-radius: 10px; padding: 9px 12px; font: inherit; font-size: 13px;
+    transition: border-color .15s ease;
+  }
+  #routine-form select {
+    -webkit-appearance: none; appearance: none; cursor: pointer; padding-right: 32px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a8a8a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat; background-position: right 10px center;
+  }
+  #routine-form select:hover { border-color: var(--accent); }
+  #routine-form select:focus,
+  #routine-form input:focus { outline: none; border-color: var(--accent); }
+  #routine-form optgroup { font-weight: 700; color: var(--muted); }
+  #routine-form option { color: var(--ink); background: var(--paper); font-weight: 400; }
+  .routine-actions-row .ra-entity { flex: 1; min-width: 0; }
+  .routine-actions-row .ra-preset { width: 150px; flex: none; }
+  .routine-actions-row .ra-value { width: 84px; flex: none; }
+  .routine-actions-row .ra-remove {
+    flex: none; width: 36px; height: 36px; border-radius: 10px; padding: 0;
+    border: 1px solid var(--line); background: var(--bg); color: var(--muted);
+    font-size: 18px; line-height: 1; cursor: pointer; transition: .15s ease;
+  }
+  .routine-actions-row .ra-remove:hover { border-color: var(--danger, #d33); color: var(--danger, #d33); }
+
   .routine-card {
     border: 1px solid var(--line); border-radius: 14px; background: var(--paper);
     padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
@@ -2633,7 +2664,7 @@
 
         <div class="field">
           <label for="routine-trigger-type">Gatilho</label>
-          <select id="routine-trigger-type" style="width:100%; max-width:280px; border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:8px; padding:8px 10px; font:inherit;">
+          <select id="routine-trigger-type" style="width:100%; max-width:280px;">
             <option value="none">Sem agendamento (só manual)</option>
             <option value="time">Horário fixo</option>
             <option value="sunrise">Nascer do sol</option>
@@ -6134,17 +6165,10 @@
 
   function addRoutineActionRow(actionData = null) {
     const li = document.createElement("li");
-    li.style.display = "flex";
-    li.style.gap = "8px";
-    li.style.alignItems = "center";
-    li.style.marginBottom = "4px";
+    li.className = "routine-actions-row";
 
     const selectEntity = document.createElement("select");
     selectEntity.className = "ra-entity";
-    selectEntity.style.flex = "1";
-    selectEntity.style.fontSize = "12px";
-    selectEntity.style.padding = "4px";
-    selectEntity.style.minWidth = "0";
     const optNone = document.createElement("option");
     optNone.value = ""; optNone.textContent = "Escolher dispositivo…";
     selectEntity.appendChild(optNone);
@@ -6182,16 +6206,10 @@
 
     const selectPreset = document.createElement("select");
     selectPreset.className = "ra-preset";
-    selectPreset.style.width = "120px";
-    selectPreset.style.fontSize = "12px";
-    selectPreset.style.padding = "4px";
 
     const valueInput = document.createElement("input");
     valueInput.className = "ra-value";
     valueInput.type = "number";
-    valueInput.style.width = "70px";
-    valueInput.style.fontSize = "12px";
-    valueInput.style.padding = "4px";
     valueInput.hidden = true;
 
     const refreshPresets = () => {
@@ -6224,8 +6242,8 @@
 
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
-    removeBtn.className = "danger";
-    removeBtn.style.padding = "2px 6px";
+    removeBtn.className = "ra-remove";
+    removeBtn.title = "Remover ação";
     removeBtn.textContent = "×";
     removeBtn.addEventListener("click", () => li.remove());
 
