@@ -6949,10 +6949,13 @@
     return `<div class="health-metric ${opts.cls || ""}"><div class="hm-label">${label}</div><div class="hm-value">${value}</div>${bar}${sub}</div>`;
   }
   async function renderServerLive() {
-    const grid = document.getElementById("server-metrics");
-    if (!grid) return;
     let d = null;
     try { const r = await api("GET", "/system/health"); if (r.ok) d = r.data; } catch {}
+    applyServerLive(d);
+  }
+  function applyServerLive(d) {
+    const grid = document.getElementById("server-metrics");
+    if (!grid) return;
     if (!d) { grid.innerHTML = '<div class="sub" style="grid-column:1/-1;">Indisponível.</div>'; return; }
     const cards = [];
     if (typeof d.cpuPct === "number")
@@ -7004,15 +7007,37 @@
     el.innerHTML = rows.join("");
   }
   function renderServerPage() {
-    renderServerLive();
+    renderServerLive();       // primeiro quadro imediato
     renderHealthHistory();
     renderServerInfo();
     renderSpeedtest();
     renderDocker();
     refreshPushUI();
+    startHealthStream();       // ao vivo (empurrado pelo servidor)
+    // Histórico/sparklines mudam devagar — atualiza num ritmo mais folgado.
     if (!healthTimer) healthTimer = setInterval(() => {
-      if (currentView === "server") { renderServerLive(); renderHealthHistory(); }
-    }, 10000);
+      if (currentView === "server") renderHealthHistory();
+    }, 30000);
+  }
+
+  // Live em tempo real via Server-Sent Events: o servidor empurra a saúde a
+  // cada ~2s numa única conexão, em vez de o cliente ficar consultando.
+  let healthES = null, healthPollTimer = null;
+  function startHealthStream() {
+    stopHealthStream();
+    if (typeof EventSource !== "undefined") {
+      try {
+        healthES = new EventSource("/api/system/health/stream", { withCredentials: true });
+        healthES.onmessage = (ev) => { try { applyServerLive(JSON.parse(ev.data)); } catch {} };
+        return;
+      } catch {}
+    }
+    // Fallback (sem EventSource): polling rápido.
+    healthPollTimer = setInterval(() => { if (currentView === "server") renderServerLive(); }, 3000);
+  }
+  function stopHealthStream() {
+    if (healthES) { try { healthES.close(); } catch {} healthES = null; }
+    if (healthPollTimer) { clearInterval(healthPollTimer); healthPollTimer = null; }
   }
 
   // ===== Notificações Web Push =====
@@ -7566,6 +7591,7 @@
   function setView(v) {
     currentView = KNOWN_VIEWS.has(v) ? v : "map";
     localStorage.setItem(VIEW_KEY, currentView);
+    if (currentView !== "server") stopHealthStream();
     appShell.classList.toggle("view-grocery", currentView === "grocery");
     appShell.classList.toggle("view-profile", currentView === "profile");
     appShell.classList.toggle("view-routines", currentView === "routines");

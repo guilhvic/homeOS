@@ -562,6 +562,24 @@ app.get("/api/system/health", authRequired, (req, res) => {
   res.json(readSystemHealth());
 });
 
+// Stream ao vivo (Server-Sent Events): empurra a saúde a cada ~2s numa única
+// conexão persistente, para a página Servidor atualizar em "tempo real".
+app.get("/api/system/health/stream", authRequired, (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  if (res.flushHeaders) res.flushHeaders();
+  const send = () => { try { res.write(`data: ${JSON.stringify(readSystemHealth())}\n\n`); } catch {} };
+  send();
+  const iv = setInterval(send, 2000);
+  // Comentário-keepalive periódico p/ manter a conexão viva através de proxies.
+  const ka = setInterval(() => { try { res.write(": ka\n\n"); } catch {} }, 30000);
+  req.on("close", () => { clearInterval(iv); clearInterval(ka); });
+});
+
 // Info estática do host (lida uma vez pelo cliente).
 app.get("/api/system/info", authRequired, (req, res) => {
   const os = require("os");
