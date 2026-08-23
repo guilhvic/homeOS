@@ -7028,12 +7028,19 @@
     if (typeof EventSource !== "undefined") {
       try {
         healthES = new EventSource("/api/system/health/stream", { withCredentials: true });
-        healthES.onmessage = (ev) => { try { applyServerLive(JSON.parse(ev.data)); } catch {} };
+        healthES.onmessage = (ev) => {
+          try { const d = JSON.parse(ev.data); applyServerLive(d); applyLiveHistory(d); } catch {}
+        };
         return;
       } catch {}
     }
     // Fallback (sem EventSource): polling rápido.
-    healthPollTimer = setInterval(() => { if (currentView === "server") renderServerLive(); }, 3000);
+    healthPollTimer = setInterval(async () => {
+      if (currentView !== "server") return;
+      let d = null;
+      try { const r = await api("GET", "/system/health"); if (r.ok) d = r.data; } catch {}
+      applyServerLive(d); applyLiveHistory(d);
+    }, 3000);
   }
   function stopHealthStream() {
     if (healthES) { try { healthES.close(); } catch {} healthES = null; }
@@ -7207,28 +7214,28 @@
     el.className = "uptime-pct" + (d.pct < 95 ? " bad" : d.pct < 99 ? " warn" : "");
     el.title = "Disponibilidade no período (cobertura das amostras coletadas)";
   }
-  async function renderHealthHistory(hours) {
-    if (hours) healthHours = hours;
-    renderUptimePct();
+  const HEALTH_METRICS = [
+    { key: "cpu",  label: "CPU",   unit: "%",  color: "#8a63d2", dec: 0 },
+    { key: "temp", label: "Temp",  unit: "°C", color: "#e0894a", dec: 0 },
+    { key: "mem",  label: "RAM",   unit: "%",  color: "#c2592a", dec: 0 },
+    { key: "disk", label: "Disco", unit: "%",  color: "#4a90d9", dec: 0 },
+    { key: "load", label: "Carga", unit: "",   color: "#2fa37a", dec: 2 },
+    { key: "batt", label: "Bateria", unit: "%", color: "#2f9e5e", dec: 0 },
+    { key: "net",  label: "Rede",  unit: " KB/s", color: "#3aa0c9", dec: 0 },
+  ];
+  let histSeries = [];   // pontos vindos do servidor (última busca)
+  let histLive = [];     // pontos ao vivo (SSE) acumulados desde a busca
+  const HIST_LIVE_MAX = 150;
+
+  function drawHealthHistory() {
     const wrap = document.getElementById("health-history");
     if (!wrap) return;
-    let data = null;
-    try { const r = await api("GET", `/system/health/history?hours=${healthHours}`); if (r.ok) data = r.data; } catch {}
-    if (!data || !Array.isArray(data.points) || data.points.length < 2) {
+    const pts = histSeries.concat(histLive);
+    if (pts.length < 2) {
       wrap.innerHTML = `<div class="sub">Coletando dados… o histórico aparece após alguns minutos com o servidor no ar.</div>`;
       return;
     }
-    const pts = data.points;
-    const metrics = [
-      { key: "cpu",  label: "CPU",   unit: "%",  color: "#8a63d2", dec: 0 },
-      { key: "temp", label: "Temp",  unit: "°C", color: "#e0894a", dec: 0 },
-      { key: "mem",  label: "RAM",   unit: "%",  color: "#c2592a", dec: 0 },
-      { key: "disk", label: "Disco", unit: "%",  color: "#4a90d9", dec: 0 },
-      { key: "load", label: "Carga", unit: "",   color: "#2fa37a", dec: 2 },
-      { key: "batt", label: "Bateria", unit: "%", color: "#2f9e5e", dec: 0 },
-      { key: "net",  label: "Rede",  unit: " KB/s", color: "#3aa0c9", dec: 0 },
-    ];
-    const rows = metrics.map(m => {
+    const rows = HEALTH_METRICS.map(m => {
       const vals = pts.map(p => p[m.key]);
       const valid = vals.filter(v => v != null && isFinite(v));
       if (!valid.length) return "";
@@ -7242,6 +7249,40 @@
       </div>`;
     }).join("");
     wrap.innerHTML = rows || `<div class="sub">Sem dados.</div>`;
+  }
+
+  // Anexa um frame ao vivo (do SSE) na ponta das sparklines. Só na visão 24h,
+  // que é de resolução por minuto — nas visões longas (hora) não faz sentido.
+  function applyLiveHistory(d) {
+    if (healthHours > 48 || !d) return;
+    histLive.push({
+      t: Date.now(),
+      cpu: typeof d.cpuPct === "number" ? d.cpuPct : null,
+      temp: typeof d.tempC === "number" ? d.tempC : null,
+      mem: d.mem ? d.mem.pct : null,
+      disk: d.disk ? d.disk.pct : null,
+      load: d.load ? d.load["1m"] : null,
+      batt: d.battery && typeof d.battery.percent === "number" ? d.battery.percent : null,
+      net: d.net ? Math.round((d.net.rxBps + d.net.txBps) / 1024) : null,
+    });
+    if (histLive.length > HIST_LIVE_MAX) histLive = histLive.slice(-HIST_LIVE_MAX);
+    if (currentView === "server") drawHealthHistory();
+  }
+
+  async function renderHealthHistory(hours) {
+    if (hours) healthHours = hours;
+    renderUptimePct();
+    const wrap = document.getElementById("health-history");
+    if (!wrap) return;
+    let data = null;
+    try { const r = await api("GET", `/system/health/history?hours=${healthHours}`); if (r.ok) data = r.data; } catch {}
+    if (!data || !Array.isArray(data.points)) {
+      if (!histSeries.length) wrap.innerHTML = `<div class="sub">Coletando dados… o histórico aparece após alguns minutos com o servidor no ar.</div>`;
+      return;
+    }
+    histSeries = data.points;
+    histLive = []; // reconciliado com o servidor
+    drawHealthHistory();
   }
   document.getElementById("health-period")?.addEventListener("click", (e) => {
     const b = e.target.closest("button[data-h]");
