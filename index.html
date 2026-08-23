@@ -3491,7 +3491,13 @@
     const ids = [];
     haEntities.forEach((e, id) => {
       const a = e.attributes || {};
-      if (a.device_class === "energy" && a.unit_of_measurement === "kWh" && /this_month|_month|daily|_day|total/.test(id)) ids.push(id);
+      if (a.device_class !== "energy" || a.unit_of_measurement !== "kWh") return;
+      // Fora: métricas que não são energia acumulada (W/A/V) e os sensores
+      // "today/daily" — senão contaríamos 2x junto com o acumulado do mesmo
+      // aparelho.
+      if (/difference|current|voltage|power|factor|today|daily|_day\b/.test(id)) return;
+      // Dentro: acumuladores de energia — total do aparelho, do mês, consumo.
+      if (/energy|consumption|_month|total|_kwh/.test(id)) ids.push(id);
     });
     return ids;
   }
@@ -3552,8 +3558,17 @@
         <div class="energy-bar-day">${escapeHtml(wd)}</div>
       </div>`;
     }).join("");
-    wrap.innerHTML = `<div class="energy-bars">${cols}</div>`;
     const total = buckets.reduce((s, b) => s + b.kwh, 0);
+    let hint = "";
+    if (total <= 0) {
+      const ids = energySensorIds();
+      const names = ids.map(id => entityFriendlyName(id));
+      console.debug("[energia] sensores considerados:", ids);
+      hint = `<div class="sub" style="margin-top:8px;">Sem variação de consumo no período nos sensores usados`
+        + (names.length ? `: ${names.map(escapeHtml).join(", ")}` : "")
+        + `. Verifique se esses sensores registram histórico (kWh acumulado) no Home Assistant.</div>`;
+    }
+    wrap.innerHTML = `<div class="energy-bars">${cols}</div>${hint}`;
     if (totalEl) {
       totalEl.textContent = `${total.toFixed(1)} kWh na semana` + (tariff ? ` ≈ R$ ${(total * tariff).toFixed(2)}` : "");
     }
