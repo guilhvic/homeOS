@@ -3742,9 +3742,7 @@
       status.textContent = "— monte o mapa da sua casa";
       hint.style.display = "";
     } else {
-      const totalItems = state.rooms.reduce((n, r) => n + (r.items || []).length, 0);
-      const doneItems = state.rooms.reduce((n, r) => n + (r.items || []).filter(i => i.done).length, 0);
-      status.textContent = `${state.rooms.length} cômodo${state.rooms.length === 1 ? "" : "s"} · ${doneItems}/${totalItems} itens`;
+      status.textContent = "";
       hint.style.display = "none";
     }
   }
