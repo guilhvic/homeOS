@@ -448,7 +448,7 @@
 
   .routine-card {
     border: 1px solid var(--line); border-radius: 14px; background: var(--paper);
-    padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+    padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
     box-shadow: var(--shadow);
   }
   .routine-card.off { opacity: .62; }
@@ -479,9 +479,18 @@
   }
   .routine-dev-chip.on { color: #1a7f4b; }
   .routine-dev-chip.off { color: var(--danger); }
-  .routine-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-  .routine-card-actions button { padding: 7px 14px; font-size: 13px; border-radius: 8px; }
-  .routine-run { flex: 1; min-width: 110px; }
+  .routine-card-actions { display: flex; gap: 6px; align-items: center; }
+  .routine-card-actions .routine-run { flex: 0 0 auto; padding: 7px 14px; font-size: 13px; border-radius: 8px; }
+  .routine-actions-group { margin-left: auto; display: flex; gap: 6px; }
+  .routine-card-actions .routine-icon-btn {
+    flex: none; width: 34px; height: 34px; display: grid; place-items: center; padding: 0;
+    border-radius: 8px; border: 1px solid var(--line); background: var(--bg);
+    color: var(--muted); cursor: pointer; transition: .15s ease;
+  }
+  .routine-card-actions .routine-icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .routine-card-actions .routine-icon-btn.danger:hover { border-color: var(--danger, #d33); color: var(--danger, #d33); }
+  .routine-card-actions .routine-icon-btn.active { border-color: var(--accent); color: var(--accent); }
+  .routine-card-actions .routine-icon-btn .ic { width: 17px; height: 17px; }
 
   .profile-page-header {
     display: flex;
@@ -3324,6 +3333,7 @@
     wind: '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h9a2.5 2.5 0 1 1-2.5 2.5"/>',
     vacuum: '<circle cx="12" cy="13" r="8"/><path d="M9 13h6"/><circle cx="12" cy="13" r="1"/>',
     trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14"/>',
+    pencil: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>',
     check: '<path d="M4 12l5 5L20 6"/>',
     warning: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/>',
@@ -6216,10 +6226,12 @@
         </div>
         <div class="routine-devices">${devChips}</div>
         <div class="routine-card-actions">
-          <button type="button" class="primary routine-run">${svgIcon("bolt", 14)} Executar agora</button>
-          <button type="button" class="ghost routine-edit">Editar</button>
-          <button type="button" class="ghost danger routine-del">Excluir</button>
-          <button type="button" class="routine-log-toggle" style="margin-left:auto;">histórico</button>
+          <button type="button" class="primary routine-run">${svgIcon("bolt", 14)} Executar</button>
+          <div class="routine-actions-group">
+            <button type="button" class="routine-icon-btn routine-edit" title="Editar" aria-label="Editar">${svgIcon("pencil", 17)}</button>
+            <button type="button" class="routine-icon-btn routine-log-toggle" title="Histórico" aria-label="Histórico">${svgIcon("clock", 17)}</button>
+            <button type="button" class="routine-icon-btn danger routine-del" title="Excluir" aria-label="Excluir">${svgIcon("trash", 17)}</button>
+          </div>
         </div>
         <div class="routine-log" hidden></div>`;
       const sw = li.querySelector(".rt-switch input");
@@ -6255,8 +6267,8 @@
       const logBox = li.querySelector(".routine-log");
       let logLoaded = false;
       logToggle.addEventListener("click", async () => {
-        if (!logBox.hidden) { logBox.hidden = true; logToggle.textContent = "histórico"; return; }
-        logBox.hidden = false; logToggle.textContent = "ocultar";
+        if (!logBox.hidden) { logBox.hidden = true; logToggle.classList.remove("active"); return; }
+        logBox.hidden = false; logToggle.classList.add("active");
         if (logLoaded) return;
         logBox.innerHTML = `<div class="sub" style="font-size:12px;">Carregando…</div>`;
         const res = await api("GET", `/routines/${r.id}/log?limit=15`);
