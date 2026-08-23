@@ -6114,6 +6114,24 @@
     return ACTION_OPTIONS[dom] || [{ v: "on", t: "Ligar" }, { v: "off", t: "Desligar" }];
   }
 
+  // Domínios que fazem sentido acionar numa rotina (com rótulo e ícone p/ agrupar).
+  // Sensores, binary_sensors e câmeras ficam de fora — não há o que "acionar".
+  const ACTIONABLE_DOMAINS = {
+    light:        { label: "Luzes", icon: "💡" },
+    switch:       { label: "Tomadas / Interruptores", icon: "🔌" },
+    climate:      { label: "Climatização", icon: "❄️" },
+    fan:          { label: "Ventiladores", icon: "🌀" },
+    cover:        { label: "Cortinas / Persianas", icon: "🪟" },
+    media_player: { label: "Mídia", icon: "📺" },
+    lock:         { label: "Fechaduras", icon: "🔒" },
+    vacuum:       { label: "Aspiradores", icon: "🧹" },
+    humidifier:   { label: "Umidificadores", icon: "💧" },
+  };
+  const entityFriendlyName = (id) => {
+    const d = haEntities.get(id);
+    return (d && d.attributes && d.attributes.friendly_name) ? d.attributes.friendly_name : id;
+  };
+
   function addRoutineActionRow(actionData = null) {
     const li = document.createElement("li");
     li.style.display = "flex";
@@ -6130,13 +6148,36 @@
     const optNone = document.createElement("option");
     optNone.value = ""; optNone.textContent = "Escolher dispositivo…";
     selectEntity.appendChild(optNone);
-    for (const ent of Array.from(haEntities.keys()).sort()) {
+    // Agrupa por tipo (só domínios acionáveis) e mostra só o nome amigável.
+    const savedId = actionData && actionData.entityId;
+    let savedFound = false;
+    for (const dom of Object.keys(ACTIONABLE_DOMAINS)) {
+      const ids = Array.from(haEntities.keys())
+        .filter(id => entityDomain(id) === dom)
+        .sort((a, b) => entityFriendlyName(a).localeCompare(entityFriendlyName(b), "pt-BR"));
+      if (!ids.length) continue;
+      const group = document.createElement("optgroup");
+      group.label = `${ACTIONABLE_DOMAINS[dom].icon} ${ACTIONABLE_DOMAINS[dom].label}`;
+      for (const id of ids) {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = entityFriendlyName(id);
+        if (savedId === id) { opt.selected = true; savedFound = true; }
+        group.appendChild(opt);
+      }
+      selectEntity.appendChild(group);
+    }
+    // Preserva uma entidade já salva que não seja mais acionável/existente,
+    // pra não perder a configuração ao editar a rotina.
+    if (savedId && !savedFound) {
+      const group = document.createElement("optgroup");
+      group.label = "Outros";
       const opt = document.createElement("option");
-      opt.value = ent;
-      const d = haEntities.get(ent);
-      opt.textContent = (d && d.attributes.friendly_name) ? `${d.attributes.friendly_name} (${ent})` : ent;
-      if (actionData && actionData.entityId === ent) opt.selected = true;
-      selectEntity.appendChild(opt);
+      opt.value = savedId;
+      opt.textContent = entityFriendlyName(savedId);
+      opt.selected = true;
+      group.appendChild(opt);
+      selectEntity.appendChild(group);
     }
 
     const selectPreset = document.createElement("select");
