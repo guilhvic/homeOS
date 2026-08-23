@@ -425,6 +425,26 @@
     font-size: 18px; line-height: 1; cursor: pointer; transition: .15s ease;
   }
   .routine-actions-row .ra-remove:hover { border-color: var(--danger, #d33); color: var(--danger, #d33); }
+  .routine-cond-line { display: flex; gap: 8px; align-items: center; }
+  .routine-cond-line .rc-entity { flex: 1; min-width: 0; }
+  .routine-cond-line .rc-op { width: 168px; flex: none; }
+  .routine-cond-line .rc-value { width: 110px; flex: none; }
+  .ra-color { width: 44px !important; height: 36px; padding: 2px !important; cursor: pointer; }
+
+  /* Badges na lista de rotinas */
+  .routine-badge {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line);
+  }
+  .routine-badge.broken { color: var(--danger, #d33); border-color: var(--danger, #d33); background: transparent; }
+  .routine-badge.cond { color: var(--muted); }
+  .routine-log { margin-top: 4px; display: flex; flex-direction: column; gap: 4px; }
+  .routine-log-row { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .routine-log-row .rl-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .routine-log-row .rl-dot.ok { background: #2f9e5e; }
+  .routine-log-row .rl-dot.bad { background: var(--danger, #d33); }
+  .routine-log-row .rl-dot.skip { background: #d99a2b; }
+  .routine-log-toggle { background: none; border: none; color: var(--accent); font-size: 12px; cursor: pointer; padding: 0; }
 
   .routine-card {
     border: 1px solid var(--line); border-radius: 14px; background: var(--paper);
@@ -2669,6 +2689,7 @@
             <option value="time">Horário fixo</option>
             <option value="sunrise">Nascer do sol</option>
             <option value="sunset">Pôr do sol</option>
+            <option value="state">Quando um sensor mudar</option>
           </select>
           <div id="routine-time-row" style="margin-top:8px; display:none;">
             <input id="routine-time" type="time" style="width: 120px;" />
@@ -2676,6 +2697,14 @@
           <div id="routine-sun-row" style="margin-top:8px; display:none;">
             <label style="display:block; font-size:12px; color:var(--muted); margin-bottom:4px;">Deslocamento em minutos (negativo = antes do evento)</label>
             <input id="routine-sun-offset" type="number" step="5" value="0" style="width:120px;" />
+          </div>
+          <div id="routine-state-row" style="margin-top:8px; display:none;">
+            <div class="routine-cond-line">
+              <select id="routine-state-entity" class="rc-entity"></select>
+              <select id="routine-state-op" class="rc-op"></select>
+              <input id="routine-state-value" class="rc-value" type="text" placeholder="valor" />
+            </div>
+            <label style="display:block; font-size:12px; color:var(--muted); margin-top:6px;">Dispara quando a condição passa a ser verdadeira (ex: temperatura &gt; 28).</label>
           </div>
           <div id="routine-days-wrap" style="margin-top:10px; display:none;">
             <div class="day-chips" id="routine-days"></div>
@@ -2685,6 +2714,14 @@
               <button type="button" data-preset="weekend">Fim de semana</button>
             </div>
           </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <label style="display:block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 600;">
+            Condições <span style="font-weight:400;">(só executa se… — opcional)</span>
+          </label>
+          <ul id="routine-conditions-list" style="list-style:none; padding:0; margin:0 0 8px; display:flex; flex-direction:column; gap:6px;"></ul>
+          <button id="add-condition-btn" class="ghost" type="button" style="font-size: 12px; padding: 4px 8px;">+ Adicionar condição</button>
         </div>
 
         <div style="margin-bottom: 12px;">
@@ -3636,6 +3673,12 @@
   const routineSunOffset = document.getElementById("routine-sun-offset");
   const routineActionsList = document.getElementById("routine-actions-list");
   const addActionBtn = document.getElementById("add-action-btn");
+  const routineStateRow = document.getElementById("routine-state-row");
+  const routineStateEntity = document.getElementById("routine-state-entity");
+  const routineStateOp = document.getElementById("routine-state-op");
+  const routineStateValue = document.getElementById("routine-state-value");
+  const routineConditionsList = document.getElementById("routine-conditions-list");
+  const addConditionBtn = document.getElementById("add-condition-btn");
   const nameInput = document.getElementById("name");
   const notesInput = document.getElementById("notes");
   const itemsList = document.getElementById("items");
@@ -5918,11 +5961,107 @@
     });
   });
 
+  // ===== Condições e gatilho por estado =====
+  // Entidades que fazem sentido como condição/gatilho (têm estado legível).
+  const COND_DOMAINS = {
+    sensor: "📊 Sensores",
+    binary_sensor: "🔲 Contatos / binários",
+    person: "🧍 Pessoas",
+    device_tracker: "📍 Dispositivos",
+    sun: "🌅 Sol",
+    climate: "❄️ Climatização",
+    cover: "🪟 Cortinas",
+    lock: "🔒 Fechaduras",
+    light: "💡 Luzes",
+    switch: "🔌 Tomadas",
+    fan: "🌀 Ventiladores",
+    media_player: "📺 Mídia",
+  };
+  const COND_OPS = [
+    { v: "gt", t: "maior que (>)" },
+    { v: "lt", t: "menor que (<)" },
+    { v: "ge", t: "maior ou igual (≥)" },
+    { v: "le", t: "menor ou igual (≤)" },
+    { v: "eq", t: "igual a (=)" },
+    { v: "ne", t: "diferente de (≠)" },
+    { v: "is", t: "é (texto)" },
+    { v: "is_not", t: "não é (texto)" },
+  ];
+  const COND_OP_SYM = { gt: ">", lt: "<", ge: "≥", le: "≤", eq: "=", ne: "≠", is: "é", is_not: "≠" };
+  function populateCondEntities(sel, selectedId) {
+    sel.innerHTML = "";
+    const none = document.createElement("option");
+    none.value = ""; none.textContent = "Escolher sensor…";
+    sel.appendChild(none);
+    let found = false;
+    for (const dom of Object.keys(COND_DOMAINS)) {
+      const ids = Array.from(haEntities.keys())
+        .filter(id => entityDomain(id) === dom)
+        .sort((a, b) => entityFriendlyName(a).localeCompare(entityFriendlyName(b), "pt-BR"));
+      if (!ids.length) continue;
+      const g = document.createElement("optgroup");
+      g.label = COND_DOMAINS[dom];
+      for (const id of ids) {
+        const o = document.createElement("option");
+        o.value = id; o.textContent = entityFriendlyName(id);
+        if (selectedId === id) { o.selected = true; found = true; }
+        g.appendChild(o);
+      }
+      sel.appendChild(g);
+    }
+    if (selectedId && !found) {
+      const o = document.createElement("option");
+      o.value = selectedId; o.textContent = entityFriendlyName(selectedId); o.selected = true;
+      sel.appendChild(o);
+    }
+  }
+  function populateCondOps(sel, selectedOp) {
+    sel.innerHTML = "";
+    for (const o of COND_OPS) {
+      const opt = document.createElement("option");
+      opt.value = o.v; opt.textContent = o.t;
+      if (selectedOp === o.v) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+  // Mostra o valor atual do sensor como dica no placeholder.
+  function bindCondHint(entitySel, valueInput) {
+    const upd = () => {
+      const e = haEntities.get(entitySel.value);
+      const unit = e?.attributes?.unit_of_measurement ? " " + e.attributes.unit_of_measurement : "";
+      valueInput.placeholder = e ? `atual: ${e.state}${unit}` : "valor";
+    };
+    entitySel.addEventListener("change", upd);
+    upd();
+  }
+  function addConditionRow(cond = null) {
+    const li = document.createElement("li");
+    li.className = "routine-cond-line";
+    const entitySel = document.createElement("select");
+    entitySel.className = "rc-entity";
+    populateCondEntities(entitySel, cond && cond.entityId);
+    const opSel = document.createElement("select");
+    opSel.className = "rc-op";
+    populateCondOps(opSel, cond && cond.op);
+    const valInput = document.createElement("input");
+    valInput.className = "rc-value"; valInput.type = "text";
+    if (cond && cond.value != null) valInput.value = cond.value;
+    bindCondHint(entitySel, valInput);
+    const rm = document.createElement("button");
+    rm.type = "button"; rm.className = "ra-remove"; rm.title = "Remover condição"; rm.textContent = "×";
+    rm.addEventListener("click", () => li.remove());
+    li.append(entitySel, opSel, valInput, rm);
+    routineConditionsList.appendChild(li);
+  }
+  addConditionBtn.addEventListener("click", () => addConditionRow(null));
+
   function applyTriggerType() {
     const t = routineTriggerType.value;
     routineTimeRow.style.display = t === "time" ? "block" : "none";
     routineSunRow.style.display = (t === "sunrise" || t === "sunset") ? "block" : "none";
-    routineDaysWrap.style.display = t === "none" ? "none" : "block";
+    routineStateRow.style.display = t === "state" ? "block" : "none";
+    // Dias não se aplicam ao gatilho por estado (ele reage na hora que muda).
+    routineDaysWrap.style.display = (t === "none" || t === "state") ? "none" : "block";
   }
   routineTriggerType.addEventListener("change", applyTriggerType);
 
@@ -5939,11 +6078,23 @@
       const entitySel = row.querySelector(".ra-entity");
       const presetSel = row.querySelector(".ra-preset");
       const valInput = row.querySelector(".ra-value");
+      const colorInput = row.querySelector(".ra-color");
       if (entitySel && entitySel.value) {
         const a = { entityId: entitySel.value, preset: presetSel.value };
-        if (valInput && !valInput.hidden && valInput.value !== "") a.value = Number(valInput.value);
+        if (a.preset === "color" && colorInput) a.color = colorInput.value;
+        else if (valInput && !valInput.hidden && valInput.value !== "") a.value = Number(valInput.value);
         actions.push(a);
       }
+    }
+
+    // Condições (só executa se…)
+    const conditions = [];
+    for (const row of routineConditionsList.children) {
+      const ent = row.querySelector(".rc-entity");
+      const op = row.querySelector(".rc-op");
+      const val = row.querySelector(".rc-value");
+      if (ent && ent.value && val && val.value.trim() !== "")
+        conditions.push({ entityId: ent.value, op: op.value, value: val.value.trim() });
     }
 
     const tt = routineTriggerType.value;
@@ -5952,17 +6103,20 @@
       trigger = { type: "time", time: routineTimeInput.value, days: getSelectedDays() };
     } else if (tt === "sunrise" || tt === "sunset") {
       trigger = { type: "sun", event: tt, offsetMin: Number(routineSunOffset.value) || 0, days: getSelectedDays() };
+    } else if (tt === "state" && routineStateEntity.value && routineStateValue.value.trim() !== "") {
+      trigger = { type: "state", entityId: routineStateEntity.value, op: routineStateOp.value, value: routineStateValue.value.trim() };
     }
 
     state.routines = state.routines || [];
     let routine = state.routines.find(x => x.id === id);
     if (!routine) {
-      routine = { id, name, enabled: true, actions, trigger };
+      routine = { id, name, enabled: true, actions, trigger, conditions };
       state.routines.push(routine);
     } else {
       routine.name = name;
       routine.actions = actions;
       routine.trigger = trigger;
+      routine.conditions = conditions;
     }
 
     logActivity(`Rotina <b>${escapeHtml(name)}</b> ${isNew ? "criada" : "atualizada"}`);
@@ -6031,6 +6185,8 @@
         const offTxt = off ? ` ${off > 0 ? "+" : ""}${off}min` : "";
         const evt = tr.event === "sunset" ? "🌇 Pôr do sol" : "🌅 Nascer do sol";
         whenHtml = `${evt}${offTxt} · ${daysSummaryHtml(tr.days)}`;
+      } else if (tr.type === "state" && tr.entityId) {
+        whenHtml = `${svgIcon("bolt", 13)} quando <b>${escapeHtml(entityFriendlyName(tr.entityId))}</b> ${COND_OP_SYM[tr.op] || tr.op} ${escapeHtml(String(tr.value))}`;
       } else {
         whenHtml = `${svgIcon("bolt", 13)} execução manual`;
       }
@@ -6041,12 +6197,20 @@
         const on = a.preset === "on";
         return `<span class="routine-dev-chip ${on ? "on" : "off"}">${on ? "▲" : "▼"} ${escapeHtml(nm)}</span>`;
       }).join("") || `<span class="sub" style="font-size:12px;">Nenhuma ação configurada</span>`;
+      // Rotina "quebrada": alguma ação aponta pra um dispositivo que sumiu do HA.
+      const broken = haEnabled && haEntities.size > 0 && (r.actions || []).some(a => a.entityId && !haEntities.has(a.entityId));
+      const nCond = Array.isArray(r.conditions) ? r.conditions.length : 0;
+      const badges = [];
+      if (broken) badges.push(`<span class="routine-badge broken">⚠ dispositivo removido</span>`);
+      if (nCond) badges.push(`<span class="routine-badge cond">se ${nCond} condiç${nCond === 1 ? "ão" : "ões"}</span>`);
+      const badgesHtml = badges.length ? `<div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">${badges.join("")}</div>` : "";
       li.innerHTML = `
         <div class="routine-card-top">
           <div class="routine-ic">${svgIcon("bolt", 20)}</div>
           <div class="routine-idn">
             <div class="routine-name">${escapeHtml(r.name)}</div>
             <div class="routine-when">${whenHtml}${nr ? ` <span class="routine-next">· próxima ${nr}</span>` : ""}${last}</div>
+            ${badgesHtml}
           </div>
           <label class="rt-switch" title="Ativa"><input type="checkbox" ${r.enabled !== false ? "checked" : ""}><span class="rt-track"></span><span class="rt-thumb"></span></label>
         </div>
@@ -6055,7 +6219,9 @@
           <button type="button" class="primary routine-run">${svgIcon("bolt", 14)} Executar agora</button>
           <button type="button" class="ghost routine-edit">Editar</button>
           <button type="button" class="ghost danger routine-del">Excluir</button>
-        </div>`;
+          <button type="button" class="routine-log-toggle" style="margin-left:auto;">histórico</button>
+        </div>
+        <div class="routine-log" hidden></div>`;
       const sw = li.querySelector(".rt-switch input");
       sw.addEventListener("change", () => {
         r.enabled = sw.checked;
@@ -6085,6 +6251,29 @@
         scheduleSave();
         renderRoutinesList();
       });
+      const logToggle = li.querySelector(".routine-log-toggle");
+      const logBox = li.querySelector(".routine-log");
+      let logLoaded = false;
+      logToggle.addEventListener("click", async () => {
+        if (!logBox.hidden) { logBox.hidden = true; logToggle.textContent = "histórico"; return; }
+        logBox.hidden = false; logToggle.textContent = "ocultar";
+        if (logLoaded) return;
+        logBox.innerHTML = `<div class="sub" style="font-size:12px;">Carregando…</div>`;
+        const res = await api("GET", `/routines/${r.id}/log?limit=15`);
+        logLoaded = true;
+        const entries = (res.ok && res.data && res.data.entries) || [];
+        if (!entries.length) { logBox.innerHTML = `<div class="sub" style="font-size:12px;">Sem execuções registradas ainda.</div>`; return; }
+        const srcLabel = { time: "agendada", sun: "sol", state: "sensor", manual: "manual" };
+        logBox.innerHTML = entries.map(e => {
+          const cls = e.skipped ? "skip" : (e.ok ? "ok" : "bad");
+          const when = new Date(e.t).toLocaleString("pt-BR");
+          let txt = e.skipped ? "ignorada (condição)" : (e.ok ? "ok" : "falhou");
+          if (!e.skipped && e.nTotal) txt += ` · ${e.nOk}/${e.nTotal} ações`;
+          if (e.error) txt += ` · ${escapeHtml(String(e.error))}`;
+          const src = srcLabel[e.source] || e.source || "";
+          return `<div class="routine-log-row"><span class="rl-dot ${cls}"></span><span>${when} · ${txt}${src ? " · " + src : ""}</span></div>`;
+        }).join("");
+      });
       routinesList.appendChild(li);
     }
   }
@@ -6092,6 +6281,12 @@
   function showRoutineEditor(routine = null) {
     routineForm.reset();
     routineActionsList.innerHTML = "";
+    routineConditionsList.innerHTML = "";
+    // (Re)inicializa os selects do gatilho por estado.
+    populateCondEntities(routineStateEntity, routine && routine.trigger && routine.trigger.type === "state" ? routine.trigger.entityId : null);
+    populateCondOps(routineStateOp, routine && routine.trigger && routine.trigger.type === "state" ? routine.trigger.op : "gt");
+    routineStateValue.value = "";
+    bindCondHint(routineStateEntity, routineStateValue);
     routineForm.hidden = false;
 
     if (routine) {
@@ -6107,12 +6302,19 @@
         routineTriggerType.value = tr.event === "sunset" ? "sunset" : "sunrise";
         routineSunOffset.value = Number(tr.offsetMin) || 0;
         setSelectedDays(tr.days);
+      } else if (tr && tr.type === "state") {
+        routineTriggerType.value = "state";
+        routineStateValue.value = tr.value != null ? tr.value : "";
+        setSelectedDays([]);
       } else {
         routineTriggerType.value = "none";
         setSelectedDays([]);
       }
       applyTriggerType();
 
+      if (Array.isArray(routine.conditions)) {
+        for (const c of routine.conditions) addConditionRow(c);
+      }
       if (Array.isArray(routine.actions)) {
         for (const action of routine.actions) addRoutineActionRow(action);
       }
@@ -6130,7 +6332,7 @@
 
   // Presets por domínio. "value" indica que a ação pede um número (com unidade/limites).
   const ACTION_OPTIONS = {
-    light:        [{ v: "on", t: "Ligar" }, { v: "off", t: "Desligar" }, { v: "brightness", t: "Brilho…", value: { min: 0, max: 100, step: 5, unit: "%", def: 60 } }],
+    light:        [{ v: "on", t: "Ligar" }, { v: "off", t: "Desligar" }, { v: "brightness", t: "Brilho…", value: { min: 0, max: 100, step: 5, unit: "%", def: 60 } }, { v: "color", t: "Cor…", color: true }],
     switch:       [{ v: "on", t: "Ligar" }, { v: "off", t: "Desligar" }],
     fan:          [{ v: "on", t: "Ligar" }, { v: "off", t: "Desligar" }],
     humidifier:   [{ v: "on", t: "Ligar" }, { v: "off", t: "Desligar" }],
@@ -6212,6 +6414,12 @@
     valueInput.type = "number";
     valueInput.hidden = true;
 
+    const colorInput = document.createElement("input");
+    colorInput.className = "ra-color";
+    colorInput.type = "color";
+    colorInput.value = "#ffaa33";
+    colorInput.hidden = true;
+
     const refreshPresets = () => {
       const opts = actionOptionsFor(selectEntity.value);
       const keep = selectPreset.value;
@@ -6228,6 +6436,8 @@
     const refreshValue = () => {
       const opts = actionOptionsFor(selectEntity.value);
       const chosen = opts.find(o => o.v === selectPreset.value);
+      const isColor = !!(chosen && chosen.color);
+      colorInput.hidden = !isColor;
       if (chosen && chosen.value) {
         valueInput.hidden = false;
         valueInput.min = chosen.value.min; valueInput.max = chosen.value.max;
@@ -6250,6 +6460,7 @@
     li.appendChild(selectEntity);
     li.appendChild(selectPreset);
     li.appendChild(valueInput);
+    li.appendChild(colorInput);
     li.appendChild(removeBtn);
     routineActionsList.appendChild(li);
 
@@ -6257,6 +6468,7 @@
     refreshPresets();
     if (actionData && actionData.preset) { selectPreset.value = actionData.preset; refreshValue(); }
     if (actionData && actionData.value != null) valueInput.value = actionData.value;
+    if (actionData && actionData.color) colorInput.value = actionData.color;
   }
 
   document.addEventListener("keydown", (e) => {

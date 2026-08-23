@@ -360,6 +360,8 @@ app.put("/api/state", authRequired, (req, res) => {
 const HA_DOMAINS = new Set([
   "light", "switch", "climate", "fan", "cover", "media_player",
   "binary_sensor", "sensor", "lock", "vacuum", "humidifier", "camera", "weather",
+  // Sem serviço de acionamento, mas úteis como condição/gatilho por estado:
+  "sun", "person", "device_tracker",
 ]);
 
 // One-time migration: seed the env values into any user that has no config yet.
@@ -1078,8 +1080,58 @@ const ACTION_PRESETS = {
   },
 };
 
-// Resolve uma ação (entity + preset [+ value]) para { domain, service, data }.
-// Além de on/off (tabela acima), suporta ações com valor: brilho da luz,
+// Compara o estado atual (string do HA) com um valor, por operador.
+// Numéricos: gt/lt/ge/le/eq/ne. Texto: is/is_not (case-insensitive).
+function compareOp(cur, op, val) {
+  if (cur == null) return false;
+  const a = Number(cur), b = Number(val);
+  const numeric = Number.isFinite(a) && Number.isFinite(b);
+  switch (op) {
+    case "gt": return numeric && a > b;
+    case "lt": return numeric && a < b;
+    case "ge": return numeric && a >= b;
+    case "le": return numeric && a <= b;
+    case "eq": return numeric ? a === b : String(cur) === String(val);
+    case "ne": return numeric ? a !== b : String(cur) !== String(val);
+    case "is": return String(cur).toLowerCase() === String(val).toLowerCase();
+    case "is_not": return String(cur).toLowerCase() !== String(val).toLowerCase();
+    default: return false;
+  }
+}
+function hexToRgb(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+// Carrega todos os estados do HA num Map (entity_id -> estado). Usado por
+// gatilhos por estado e por condições.
+async function loadStatesMap(u) {
+  try {
+    const r = await haFetch(u, "/api/states");
+    if (!r.ok) return null;
+    const arr = await r.json();
+    const m = new Map();
+    for (const e of arr) m.set(e.entity_id, e);
+    return m;
+  } catch { return null; }
+}
+// Avalia as condições (AND) de uma rotina. Vazio = sempre ok.
+async function evalConditions(u, conditions, statesMap) {
+  if (!Array.isArray(conditions) || !conditions.length) return { ok: true };
+  const map = statesMap || await loadStatesMap(u);
+  if (!map) return { ok: false, reason: "estados do HA indisponíveis" };
+  for (const c of conditions) {
+    if (!c || !c.entityId) continue;
+    const e = map.get(c.entityId);
+    if (!compareOp(e ? e.state : null, c.op, c.value))
+      return { ok: false, reason: `condição não satisfeita (${c.entityId})` };
+  }
+  return { ok: true };
+}
+
+// Resolve uma ação (entity + preset [+ value/color]) para { domain, service, data }.
+// Além de on/off (tabela acima), suporta ações com valor: brilho e cor da luz,
 // temperatura do climate e volume do media_player.
 function resolveAction(action) {
   const entityId = action.entityId || "";
@@ -1088,6 +1140,10 @@ function resolveAction(action) {
   const val = Number(action.value);
   if (preset === "brightness" && domain === "light" && Number.isFinite(val))
     return { domain: "light", service: "turn_on", data: { brightness_pct: Math.max(0, Math.min(100, Math.round(val))) } };
+  if (preset === "color" && domain === "light") {
+    const rgb = hexToRgb(action.color);
+    if (rgb) return { domain: "light", service: "turn_on", data: { rgb_color: rgb } };
+  }
   if (preset === "temperature" && domain === "climate" && Number.isFinite(val))
     return { domain: "climate", service: "set_temperature", data: { temperature: val } };
   if (preset === "volume" && domain === "media_player" && Number.isFinite(val))
@@ -1097,8 +1153,45 @@ function resolveAction(action) {
   return null;
 }
 
-async function runRoutineFor(u, routine) {
+// ===== Log de execução das rotinas =====
+const ROUTINE_LOG = HEALTH_DIR ? HEALTH_DIR + "/routine-log.jsonl" : null;
+const ROUTINE_LOG_MAX = 5000;
+let routineLogAppends = 0;
+function appendRoutineLog(entry) {
+  if (!ROUTINE_LOG) return;
+  try {
+    fs.appendFileSync(ROUTINE_LOG, JSON.stringify(entry) + "\n");
+    if (++routineLogAppends % 50 === 0) {
+      const lines = fs.readFileSync(ROUTINE_LOG, "utf8").split("\n").filter(Boolean);
+      if (lines.length > ROUTINE_LOG_MAX) fs.writeFileSync(ROUTINE_LOG, lines.slice(-ROUTINE_LOG_MAX).join("\n") + "\n");
+    }
+  } catch {}
+}
+function readRoutineLog(uid, rid, limit) {
+  if (!ROUTINE_LOG) return [];
+  const out = [];
+  try {
+    const lines = fs.readFileSync(ROUTINE_LOG, "utf8").split("\n");
+    for (let i = lines.length - 1; i >= 0 && out.length < limit; i--) {
+      if (!lines[i]) continue;
+      let row; try { row = JSON.parse(lines[i]); } catch { continue; }
+      if (row && row.uid === uid && row.rid === rid) out.push(row);
+    }
+  } catch {}
+  return out; // mais recente primeiro
+}
+
+async function runRoutineFor(u, routine, opts = {}) {
   if (!userHaEnabled(u)) throw new Error("HA não configurado");
+  const source = opts.source || "manual";
+  // Condições (só executa SE…) — aplicadas só em execuções automáticas.
+  if (opts.checkConditions && Array.isArray(routine.conditions) && routine.conditions.length) {
+    const cond = await evalConditions(u, routine.conditions, opts.statesMap);
+    if (!cond.ok) {
+      appendRoutineLog({ t: Date.now(), uid: u.id, rid: routine.id, ok: false, skipped: true, source, reason: cond.reason });
+      return { skipped: true, reason: cond.reason, results: [] };
+    }
+  }
   const results = [];
   for (const action of (routine.actions || [])) {
     const entityId = action.entityId;
@@ -1114,13 +1207,20 @@ async function runRoutineFor(u, routine) {
       results.push({ entityId, ok: false, error: String(e.message || e) });
     }
   }
+  const nTotal = results.length;
+  const nOk = results.filter(r => r.ok).length;
+  const allOk = nTotal === 0 ? true : nOk === nTotal;
+  appendRoutineLog({
+    t: Date.now(), uid: u.id, rid: routine.id, ok: allOk, source, nOk, nTotal,
+    error: allOk ? undefined : (results.find(r => !r.ok) || {}).error || "falha em alguma ação",
+  });
   // Stamp lastRunAt in user state
   const st = loadUserState(u);
   if (Array.isArray(st.routines)) {
     const r = st.routines.find(x => x.id === routine.id);
     if (r) { r.lastRunAt = new Date().toISOString(); saveUserState(u.id, st); }
   }
-  return results;
+  return { skipped: false, results };
 }
 
 app.post("/api/routines/:id/run", authRequired, async (req, res) => {
@@ -1128,11 +1228,17 @@ app.post("/api/routines/:id/run", authRequired, async (req, res) => {
   const routine = (st.routines || []).find(r => r.id === req.params.id);
   if (!routine) return res.status(404).json({ error: "rotina não encontrada" });
   try {
-    const results = await runRoutineFor(req.user, routine);
-    res.json({ ok: true, results });
+    // Execução manual ignora condições (o usuário pediu explicitamente).
+    const out = await runRoutineFor(req.user, routine, { source: "manual", checkConditions: false });
+    res.json({ ok: true, skipped: out.skipped, results: out.results });
   } catch (e) {
     res.status(502).json({ error: String(e.message || e) });
   }
+});
+
+app.get("/api/routines/:id/log", authRequired, (req, res) => {
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 15));
+  res.json({ entries: readRoutineLog(req.user.id, String(req.params.id), limit) });
 });
 
 // Scheduler — a cada minuto, checa rotinas com gatilho de horário OU de sol.
@@ -1149,6 +1255,8 @@ async function loadSun(u) {
     return (s && s.attributes) ? s.attributes : null; // { next_rising, next_setting, ... }
   } catch { return null; }
 }
+// Estado anterior de cada gatilho por estado, p/ disparar só na borda de subida.
+const stateEdge = new Map(); // `${userId}:${routineId}` -> bool
 async function tickScheduler() {
   const now = new Date();
   const nowMin = Math.floor(now.getTime() / 60000);
@@ -1158,11 +1266,18 @@ async function tickScheduler() {
     const st = loadUserState(u);
     const routines = Array.isArray(st.routines) ? st.routines : [];
     let sun; // carregado sob demanda (só se houver rotina de sol)
-    const fire = (r, marker) => {
+    // Estados do HA: carregados uma vez por usuário, só se houver gatilho por
+    // estado ou condições a avaliar.
+    let statesMap = null;
+    const needStates = routines.some(r => r && r.enabled !== false &&
+      ((r.trigger && r.trigger.type === "state") || (Array.isArray(r.conditions) && r.conditions.length)));
+    if (needStates) statesMap = await loadStatesMap(u);
+    const fire = (r, marker, source) => {
       const key = `${u.id}:${r.id}`;
       if (lastFiredKey.get(key) === marker) return;
       lastFiredKey.set(key, marker);
-      runRoutineFor(u, r).catch(err => console.error(`Routine ${r.id} for user ${u.id} failed:`, err));
+      runRoutineFor(u, r, { source, checkConditions: true, statesMap })
+        .catch(err => console.error(`Routine ${r.id} for user ${u.id} failed:`, err));
     };
     for (const r of routines) {
       if (!r || r.enabled === false || !r.trigger) continue;
@@ -1170,7 +1285,7 @@ async function tickScheduler() {
       if (tr.type === "time") {
         if (tr.time !== hhmm) continue;
         if (dayBlocked(tr.days, now.getDay())) continue;
-        fire(r, hhmm);
+        fire(r, hhmm, "time");
       } else if (tr.type === "sun") {
         if (sun === undefined) sun = await loadSun(u);
         if (!sun) continue;
@@ -1179,7 +1294,19 @@ async function tickScheduler() {
         const target = new Date(iso).getTime() + (Number(tr.offsetMin) || 0) * 60000;
         if (!Number.isFinite(target) || Math.floor(target / 60000) !== nowMin) continue;
         if (dayBlocked(tr.days, new Date(target).getDay())) continue;
-        fire(r, "sun:" + Math.floor(target / 60000));
+        fire(r, "sun:" + Math.floor(target / 60000), "sun");
+      } else if (tr.type === "state") {
+        if (!statesMap || !tr.entityId) continue;
+        const key = `${u.id}:${r.id}`;
+        const e = statesMap.get(tr.entityId);
+        const active = compareOp(e ? e.state : null, tr.op, tr.value);
+        const prev = stateEdge.get(key);
+        stateEdge.set(key, active);
+        if (prev === undefined) continue;          // 1ª leitura: só estabelece baseline
+        if (active && !prev) {                       // borda de subida
+          if (dayBlocked(tr.days, now.getDay())) continue;
+          fire(r, "state:" + Math.floor(now.getTime() / 1000), "state");
+        }
       }
     }
   }
