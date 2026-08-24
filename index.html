@@ -248,6 +248,38 @@
   .health-bar.warm > span { background: #d99a2b; }
   .health-bar.hot > span { background: var(--danger, #d33); }
 
+  /* Config de alertas */
+  .alert-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+  .alert-row:first-child { border-top: none; }
+  .alert-row .ar-name { flex: 1; min-width: 0; font-size: 13px; }
+  .alert-row .ar-name .sub { font-size: 11px; }
+  .alert-row input[type="number"], .alert-row input[type="time"] {
+    width: 74px; border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+    border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13px;
+  }
+  .alert-row input[type="time"] { width: 110px; }
+  .alert-row label.sw { position: relative; display: inline-block; width: 40px; height: 22px; flex: none; }
+  .alert-row label.sw input { display: none; }
+  .alert-row label.sw .tk { position: absolute; inset: 0; background: rgba(127,127,127,.3); border-radius: 999px; transition: .2s; }
+  .alert-row label.sw .tk::before { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+  .alert-row label.sw input:checked + .tk { background: var(--accent); }
+  .alert-row label.sw input:checked + .tk::before { transform: translateX(18px); }
+
+  /* Widget de status do servidor no mapa */
+  #map-server-widget {
+    position: absolute; left: 12px; bottom: 12px; z-index: 6;
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--paper);
+    color: var(--ink); box-shadow: var(--shadow); cursor: pointer;
+    font-size: 12px; font-variant-numeric: tabular-nums; max-width: 70vw;
+  }
+  #map-server-widget[hidden] { display: none; }
+  #map-server-widget .msw-ic { color: var(--accent); display: grid; place-items: center; }
+  #map-server-widget .msw-item { white-space: nowrap; color: var(--muted); }
+  #map-server-widget .msw-item b { color: var(--ink); font-weight: 700; }
+  #map-server-widget .msw-item.warn b { color: #d99a2b; }
+  #map-server-widget .msw-item.bad b { color: var(--danger, #d33); }
+
   /* Histórico de saúde (sparklines) */
   .health-hist-head { display: flex; align-items: center; justify-content: space-between; margin: 16px 0 8px; }
   .hh-title { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; }
@@ -2370,6 +2402,7 @@
 
   <div id="map-wrap">
     <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    <button id="map-server-widget" type="button" title="Ver página do Servidor" hidden></button>
     <div class="hint" id="hint">
       Clique em <b>+ Cômodo</b> para adicionar. Arraste para mover, use o canto inferior direito para redimensionar. Clique num cômodo para editar.
     </div>
@@ -2641,6 +2674,14 @@
         <div id="health-history"><div class="sub">Carregando…</div></div>
       </div>
 
+      <div class="profile-card" id="netlive-card">
+        <div class="health-hist-head" style="margin-top:0;">
+          <span class="hh-title">Rede ao vivo</span>
+          <span class="sub" id="netlive-now"></span>
+        </div>
+        <div id="netlive-body"><div class="sub">Aguardando dados…</div></div>
+      </div>
+
       <div class="profile-card" id="push-card" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
         <div style="min-width:0;">
           <div style="font-weight:600;">Notificações no celular</div>
@@ -2655,6 +2696,14 @@
           <button id="speedtest-run" class="ghost" type="button" style="font-size:12px; padding:4px 10px;">Testar agora</button>
         </div>
         <div id="speedtest-body"><div class="sub">Carregando…</div></div>
+      </div>
+
+      <div class="profile-card" id="alerts-card">
+        <div class="health-hist-head" style="margin-top:0;">
+          <span class="hh-title">Alertas</span>
+          <button id="alerts-save" class="ghost" type="button" style="font-size:12px; padding:4px 10px;">Salvar</button>
+        </div>
+        <div id="alerts-body"><div class="sub">Carregando…</div></div>
       </div>
 
       <div class="profile-card" id="docker-card" hidden>
@@ -7007,11 +7056,13 @@
     el.innerHTML = rows.join("");
   }
   function renderServerPage() {
+    netLiveDown = []; netLiveUp = []; // zera buffers da rede ao vivo
     renderServerLive();       // primeiro quadro imediato
     renderHealthHistory();
     renderServerInfo();
     renderSpeedtest();
     renderDocker();
+    renderAlertsConfig();
     refreshPushUI();
     startHealthStream();       // ao vivo (empurrado pelo servidor)
     // Histórico/sparklines mudam devagar — atualiza num ritmo mais folgado.
@@ -7019,6 +7070,100 @@
       if (currentView === "server") renderHealthHistory();
     }, 30000);
   }
+
+  // ===== Rede ao vivo (alimentada pelo SSE, download/upload separados) =====
+  let netLiveDown = [], netLiveUp = [];
+  const NET_LIVE_MAX = 90; // ~3 min a 2s
+  function applyLiveNet(d) {
+    if (!d || !d.net) return;
+    netLiveDown.push(Math.round((d.net.rxBps || 0) / 1024));
+    netLiveUp.push(Math.round((d.net.txBps || 0) / 1024));
+    if (netLiveDown.length > NET_LIVE_MAX) netLiveDown = netLiveDown.slice(-NET_LIVE_MAX);
+    if (netLiveUp.length > NET_LIVE_MAX) netLiveUp = netLiveUp.slice(-NET_LIVE_MAX);
+    if (currentView === "server") drawLiveNet();
+  }
+  function drawLiveNet() {
+    const body = document.getElementById("netlive-body");
+    const now = document.getElementById("netlive-now");
+    if (!body) return;
+    if (netLiveDown.length < 2) { body.innerHTML = `<div class="sub">Aguardando dados…</div>`; if (now) now.textContent = ""; return; }
+    const curD = netLiveDown[netLiveDown.length - 1], curU = netLiveUp[netLiveUp.length - 1];
+    const fmt = kb => kb >= 1024 ? (kb / 1024).toFixed(1) + " MB/s" : kb + " KB/s";
+    const row = (label, vals, color, cur) => `<div class="health-spark">
+      <div class="hs-info"><div class="hs-label">${label}</div><div class="hs-now" style="color:${color}">${fmt(cur)}</div></div>
+      <div class="hs-chart">${sparklineSvg(vals, color)}</div>
+      <div class="hs-range"><div>máx <b>${fmt(Math.max(...vals))}</b></div></div>
+    </div>`;
+    body.innerHTML = row("↓ Download", netLiveDown, "#3aa0c9", curD) + row("↑ Upload", netLiveUp, "#8a63d2", curU);
+    if (now) now.textContent = `↓ ${fmt(curD)} · ↑ ${fmt(curU)}`;
+  }
+
+  // ===== Config de alertas =====
+  async function renderAlertsConfig() {
+    const body = document.getElementById("alerts-body");
+    if (!body) return;
+    let cfg = null;
+    try { const r = await api("GET", "/alerts/config"); if (r.ok) cfg = r.data; } catch {}
+    if (!cfg) { body.innerHTML = `<div class="sub">Indisponível.</div>`; return; }
+    const sw = (key, on) => `<label class="sw"><input type="checkbox" data-alert="${key}" ${on ? "checked" : ""}><span class="tk"></span></label>`;
+    const meter = (key, name, desc, unit) => `<div class="alert-row">
+      <div class="ar-name">${name}<div class="sub">${desc}</div></div>
+      <input type="number" data-alert-hi="${key}" value="${cfg[key].hi}" min="1" max="100" style="${cfg[key].enabled ? "" : "opacity:.5"}"><span class="sub">${unit}</span>
+      ${sw(key, cfg[key].enabled)}
+    </div>`;
+    body.innerHTML =
+      meter("disk", "Disco cheio", "avisa ao passar de", "%") +
+      meter("temp", "Temperatura alta", "avisa ao passar de", "°C") +
+      meter("mem", "Memória alta", "avisa ao passar de", "%") +
+      `<div class="alert-row"><div class="ar-name">Queda de energia<div class="sub">quando rodar na bateria</div></div>${sw("power", cfg.power.enabled)}</div>` +
+      `<div class="alert-row"><div class="ar-name">Resumo diário<div class="sub">push com o status do servidor</div></div>
+        <input type="time" data-alert-time="daily" value="${cfg.daily.time || "08:00"}" style="${cfg.daily.enabled ? "" : "opacity:.5"}">${sw("daily", cfg.daily.enabled)}</div>`;
+  }
+  document.getElementById("alerts-save")?.addEventListener("click", async () => {
+    const body = document.getElementById("alerts-body");
+    if (!body) return;
+    const on = k => { const el = body.querySelector(`input[data-alert="${k}"]`); return el ? el.checked : false; };
+    const hi = k => { const el = body.querySelector(`input[data-alert-hi="${k}"]`); return el ? parseInt(el.value, 10) : undefined; };
+    const timeEl = body.querySelector(`input[data-alert-time="daily"]`);
+    const payload = {
+      disk: { enabled: on("disk"), hi: hi("disk") },
+      temp: { enabled: on("temp"), hi: hi("temp") },
+      mem: { enabled: on("mem"), hi: hi("mem") },
+      power: { enabled: on("power") },
+      daily: { enabled: on("daily"), time: timeEl ? timeEl.value : "08:00" },
+    };
+    const r = await api("PUT", "/alerts/config", payload);
+    if (r.ok) { showToast("Alertas salvos", "info"); renderAlertsConfig(); }
+    else showToast((r.data && r.data.error) || "Erro ao salvar", "error");
+  });
+
+  // ===== Widget de status do servidor no mapa =====
+  let mapWidgetTimer = null;
+  async function updateMapServerWidget() {
+    const el = document.getElementById("map-server-widget");
+    if (!el) return;
+    let d = null;
+    try { const r = await api("GET", "/system/health"); if (r.ok) d = r.data; } catch {}
+    if (!d) { el.hidden = true; return; }
+    const items = [`<span class="msw-ic">${svgIcon("server", 15)}</span>`];
+    if (d.uptimeSec != null) items.push(`<span class="msw-item">no ar <b>${fmtUptime(d.uptimeSec)}</b></span>`);
+    if (typeof d.cpuPct === "number") { const c = d.cpuPct >= 90 ? "bad" : d.cpuPct >= 75 ? "warn" : ""; items.push(`<span class="msw-item ${c}">CPU <b>${d.cpuPct}%</b></span>`); }
+    if (typeof d.tempC === "number") { const c = d.tempC >= 82 ? "bad" : d.tempC >= 70 ? "warn" : ""; items.push(`<span class="msw-item ${c}"><b>${d.tempC}°C</b></span>`); }
+    if (d.disk) { const c = d.disk.pct >= 90 ? "bad" : d.disk.pct >= 80 ? "warn" : ""; items.push(`<span class="msw-item ${c}">disco <b>${d.disk.pct}%</b></span>`); }
+    if (d.battery && d.battery.present && d.battery.acOnline === false) items.push(`<span class="msw-item bad">⚡ ${d.battery.percent != null ? d.battery.percent + "%" : "bateria"}</span>`);
+    el.innerHTML = items.join("");
+    el.hidden = false;
+  }
+  function startMapWidget() {
+    updateMapServerWidget();
+    if (!mapWidgetTimer) mapWidgetTimer = setInterval(() => { if (currentView === "map") updateMapServerWidget(); }, 15000);
+  }
+  function stopMapWidget() {
+    const el = document.getElementById("map-server-widget");
+    if (el) el.hidden = true;
+    if (mapWidgetTimer) { clearInterval(mapWidgetTimer); mapWidgetTimer = null; }
+  }
+  document.getElementById("map-server-widget")?.addEventListener("click", () => setView("server"));
 
   // Live em tempo real via Server-Sent Events: o servidor empurra a saúde a
   // cada ~2s numa única conexão, em vez de o cliente ficar consultando.
@@ -7029,7 +7174,7 @@
       try {
         healthES = new EventSource("/api/system/health/stream", { withCredentials: true });
         healthES.onmessage = (ev) => {
-          try { const d = JSON.parse(ev.data); applyServerLive(d); applyLiveHistory(d); } catch {}
+          try { const d = JSON.parse(ev.data); applyServerLive(d); applyLiveHistory(d); applyLiveNet(d); } catch {}
         };
         return;
       } catch {}
@@ -7039,7 +7184,7 @@
       if (currentView !== "server") return;
       let d = null;
       try { const r = await api("GET", "/system/health"); if (r.ok) d = r.data; } catch {}
-      applyServerLive(d); applyLiveHistory(d);
+      applyServerLive(d); applyLiveHistory(d); applyLiveNet(d);
     }, 3000);
   }
   function stopHealthStream() {
@@ -7164,11 +7309,25 @@
         <span style="width:9px; height:9px; border-radius:50%; background:${dot}; flex:0 0 auto;"></span>
         <div style="flex:1; min-width:0;">
           <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(c.name)}</div>
-          <div class="sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(c.status || c.state || "")}</div>
+          <div class="sub" data-stat-id="${escapeHtml(c.id)}" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(c.status || c.state || "")}</div>
         </div>
         <button class="ghost docker-restart" data-id="${escapeHtml(c.id)}" data-name="${escapeHtml(c.name)}" type="button" style="font-size:12px; padding:4px 10px; flex:0 0 auto;">Reiniciar</button>
       </div>`;
     }).join("");
+    // Uso de CPU/RAM por container (chamada mais lenta — preenche depois).
+    try {
+      const sr = await api("GET", "/docker/stats");
+      if (sr.ok && sr.data && Array.isArray(sr.data.stats)) {
+        for (const s of sr.data.stats) {
+          const el = body.querySelector(`[data-stat-id="${s.id}"]`);
+          if (!el) continue;
+          const parts = [];
+          if (s.cpuPct != null) parts.push(`CPU ${s.cpuPct}%`);
+          if (s.memUsed != null) parts.push(`RAM ${fmtBytes(s.memUsed)}${s.memPct != null ? ` (${s.memPct}%)` : ""}`);
+          if (parts.length) el.textContent = parts.join(" · ");
+        }
+      }
+    } catch {}
   }
   document.getElementById("docker-body")?.addEventListener("click", async (e) => {
     const btn = e.target.closest(".docker-restart");
@@ -7633,6 +7792,7 @@
     currentView = KNOWN_VIEWS.has(v) ? v : "map";
     localStorage.setItem(VIEW_KEY, currentView);
     if (currentView !== "server") stopHealthStream();
+    if (currentView === "map") startMapWidget(); else stopMapWidget();
     appShell.classList.toggle("view-grocery", currentView === "grocery");
     appShell.classList.toggle("view-profile", currentView === "profile");
     appShell.classList.toggle("view-routines", currentView === "routines");

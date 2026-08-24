@@ -580,6 +580,26 @@ app.get("/api/system/health/stream", authRequired, (req, res) => {
   req.on("close", () => { clearInterval(iv); clearInterval(ka); });
 });
 
+// Configuração dos alertas (limiares + resumo diário).
+app.get("/api/alerts/config", authRequired, (req, res) => res.json(alertConfig));
+app.put("/api/alerts/config", authRequired, (req, res) => {
+  const b = req.body || {};
+  const clampInt = (v, min, max, def) => { const n = parseInt(v, 10); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def; };
+  for (const k of ["disk", "temp", "mem"]) {
+    if (b[k]) {
+      alertConfig[k].enabled = !!b[k].enabled;
+      if (b[k].hi != null) alertConfig[k].hi = clampInt(b[k].hi, k === "temp" ? 40 : 10, k === "temp" ? 100 : 99, alertConfig[k].hi);
+    }
+  }
+  if (b.power) alertConfig.power.enabled = !!b.power.enabled;
+  if (b.daily) {
+    alertConfig.daily.enabled = !!b.daily.enabled;
+    if (typeof b.daily.time === "string" && /^\d{2}:\d{2}$/.test(b.daily.time)) alertConfig.daily.time = b.daily.time;
+  }
+  saveAlertConfig();
+  res.json(alertConfig);
+});
+
 // Info estática do host (lida uma vez pelo cliente).
 app.get("/api/system/info", authRequired, (req, res) => {
   const os = require("os");
@@ -596,34 +616,59 @@ app.get("/api/system/info", authRequired, (req, res) => {
 // ===== Alertas proativos (Web Push) =====
 // Dispara quando uma métrica cruza o limite (edge-triggered, com histerese pra
 // não spammar). Enviados a TODOS os dispositivos inscritos (é um alerta do
-// servidor da casa, não de um usuário específico).
-const ALERT_RULES = [
-  { key: "disk", get: h => h.disk ? h.disk.pct : null, hi: 85, lo: 80, title: "💾 Disco quase cheio", msg: v => `Disco em ${v}% no servidor` },
-  { key: "temp", get: h => typeof h.tempC === "number" ? h.tempC : null, hi: 75, lo: 68, title: "🔥 Servidor quente", msg: v => `CPU a ${v}°C no servidor` },
-  { key: "mem",  get: h => h.mem ? h.mem.pct : null, hi: 90, lo: 85, title: "🧠 Memória alta", msg: v => `RAM em ${v}% no servidor` },
+// servidor da casa, não de um usuário específico). Limiares configuráveis pela
+// UI e persistidos em alert-config.json.
+const ALERT_CONFIG_FILE = PUSH_DIR + "/alert-config.json";
+const ALERT_DEFAULTS = {
+  disk:  { enabled: true,  hi: 85 },
+  temp:  { enabled: true,  hi: 75 },
+  mem:   { enabled: true,  hi: 90 },
+  power: { enabled: true },
+  daily: { enabled: false, time: "08:00" },
+};
+const ALERT_MARGIN = { disk: 5, temp: 7, mem: 5 }; // histerese (rearma abaixo de hi - margem)
+function loadAlertConfig() {
+  const cfg = JSON.parse(JSON.stringify(ALERT_DEFAULTS));
+  try {
+    const saved = JSON.parse(fs.readFileSync(ALERT_CONFIG_FILE, "utf8"));
+    for (const k of Object.keys(cfg)) if (saved[k]) cfg[k] = { ...cfg[k], ...saved[k] };
+  } catch {}
+  return cfg;
+}
+let alertConfig = loadAlertConfig();
+function saveAlertConfig() { try { fs.writeFileSync(ALERT_CONFIG_FILE, JSON.stringify(alertConfig)); } catch {} }
+
+const ALERT_METERS = [
+  { key: "disk", get: h => h.disk ? h.disk.pct : null, title: "💾 Disco quase cheio", msg: v => `Disco em ${v}% no servidor` },
+  { key: "temp", get: h => typeof h.tempC === "number" ? h.tempC : null, title: "🔥 Servidor quente", msg: v => `CPU a ${v}°C no servidor` },
+  { key: "mem",  get: h => h.mem ? h.mem.pct : null, title: "🧠 Memória alta", msg: v => `RAM em ${v}% no servidor` },
 ];
 const alertActive = Object.create(null); // key -> bool (está acima do limite?)
 let powerAlertActive = false;
 function checkServerAlerts(h) {
-  for (const rule of ALERT_RULES) {
+  for (const rule of ALERT_METERS) {
+    const cfg = alertConfig[rule.key] || {};
+    if (!cfg.enabled) { alertActive[rule.key] = false; continue; }
     const v = rule.get(h);
     if (v == null) continue;
-    if (!alertActive[rule.key] && v >= rule.hi) {
+    const hi = Number(cfg.hi), lo = hi - (ALERT_MARGIN[rule.key] || 5);
+    if (!alertActive[rule.key] && v >= hi) {
       alertActive[rule.key] = true;
       sendPushToAll({ title: rule.title, body: rule.msg(v), tag: "homeos-" + rule.key, url: "/" }).catch(() => {});
-    } else if (alertActive[rule.key] && v <= rule.lo) {
+    } else if (alertActive[rule.key] && v <= lo) {
       alertActive[rule.key] = false;
     }
   }
   // Queda de energia (notebook rodando na bateria).
   const onBatt = !!(h.battery && h.battery.present && h.battery.acOnline === false);
-  if (onBatt && !powerAlertActive) {
+  const powerOn = (alertConfig.power || {}).enabled;
+  if (powerOn && onBatt && !powerAlertActive) {
     powerAlertActive = true;
     const pct = (h.battery && typeof h.battery.percent === "number") ? ` (${h.battery.percent}%)` : "";
     sendPushToAll({ title: "⚡ Queda de energia", body: `Servidor rodando na bateria${pct}`, tag: "homeos-power", url: "/" }).catch(() => {});
   } else if (!onBatt && powerAlertActive && h.battery && h.battery.acOnline === true) {
     powerAlertActive = false;
-    sendPushToAll({ title: "🔌 Energia restaurada", body: "Servidor de volta na tomada", tag: "homeos-power", url: "/" }).catch(() => {});
+    if (powerOn) sendPushToAll({ title: "🔌 Energia restaurada", body: "Servidor de volta na tomada", tag: "homeos-power", url: "/" }).catch(() => {});
   }
 }
 
@@ -863,6 +908,44 @@ app.post("/api/docker/containers/:id/restart", authRequired, async (req, res) =>
     const r = await dockerRequest("POST", `/containers/${encodeURIComponent(id)}/restart?t=10`);
     if (r.status === 204) return res.json({ ok: true });
     return res.status(502).json({ error: "docker respondeu " + r.status });
+  } catch (e) {
+    res.status(502).json({ error: String(e.message || e) });
+  }
+});
+
+// Uso de CPU/RAM por container (docker stats, uma leitura sem stream).
+async function dockerStatsOne(id) {
+  const r = await dockerRequest("GET", `/containers/${encodeURIComponent(id)}/stats?stream=false`);
+  if (r.status !== 200) return null;
+  let s; try { s = JSON.parse(r.body); } catch { return null; }
+  let cpuPct = null;
+  try {
+    const cpuDelta = s.cpu_stats.cpu_usage.total_usage - s.precpu_stats.cpu_usage.total_usage;
+    const sysDelta = s.cpu_stats.system_cpu_usage - s.precpu_stats.system_cpu_usage;
+    const ncpu = s.cpu_stats.online_cpus || (s.cpu_stats.cpu_usage.percpu_usage || []).length || 1;
+    if (sysDelta > 0 && cpuDelta >= 0) cpuPct = Math.round((cpuDelta / sysDelta) * ncpu * 1000) / 10;
+  } catch {}
+  let memUsed = null, memLimit = null, memPct = null;
+  try {
+    const st = s.memory_stats.stats || {};
+    const cache = st.cache != null ? st.cache : (st.inactive_file || 0);
+    memUsed = s.memory_stats.usage - cache;
+    memLimit = s.memory_stats.limit;
+    if (memLimit > 0) memPct = Math.round((memUsed / memLimit) * 100);
+  } catch {}
+  return { cpuPct, memUsed, memLimit, memPct };
+}
+app.get("/api/docker/stats", authRequired, async (req, res) => {
+  if (!dockerAvailable()) return res.json({ available: false, stats: [] });
+  try {
+    const r = await dockerRequest("GET", "/containers/json"); // só os em execução
+    if (r.status !== 200) return res.status(502).json({ error: "docker respondeu " + r.status });
+    const list = JSON.parse(r.body);
+    const stats = await Promise.all(list.map(async c => {
+      const st = await dockerStatsOne(c.Id).catch(() => null);
+      return { id: c.Id, name: ((c.Names && c.Names[0]) || "").replace(/^\//, ""), ...(st || {}) };
+    }));
+    res.json({ available: true, stats });
   } catch (e) {
     res.status(502).json({ error: String(e.message || e) });
   }
@@ -1273,12 +1356,71 @@ async function loadSun(u) {
     return (s && s.attributes) ? s.attributes : null; // { next_rising, next_setting, ... }
   } catch { return null; }
 }
+// ===== Resumo diário (Web Push) =====
+function fmtUptimeShort(s) {
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600);
+  return d > 0 ? `${d}d ${h}h` : `${h}h`;
+}
+// Consumo de energia de ONTEM (kWh), a partir dos sensores acumulados do HA.
+async function energyYesterdayKwh(u) {
+  const map = await loadStatesMap(u);
+  if (!map) return null;
+  const ids = [];
+  for (const [id, e] of map) {
+    const a = e.attributes || {};
+    if (a.device_class !== "energy" || a.unit_of_measurement !== "kWh") continue;
+    if (/difference|current|voltage|power|factor|today|daily|_day\b/.test(id)) continue;
+    if (/energy|consumption|_month|total|_kwh/.test(id)) ids.push(id);
+  }
+  if (!ids.length) return null;
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let total = 0, any = false;
+  for (const id of ids) {
+    try {
+      const suffix = `/api/history/period/${encodeURIComponent(start.toISOString())}`
+        + `?filter_entity_id=${encodeURIComponent(id)}&end_time=${encodeURIComponent(end.toISOString())}`
+        + `&minimal_response&no_attributes`;
+      const r = await haFetch(u, suffix);
+      if (!r.ok) continue;
+      const data = await r.json();
+      const series = Array.isArray(data) && Array.isArray(data[0]) ? data[0] : [];
+      const vals = series.map(p => Number(p.state)).filter(Number.isFinite);
+      if (vals.length >= 2) { const delta = vals[vals.length - 1] - vals[0]; if (delta > 0) { total += delta; any = true; } }
+    } catch {}
+  }
+  return any ? total : null;
+}
+let lastDailyDate = null;
+async function maybeSendDailySummary(now, hhmm) {
+  const cfg = alertConfig.daily || {};
+  if (!cfg.enabled || hhmm !== (cfg.time || "08:00")) return;
+  const dkey = now.toISOString().slice(0, 10);
+  if (lastDailyDate === dkey) return;
+  lastDailyDate = dkey;
+  const h = readSystemHealth();
+  const base = [];
+  if (h.uptimeSec != null) base.push("no ar há " + fmtUptimeShort(h.uptimeSec));
+  if (typeof h.tempC === "number") base.push(h.tempC + "°C");
+  if (h.disk) base.push("disco " + h.disk.pct + "%");
+  const baseTxt = base.join(" · ") || "Servidor ok";
+  for (const u of db.prepare("SELECT * FROM users").all()) {
+    let energyTxt = "";
+    if (u.ha_url && u.ha_token) {
+      try { const kwh = await energyYesterdayKwh(u); if (kwh != null) energyTxt = ` · ${kwh.toFixed(1)} kWh ontem`; } catch {}
+    }
+    sendPushToUser(u.id, { title: "☀️ Bom dia — resumo do servidor", body: baseTxt + energyTxt, tag: "homeos-daily", url: "/" }).catch(() => {});
+  }
+}
+
 // Estado anterior de cada gatilho por estado, p/ disparar só na borda de subida.
 const stateEdge = new Map(); // `${userId}:${routineId}` -> bool
 async function tickScheduler() {
   const now = new Date();
   const nowMin = Math.floor(now.getTime() / 60000);
   const hhmm = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+  await maybeSendDailySummary(now, hhmm).catch(() => {});
   const users = db.prepare("SELECT * FROM users WHERE ha_url <> '' AND ha_token <> ''").all();
   for (const u of users) {
     const st = loadUserState(u);
