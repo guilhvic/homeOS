@@ -2078,6 +2078,15 @@
     stroke: var(--accent);
     stroke-width: 2;
   }
+  /* Cômodos "vivos" — refletem o estado real dos aparelhos (não vale p/ selecionado) */
+  .room rect.body { transition: fill .5s ease, stroke .5s ease; }
+  .room:not(.selected).live-lit rect.body  { fill: color-mix(in srgb, var(--accent) 24%, var(--room)); stroke: color-mix(in srgb, var(--accent) 70%, var(--room-stroke)); }
+  .room:not(.selected).live-cool rect.body { fill: color-mix(in srgb, #4a90d9 24%, var(--room)); stroke: #4a90d9; }
+  .room:not(.selected).live-heat rect.body { fill: color-mix(in srgb, #e0894a 26%, var(--room)); stroke: #e0894a; }
+  .room:not(.selected).live-glow rect.body { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--accent) 65%, transparent)); }
+  .room:not(.selected).live-motion rect.body { animation: roomPulse 1.6s ease-in-out infinite; }
+  @keyframes roomPulse { 0%, 100% { stroke-opacity: 1; stroke-width: 1.5; } 50% { stroke-opacity: .3; stroke-width: 3.5; } }
+  @media (prefers-reduced-motion: reduce) { .room.live-motion rect.body { animation: none; } }
   .room text {
     fill: var(--ink);
     font-size: 22px;
@@ -3495,6 +3504,7 @@
       // re-render the affected bits without disturbing inputs/scroll
       renderDevicesPanel(currentRoom());
       renderRoomPins();
+      applyRoomLiveStates();
       renderEnergyPill();
       renderWeatherPill();
       setHaOnline(true);
@@ -3896,6 +3906,7 @@
       updateDetailMeta(selected);
     }
     renderRoomPins();
+    applyRoomLiveStates();
 
     if (state.rooms.length === 0) {
       status.textContent = "— monte o mapa da sua casa";
@@ -4872,6 +4883,39 @@
       x: pad + col * (pinW + 4),
       y: room.h - pad - lineH - row * lineH,
     };
+  }
+
+  // ===== Cômodos "vivos": o cômodo reflete no mapa o estado real dos aparelhos.
+  // Luz acesa = brilho quente; AC resfriando = tom azul; aquecendo = laranja;
+  // movimento = pulso. Recalculado a cada poll do HA.
+  const MOTION_CLASSES = ["motion", "occupancy", "presence", "moving"];
+  function roomLiveFlags(room) {
+    let lit = false, cool = false, heat = false, motion = false;
+    for (const dev of (room.devices || [])) {
+      const id = devId(dev); if (!id) continue;
+      const e = haEntities.get(id); if (!e) continue;
+      const dom = entityDomain(id), st = e.state, a = e.attributes || {};
+      if (dom === "light" && st === "on") lit = true;
+      else if (dom === "climate") {
+        const act = a.hvac_action;
+        if (act === "cooling" || st === "cool") cool = true;
+        else if (act === "heating" || st === "heat") heat = true;
+      } else if (dom === "binary_sensor" && st === "on" && MOTION_CLASSES.includes(a.device_class)) motion = true;
+    }
+    return { lit, cool, heat, motion };
+  }
+  function applyRoomLiveStates() {
+    if (!state || !haEnabled) return;
+    for (const room of state.rooms) {
+      const g = svg.querySelector(`g.room[data-id="${room.id}"]`);
+      if (!g) continue;
+      const f = roomLiveFlags(room);
+      g.classList.remove("live-lit", "live-cool", "live-heat", "live-glow", "live-motion");
+      const tint = f.cool ? "live-cool" : f.heat ? "live-heat" : f.lit ? "live-lit" : null;
+      if (tint) g.classList.add(tint);
+      if (f.lit) g.classList.add("live-glow");
+      if (f.motion) g.classList.add("live-motion");
+    }
   }
 
   function renderRoomPins() {
