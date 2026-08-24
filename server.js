@@ -956,6 +956,7 @@ const SPEED_LOG = HEALTH_DIR ? HEALTH_DIR + "/speedtest-log.jsonl" : null;
 const SPEED_LOG_MAX = 4000;
 const SPEED_INTERVAL_MS = 6 * 3600 * 1000; // a cada 6h
 const SPEED_BYTES = 25 * 1000 * 1000;      // baixa ~25 MB por medição
+const SPEED_UP_BYTES = 10 * 1000 * 1000;   // envia ~10 MB por medição
 let lastSpeedtest = null, speedtestRunning = false;
 async function measureLatency() {
   let best = null;
@@ -971,10 +972,25 @@ async function measureLatency() {
   }
   return best;
 }
+async function measureUpload() {
+  const payload = Buffer.alloc(SPEED_UP_BYTES, 120);
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), 30000);
+  const t0 = Date.now();
+  try {
+    await fetch("https://speed.cloudflare.com/__up", {
+      method: "POST", body: payload, signal: ctrl.signal,
+      headers: { "Content-Type": "application/octet-stream" },
+    });
+    const secs = (Date.now() - t0) / 1000;
+    if (secs > 0) return +((SPEED_UP_BYTES * 8) / secs / 1e6).toFixed(1);
+  } catch {} finally { clearTimeout(to); }
+  return null;
+}
 async function runSpeedtest() {
   if (speedtestRunning) return lastSpeedtest;
   speedtestRunning = true;
-  const result = { t: Date.now(), ok: false, downMbps: null, latencyMs: null };
+  const result = { t: Date.now(), ok: false, downMbps: null, upMbps: null, latencyMs: null };
   try {
     result.latencyMs = await measureLatency();
     const ctrl = new AbortController();
@@ -989,6 +1005,7 @@ async function runSpeedtest() {
         result.ok = true;
       }
     } finally { clearTimeout(to); }
+    result.upMbps = await measureUpload();
   } catch (e) { result.error = String(e.message || e); }
   speedtestRunning = false;
   lastSpeedtest = result;
