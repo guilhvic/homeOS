@@ -2656,6 +2656,23 @@
         <p class="sub">Últimos 7 dias, a partir dos sensores de energia (kWh) monitorados.</p>
         <div id="energy-chart"><div class="sub">Carregando…</div></div>
       </div>
+
+      <!-- Bento Card 9: Notificações no celular (Span 1) -->
+      <div class="profile-card" id="push-card">
+        <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg> Notificações no celular</h3>
+        <p class="sub" id="push-status">Receba alertas de disco, temperatura, memória e queda de energia — mesmo com o app fechado.</p>
+        <button id="push-toggle" class="ghost" type="button" style="border:1px solid var(--line); padding:10px 12px; border-radius:8px; font-weight:600;">Ativar</button>
+      </div>
+
+      <!-- Bento Card 10: Alertas do servidor (Span 2) -->
+      <div class="profile-card bento-2" id="alerts-card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg> Alertas do servidor</h3>
+          <button id="alerts-save" class="ghost" type="button" style="font-size:12px; padding:4px 10px;">Salvar</button>
+        </div>
+        <p class="sub">Quando avisar por notificação (disco, temperatura, memória, energia).</p>
+        <div id="alerts-body"><div class="sub">Carregando…</div></div>
+      </div>
     </div>
   </main>
 
@@ -2692,28 +2709,12 @@
         <div id="netlive-body"><div class="sub">Aguardando dados…</div></div>
       </div>
 
-      <div class="profile-card" id="push-card" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-        <div style="min-width:0;">
-          <div style="font-weight:600;">Notificações no celular</div>
-          <div class="sub" id="push-status">Receba alertas de disco, temperatura, memória e queda de energia — mesmo com o app fechado.</div>
-        </div>
-        <button id="push-toggle" class="ghost" type="button">Ativar</button>
-      </div>
-
       <div class="profile-card" id="net-card">
         <div class="health-hist-head" style="margin-top:0;">
           <span class="hh-title">Internet</span>
           <button id="speedtest-run" class="ghost" type="button" style="font-size:12px; padding:4px 10px;">Testar agora</button>
         </div>
         <div id="speedtest-body"><div class="sub">Carregando…</div></div>
-      </div>
-
-      <div class="profile-card" id="alerts-card">
-        <div class="health-hist-head" style="margin-top:0;">
-          <span class="hh-title">Alertas</span>
-          <button id="alerts-save" class="ghost" type="button" style="font-size:12px; padding:4px 10px;">Salvar</button>
-        </div>
-        <div id="alerts-body"><div class="sub">Carregando…</div></div>
       </div>
 
       <div class="profile-card" id="docker-card" hidden>
@@ -5994,6 +5995,8 @@
     renderProfileDevices();
     renderActivity();
     renderEnergyChart();
+    renderAlertsConfig();
+    refreshPushUI();
 
     const themeSelect = document.getElementById("theme-select");
     if (themeSelect) {
@@ -7072,8 +7075,6 @@
     renderServerInfo();
     renderSpeedtest();
     renderDocker();
-    renderAlertsConfig();
-    refreshPushUI();
     startHealthStream();       // ao vivo (empurrado pelo servidor)
     // Histórico/sparklines mudam devagar — atualiza num ritmo mais folgado.
     if (!healthTimer) healthTimer = setInterval(() => {
