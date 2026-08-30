@@ -1,0 +1,41 @@
+# Pi-hole — bloqueador de anúncios/rastreadores da rede toda (DNS sinkhole).
+#
+# Arquivo SEPARADO de propósito: sobe/atualiza independente do stack do homeOS,
+# e não quebra o deploy normal se a porta 53 ainda não estiver livre.
+#
+# Pré-requisitos (ver PIHOLE.md):
+#   1. Liberar a porta 53 no host (desativar o DNSStubListener do systemd-resolved).
+#   2. Definir PIHOLE_PASSWORD no arquivo .env (NÃO commitar senha — repo é público).
+#
+# Subir:      docker compose -f docker-compose.pihole.yml up -d
+# Logs:       docker logs -f pihole
+# Painel:     http://<IP-do-servidor>/admin     (senha = PIHOLE_PASSWORD)
+services:
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    # Rede do host: o Pi-hole precisa escutar a porta 53 (DNS) direto no host,
+    # igual ao homeassistant/homeos. O painel web fica na porta 80.
+    network_mode: host
+    environment:
+      - TZ=America/Sao_Paulo
+      # Senha do painel — vem do .env. Se preferir, deixe vazio e defina depois com:
+      #   docker exec -it pihole pihole setpassword
+      - FTLCONF_webserver_api_password=${PIHOLE_PASSWORD}
+      # Aceita consultas de qualquer aparelho da rede local (não só do próprio host).
+      - FTLCONF_dns_listeningMode=all
+      # Resolvedores upstream (pra onde o Pi-hole encaminha o que não é bloqueado).
+      # Cloudflare + Google. Troque se quiser (ex.: só Cloudflare).
+      - FTLCONF_dns_upstreams=1.1.1.1;8.8.8.8
+    volumes:
+      # Persiste config, listas e estatísticas fora do container.
+      - ./pihole/etc-pihole:/etc/pihole
+    cap_add:
+      # Necessário só se um dia você usar o Pi-hole como servidor DHCP. Inofensivo manter.
+      - NET_ADMIN
+    healthcheck:
+      test: ["CMD", "dig", "+short", "+norecurse", "+retry=0", "@127.0.0.1", "pi.hole"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

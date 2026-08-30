@@ -10,3 +10,4 @@ alert-config.json
 health-history.json
 net-monitor.json
 net-outages.jsonl
+pihole/
