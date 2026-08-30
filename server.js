@@ -1454,6 +1454,24 @@ app.get("/api/routines/:id/log", authRequired, (req, res) => {
   res.json({ entries: readRoutineLog(req.user.id, String(req.params.id), limit) });
 });
 
+// Última execução de cada rotina do usuário (do log real, não do estado — que
+// o cliente sobrescreve). Usado para "executada há X" ficar correto.
+app.get("/api/routines/last-runs", authRequired, (req, res) => {
+  const out = {};
+  if (ROUTINE_LOG) {
+    try {
+      for (const ln of fs.readFileSync(ROUTINE_LOG, "utf8").split("\n")) {
+        if (!ln) continue;
+        let row; try { row = JSON.parse(ln); } catch { continue; }
+        if (!row || row.uid !== req.user.id || !row.rid) continue;
+        const cur = out[row.rid];
+        if (!cur || row.t > cur.t) out[row.rid] = { t: row.t, ok: !!row.ok, skipped: !!row.skipped };
+      }
+    } catch {}
+  }
+  res.json({ runs: out });
+});
+
 // Scheduler — a cada minuto, checa rotinas com gatilho de horário OU de sol.
 // lastFiredKey guarda o último "marcador" já disparado por rotina (dedup por minuto).
 const lastFiredKey = new Map(); // `${userId}:${routineId}` -> marcador
@@ -1557,7 +1575,9 @@ async function tickScheduler() {
       if (tr.type === "time") {
         if (tr.time !== hhmm) continue;
         if (dayBlocked(tr.days, now.getDay())) continue;
-        fire(r, hhmm, "time");
+        // Marcador único por minuto (não só "HH:MM") — senão só dispararia uma
+        // vez por reinício do servidor, pulando os dias seguintes.
+        fire(r, "t:" + nowMin, "time");
       } else if (tr.type === "sun") {
         if (sun === undefined) sun = await loadSun(u);
         if (!sun) continue;

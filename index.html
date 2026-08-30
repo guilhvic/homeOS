@@ -6366,6 +6366,10 @@
     const chips = DAY_LABELS.map((lab, i) => `<span class="rw-day ${d.includes(i) ? "on" : ""}">${lab[0]}</span>`).join("");
     return `<span class="rw-days">${chips}</span>`;
   }
+  let routineLastRuns = {};
+  async function loadRoutineLastRuns() {
+    try { const r = await api("GET", "/routines/last-runs"); if (r.ok && r.data) { routineLastRuns = r.data.runs || {}; renderRoutinesList(); } } catch {}
+  }
   function renderRoutinesList() {
     routinesList.innerHTML = "";
     const routines = state.routines || [];
@@ -6398,7 +6402,11 @@
         whenHtml = `${svgIcon("bolt", 13)} execução manual`;
       }
       const nr = (isTime && r.enabled !== false) ? nextRunText(tr) : "";
-      const last = r.lastRunAt ? ` · executada ${timeAgo(r.lastRunAt)}` : "";
+      // "executada há X": prioriza o log real do servidor (routineLastRuns),
+      // pois o r.lastRunAt do estado pode estar defasado.
+      const lastTs = (routineLastRuns[r.id] && routineLastRuns[r.id].t)
+        || (r.lastRunAt ? Date.parse(r.lastRunAt) : null);
+      const last = lastTs ? ` · executada ${timeAgo(new Date(lastTs).toISOString())}` : "";
       const devChips = (r.actions || []).map(a => {
         const nm = entityDisplay(a.entityId).name;
         const on = a.preset === "on";
@@ -7981,6 +7989,7 @@
       renderServerPage();
     } else if (currentView === "routines") {
       renderRoutinesList();
+      loadRoutineLastRuns();
     }
   }
   for (const btn of document.querySelectorAll(".view-tab")) {
