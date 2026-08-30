@@ -8,3 +8,5 @@ vapid.json
 alert-config.json
 *-log.jsonl
 health-history.json
+net-monitor.json
+net-outages.jsonl

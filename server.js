@@ -592,6 +592,7 @@ app.put("/api/alerts/config", authRequired, (req, res) => {
     }
   }
   if (b.power) alertConfig.power.enabled = !!b.power.enabled;
+  if (b.internet) alertConfig.internet.enabled = !!b.internet.enabled;
   if (b.daily) {
     alertConfig.daily.enabled = !!b.daily.enabled;
     if (typeof b.daily.time === "string" && /^\d{2}:\d{2}$/.test(b.daily.time)) alertConfig.daily.time = b.daily.time;
@@ -624,6 +625,7 @@ const ALERT_DEFAULTS = {
   temp:  { enabled: true,  hi: 75 },
   mem:   { enabled: true,  hi: 90 },
   power: { enabled: true },
+  internet: { enabled: true },
   daily: { enabled: false, time: "08:00" },
 };
 const ALERT_MARGIN = { disk: 5, temp: 7, mem: 5 }; // histerese (rearma abaixo de hi - margem)
@@ -1041,6 +1043,99 @@ app.post("/api/speedtest/run", authRequired, async (req, res) => {
 });
 setTimeout(() => runSpeedtest().catch(() => {}), 60 * 1000).unref?.();
 setInterval(() => runSpeedtest().catch(() => {}), SPEED_INTERVAL_MS).unref?.();
+
+// ===== Monitor de conectividade da internet =====
+// Checa a cada 5s (quedas curtas). Confirma com um 2º host antes de declarar
+// queda (evita falso positivo de um CDN). Registra cada queda (início/fim/
+// duração) e calcula o uptime da internet.
+const NET_CHECK_MS = 5000;
+const NET_TIMEOUT_MS = 3500;
+const NET_TARGETS = ["https://www.google.com/generate_204", "https://cloudflare.com/cdn-cgi/trace"];
+const NET_OUTAGE_LOG = HEALTH_DIR ? HEALTH_DIR + "/net-outages.jsonl" : null;
+const NET_STATE_FILE = HEALTH_DIR ? HEALTH_DIR + "/net-monitor.json" : null;
+const NET_OUTAGE_MAX = 5000;
+let netMon = { online: null, downSince: null, firstCheckAt: null, lastOkAt: null };
+(function loadNetMon() {
+  if (!NET_STATE_FILE) return;
+  try {
+    const s = JSON.parse(fs.readFileSync(NET_STATE_FILE, "utf8"));
+    if (s && typeof s === "object") {
+      netMon.firstCheckAt = s.firstCheckAt || null;
+      netMon.downSince = s.downSince || null;
+      netMon.online = s.online != null ? s.online : null;
+    }
+  } catch {}
+})();
+function saveNetMon() {
+  if (!NET_STATE_FILE) return;
+  try { fs.writeFileSync(NET_STATE_FILE, JSON.stringify({ firstCheckAt: netMon.firstCheckAt, downSince: netMon.downSince, online: netMon.online })); } catch {}
+}
+function appendNetOutage(o) {
+  if (!NET_OUTAGE_LOG) return;
+  try {
+    fs.appendFileSync(NET_OUTAGE_LOG, JSON.stringify(o) + "\n");
+    const lines = fs.readFileSync(NET_OUTAGE_LOG, "utf8").split("\n").filter(Boolean);
+    if (lines.length > NET_OUTAGE_MAX) fs.writeFileSync(NET_OUTAGE_LOG, lines.slice(-NET_OUTAGE_MAX).join("\n") + "\n");
+  } catch {}
+}
+function readNetOutages(sinceMs) {
+  if (!NET_OUTAGE_LOG) return [];
+  const out = [];
+  try {
+    for (const ln of fs.readFileSync(NET_OUTAGE_LOG, "utf8").split("\n")) {
+      if (!ln) continue;
+      let o; try { o = JSON.parse(ln); } catch { continue; }
+      if (o && o.end >= sinceMs) out.push(o);
+    }
+  } catch {}
+  return out;
+}
+async function pingOnce(url) {
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), NET_TIMEOUT_MS);
+  try { const r = await fetch(url, { method: "GET", signal: ctrl.signal, cache: "no-store", redirect: "manual" }); return r.status > 0; }
+  catch { return false; } finally { clearTimeout(to); }
+}
+async function checkInternet() {
+  let ok = await pingOnce(NET_TARGETS[0]);
+  if (!ok) ok = await pingOnce(NET_TARGETS[1]); // confirma antes de declarar queda
+  const now = Date.now();
+  if (netMon.firstCheckAt == null) netMon.firstCheckAt = now;
+  const netCfg = alertConfig.internet || {};
+  if (ok) {
+    netMon.lastOkAt = now;
+    if (netMon.online === false && netMon.downSince) {
+      const outage = { start: netMon.downSince, end: now, ms: now - netMon.downSince };
+      appendNetOutage(outage);
+      const dur = outage.ms < 60000 ? Math.round(outage.ms / 1000) + "s" : Math.round(outage.ms / 60000) + " min";
+      if (netCfg.enabled) sendPushToAll({ title: "✅ Internet voltou", body: `Ficou fora por ${dur}`, tag: "homeos-net", url: "/" }).catch(() => {});
+    }
+    netMon.online = true; netMon.downSince = null;
+  } else if (netMon.online !== false) {
+    netMon.online = false; netMon.downSince = now;
+    if (netCfg.enabled) sendPushToAll({ title: "🔌 Internet caiu", body: "Sem conexão no servidor", tag: "homeos-net", url: "/" }).catch(() => {});
+  }
+  saveNetMon();
+}
+setTimeout(() => checkInternet().catch(() => {}), 5000).unref?.();
+setInterval(() => checkInternet().catch(() => {}), NET_CHECK_MS).unref?.();
+
+app.get("/api/net/status", authRequired, (req, res) => {
+  res.json({ online: netMon.online, downSince: netMon.downSince, firstCheckAt: netMon.firstCheckAt, lastOkAt: netMon.lastOkAt });
+});
+app.get("/api/net/outages", authRequired, (req, res) => {
+  const hours = Math.min(24 * 400, Math.max(1, parseInt(req.query.hours, 10) || 168));
+  const now = Date.now();
+  const since = now - hours * 3600 * 1000;
+  const list = readNetOutages(since).sort((a, b) => b.start - a.start);
+  const observedStart = Math.max(since, netMon.firstCheckAt || since);
+  const observed = Math.max(0, now - observedStart);
+  let downtime = 0;
+  for (const o of list) { const s = Math.max(o.start, observedStart), e = Math.min(o.end, now); if (e > s) downtime += e - s; }
+  if (netMon.online === false && netMon.downSince) { const s = Math.max(netMon.downSince, observedStart); if (now > s) downtime += now - s; }
+  const uptimePct = observed > 0 ? +(100 * (1 - downtime / observed)).toFixed(3) : null;
+  res.json({ hours, count: list.length, outages: list.slice(0, 100), uptimePct, downtimeMs: downtime, observedMs: observed, sinceMs: observedStart, online: netMon.online, downSince: netMon.downSince });
+});
 
 // Proxy de snapshot de câmera: repassa o JPEG do HA (camera_proxy) já autenticado.
 app.get("/api/ha/camera/:entityId", authRequired, async (req, res) => {

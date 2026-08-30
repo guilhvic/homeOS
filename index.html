@@ -2751,6 +2751,7 @@
           <button id="speedtest-run" class="ghost" type="button" style="font-size:12px; padding:4px 10px;">Testar agora</button>
         </div>
         <div id="speedtest-body"><div class="st-tiles"><div class="sk" style="height:64px;flex:1"></div><div class="sk" style="height:64px;flex:1"></div><div class="sk" style="height:64px;flex:1"></div></div></div>
+        <div id="net-uptime" style="margin-top:12px; border-top:1px solid var(--line); padding-top:12px;"></div>
       </div>
 
       <div class="profile-card" id="docker-card" hidden>
@@ -7145,11 +7146,12 @@
     renderHealthHistory();
     renderServerInfo();
     renderSpeedtest();
+    renderNetInfo();
     renderDocker();
     startHealthStream();       // ao vivo (empurrado pelo servidor)
-    // Histórico/sparklines mudam devagar — atualiza num ritmo mais folgado.
+    // Histórico/sparklines/status da internet mudam devagar — ritmo folgado.
     if (!healthTimer) healthTimer = setInterval(() => {
-      if (currentView === "server") renderHealthHistory();
+      if (currentView === "server") { renderHealthHistory(); renderNetInfo(); }
     }, 30000);
   }
 
@@ -7198,6 +7200,7 @@
       meter("temp", "Temperatura alta", "avisa ao passar de", "°C") +
       meter("mem", "Memória alta", "avisa ao passar de", "%") +
       `<div class="alert-row"><div class="ar-name">Queda de energia<div class="sub">quando rodar na bateria</div></div>${sw("power", cfg.power.enabled)}</div>` +
+      `<div class="alert-row"><div class="ar-name">Queda de internet<div class="sub">quando a conexão cair/voltar</div></div>${sw("internet", (cfg.internet || {}).enabled)}</div>` +
       `<div class="alert-row"><div class="ar-name">Resumo diário<div class="sub">push com o status do servidor</div></div>
         <input type="time" data-alert-time="daily" value="${cfg.daily.time || "08:00"}" style="${cfg.daily.enabled ? "" : "opacity:.5"}">${sw("daily", cfg.daily.enabled)}</div>`;
   }
@@ -7212,6 +7215,7 @@
       temp: { enabled: on("temp"), hi: hi("temp") },
       mem: { enabled: on("mem"), hi: hi("mem") },
       power: { enabled: on("power") },
+      internet: { enabled: on("internet") },
       daily: { enabled: on("daily"), time: timeEl ? timeEl.value : "08:00" },
     };
     const r = await api("PUT", "/alerts/config", payload);
@@ -7374,6 +7378,29 @@
     const when = (last && last.t) ? ` · última ${new Date(last.t).toLocaleString("pt-BR")}` : "";
     const meta = `<div class="sub" style="margin-top:6px;">${pts.length} mediç${pts.length === 1 ? "ão" : "ões"} · 7 dias${when}</div>`;
     return chart + meta;
+  }
+  async function renderNetInfo() {
+    const el = document.getElementById("net-uptime");
+    if (!el) return;
+    let d = null;
+    try { const r = await api("GET", "/net/outages?hours=168"); if (r.ok) d = r.data; } catch {}
+    if (!d) { el.innerHTML = ""; return; }
+    const online = d.online !== false;
+    const dot = `<span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${online ? "#2f9e5e" : "#d33"}; margin-right:6px; vertical-align:middle;"></span>`;
+    const pct = d.uptimePct;
+    const pctColor = pct == null ? "var(--muted)" : pct >= 99.5 ? "#2f9e5e" : pct >= 98 ? "#d99a2b" : "#d33";
+    const head = `<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+      <div style="font-weight:600;">${dot}${online ? "Online" : "Offline"}</div>
+      <div class="sub" style="margin:0;">${pct != null ? `<b style="color:${pctColor}">${pct}%</b> no ar · ${d.count} qued${d.count === 1 ? "a" : "as"} (7 dias)` : "coletando…"}</div>
+    </div>`;
+    const list = (d.outages || []).slice(0, 6).map(o => {
+      const dur = o.ms < 60000 ? Math.round(o.ms / 1000) + "s" : Math.round(o.ms / 60000) + " min";
+      return `<div class="routine-log-row"><span class="rl-dot bad"></span><span>${new Date(o.start).toLocaleString("pt-BR")} · fora ${dur}</span></div>`;
+    }).join("");
+    const listWrap = list
+      ? `<div class="routine-log" style="margin-top:8px;">${list}</div>`
+      : `<div class="sub" style="margin-top:8px;">Nenhuma queda registrada. 🎉</div>`;
+    el.innerHTML = head + listWrap;
   }
   document.getElementById("speedtest-run")?.addEventListener("click", async () => {
     const btn = document.getElementById("speedtest-run");
