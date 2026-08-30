@@ -268,12 +268,6 @@
     border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13px;
   }
   .alert-row input[type="time"] { width: 110px; }
-  .alert-row label.sw { position: relative; display: inline-block; width: 40px; height: 22px; flex: none; }
-  .alert-row label.sw input { display: none; }
-  .alert-row label.sw .tk { position: absolute; inset: 0; background: rgba(127,127,127,.3); border-radius: 999px; transition: .2s; }
-  .alert-row label.sw .tk::before { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
-  .alert-row label.sw input:checked + .tk { background: var(--accent); }
-  .alert-row label.sw input:checked + .tk::before { transform: translateX(18px); }
 
   /* Widget de status do servidor no mapa */
   #map-server-widget {
@@ -508,12 +502,15 @@
   .routine-when .rw-day.on { background: var(--accent-soft); color: var(--accent); }
   .routine-next { font-size: 11px; color: var(--accent); font-weight: 600; }
   /* Switch de ativa/inativa */
-  .rt-switch { position: relative; width: 40px; height: 23px; flex: none; cursor: pointer; }
-  .rt-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
-  .rt-switch .rt-track { position: absolute; inset: 0; background: var(--line); border-radius: 999px; transition: background .15s; }
-  .rt-switch .rt-thumb { position: absolute; top: 2px; left: 2px; width: 19px; height: 19px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
-  .rt-switch input:checked + .rt-track { background: var(--accent); }
-  .rt-switch input:checked + .rt-track + .rt-thumb { transform: translateX(17px); }
+  /* Switch unificado (rotinas, alertas, etc.) */
+  .switch { position: relative; display: inline-block; width: 40px; height: 22px; flex: none; cursor: pointer; }
+  .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .switch .sl-track { position: absolute; inset: 0; background: rgba(127,127,127,.32); border-radius: 999px; transition: background .18s; }
+  .switch .sl-track::before { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform .18s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  .switch input:checked + .sl-track { background: var(--accent); }
+  .switch input:checked + .sl-track::before { transform: translateX(18px); }
+  .switch input:focus-visible + .sl-track { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input[type="checkbox"] { accent-color: var(--accent); }
   .routine-devices { display: flex; flex-wrap: wrap; gap: 6px; }
   .routine-dev-chip {
     font-size: 11px; padding: 3px 9px; border-radius: 999px; background: var(--bg);
@@ -2167,6 +2164,13 @@
     user-select: none;
   }
   .device-pin .pin-icon { fill: none; stroke: var(--ink); pointer-events: none; }
+  .device-pin.kind-off .pin-icon, .device-pin.kind-neutral .pin-icon { stroke: var(--muted); }
+  .device-pin.kind-on   .pin-icon { stroke: #a5470f; }
+  html[data-theme="dark"] .device-pin.kind-on   .pin-icon { stroke: #f4a572; }
+  .device-pin.kind-cool .pin-icon { stroke: #1e6ea3; }
+  html[data-theme="dark"] .device-pin.kind-cool .pin-icon { stroke: #7fb9e5; }
+  .device-pin.kind-heat .pin-icon { stroke: #a04020; }
+  html[data-theme="dark"] .device-pin.kind-heat .pin-icon { stroke: #f2a98c; }
   .device-pin { cursor: pointer; }
   .device-pin.pin-pulse .pin-bg { transform-box: fill-box; transform-origin: center; animation: pin-pulse .45s ease; }
   @keyframes pin-pulse { 0%, 100% { transform: scale(1); } 45% { transform: scale(1.25); } }
@@ -3476,6 +3480,20 @@
   };
   function entityDomain(id) { return (id || "").split(".")[0]; }
   function entityIcon(id) { return svgIcon(DOMAIN_ICON[entityDomain(id)] || "dot"); }
+  // Escolhe o melhor ícone p/ o pin: clima frio/quente, sensores por classe.
+  function iconForEntity(id, stat) {
+    const dom = entityDomain(id);
+    const e = haEntities.get(id);
+    const dc = e && e.attributes ? e.attributes.device_class : null;
+    if (dom === "climate") return (stat && stat.kind === "heat") ? "flame" : "snowflake";
+    if (dom === "sensor" || dom === "binary_sensor") {
+      if (dc === "temperature") return "thermometer";
+      if (dc === "humidity") return "droplet";
+      if (["power", "energy", "current", "voltage"].includes(dc)) return "bolt";
+      if (["motion", "occupancy", "presence", "moving"].includes(dc)) return "pin";
+    }
+    return DOMAIN_ICON[dom] || "dot";
+  }
   function devId(d) { return typeof d === "string" ? d : d?.entityId; }
   function devObj(room, id) { return (room.devices || []).find(d => devId(d) === id); }
 
@@ -4971,7 +4989,10 @@
         const hasState = !!stat;
         const label = hasState ? stat.text : "";
         const kind = hasState ? stat.kind : (display.kind || "neutral");
-        const pinW = hasState ? Math.max(28, Math.ceil(label.length * charW) + padX * 2) : 30;
+        const iconSz = 14, iconGap = 5;
+        const textW = label ? Math.ceil(label.length * charW) : 0;
+        const gap = label ? iconGap : 0;
+        const pinW = padX * 2 + iconSz + gap + textW; // sempre com ícone (+ valor)
 
         let x, y;
         if (typeof dev === "object" && typeof dev.x === "number" && typeof dev.y === "number") {
@@ -5003,28 +5024,30 @@
         rect.appendChild(tt);
         pin.appendChild(rect);
 
+        // Ícone do aparelho — sempre presente, colorido pelo estado (classe kind-*).
+        // Centralizado quando não há valor; à esquerda quando há valor ao lado.
+        const iconX = label ? padX : (pinW - iconSz) / 2;
+        const isvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        isvg.setAttribute("class", "pin-icon");
+        isvg.setAttribute("x", iconX);
+        isvg.setAttribute("y", (pinH - iconSz) / 2);
+        isvg.setAttribute("width", iconSz);
+        isvg.setAttribute("height", iconSz);
+        isvg.setAttribute("viewBox", "0 0 24 24");
+        isvg.setAttribute("stroke-width", "2.2");
+        isvg.setAttribute("stroke-linecap", "round");
+        isvg.setAttribute("stroke-linejoin", "round");
+        isvg.innerHTML = ICON[iconForEntity(id, stat)] || ICON.dot;
+        pin.appendChild(isvg);
+
         if (hasState) {
           const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
           text.setAttribute("class", "pin-text");
-          text.setAttribute("x", pinW / 2);
+          text.setAttribute("x", padX + iconSz + iconGap);
           text.setAttribute("y", pinH / 2);
+          text.setAttribute("text-anchor", "start");
           text.textContent = label;
           pin.appendChild(text);
-        } else {
-          // Sem estado ao vivo: mostra o ícone do dispositivo (compacto), não o nome longo.
-          const sz = 15;
-          const isvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-          isvg.setAttribute("class", "pin-icon");
-          isvg.setAttribute("x", (pinW - sz) / 2);
-          isvg.setAttribute("y", (pinH - sz) / 2);
-          isvg.setAttribute("width", sz);
-          isvg.setAttribute("height", sz);
-          isvg.setAttribute("viewBox", "0 0 24 24");
-          isvg.setAttribute("stroke-width", "2");
-          isvg.setAttribute("stroke-linecap", "round");
-          isvg.setAttribute("stroke-linejoin", "round");
-          isvg.innerHTML = ICON[DOMAIN_ICON[entityDomain(id)] || "dot"] || ICON.dot;
-          pin.appendChild(isvg);
         }
 
         group.appendChild(pin);
@@ -6371,7 +6394,7 @@
             <div class="routine-when">${whenHtml}${nr ? ` <span class="routine-next">· próxima ${nr}</span>` : ""}${last}</div>
             ${badgesHtml}
           </div>
-          <label class="rt-switch" title="Ativa"><input type="checkbox" ${r.enabled !== false ? "checked" : ""}><span class="rt-track"></span><span class="rt-thumb"></span></label>
+          <label class="switch" title="Ativa"><input type="checkbox" ${r.enabled !== false ? "checked" : ""}><span class="sl-track"></span></label>
         </div>
         <div class="routine-devices">${devChips}</div>
         <div class="routine-card-actions">
@@ -6383,7 +6406,7 @@
           </div>
         </div>
         <div class="routine-log" hidden></div>`;
-      const sw = li.querySelector(".rt-switch input");
+      const sw = li.querySelector(".switch input");
       sw.addEventListener("change", () => {
         r.enabled = sw.checked;
         li.classList.toggle("off", !sw.checked);
@@ -7189,7 +7212,7 @@
     let cfg = null;
     try { const r = await api("GET", "/alerts/config"); if (r.ok) cfg = r.data; } catch {}
     if (!cfg) { body.innerHTML = `<div class="sub">Indisponível.</div>`; return; }
-    const sw = (key, on) => `<label class="sw"><input type="checkbox" data-alert="${key}" ${on ? "checked" : ""}><span class="tk"></span></label>`;
+    const sw = (key, on) => `<label class="switch"><input type="checkbox" data-alert="${key}" ${on ? "checked" : ""}><span class="sl-track"></span></label>`;
     const meter = (key, name, desc, unit) => `<div class="alert-row">
       <div class="ar-name">${name}<div class="sub">${desc}</div></div>
       <input type="number" data-alert-hi="${key}" value="${cfg[key].hi}" min="1" max="100" style="${cfg[key].enabled ? "" : "opacity:.5"}"><span class="sub">${unit}</span>
