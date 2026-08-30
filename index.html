@@ -1434,6 +1434,22 @@
   }
   .modal-bg[hidden] { display: none; }
 
+  /* Busca global / paleta de comandos (Cmd/Ctrl+K) */
+  #cmdk .cmdk-box { width: min(560px, 100%); background: var(--paper); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column; max-height: 72vh; animation: viewIn .18s ease both; }
+  #cmdk-input { border: none; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-size: 16px; padding: 15px 18px; outline: none; }
+  #cmdk-list { list-style: none; margin: 0; padding: 6px; overflow-y: auto; }
+  .cmdk-item { display: flex; align-items: center; gap: 11px; padding: 9px 12px; border-radius: 9px; cursor: pointer; }
+  .cmdk-item .cmdk-ic { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 8px; background: var(--bg); color: var(--accent); }
+  .cmdk-item .cmdk-ic .ic { width: 17px; height: 17px; }
+  .cmdk-item .cmdk-main { flex: 1; min-width: 0; }
+  .cmdk-item .cmdk-title { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cmdk-item .cmdk-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cmdk-item .cmdk-kind { font-size: 10px; color: var(--muted); flex: none; text-transform: uppercase; letter-spacing: .5px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
+  .cmdk-item.active, .cmdk-item:hover { background: var(--accent-soft); }
+  .cmdk-empty { padding: 22px; text-align: center; color: var(--muted); font-size: 13px; }
+  .cmdk-hint { padding: 8px 14px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); }
+  @media (max-width: 560px) { #cmdk { padding-top: 8vh !important; } }
+
   /* Toasts (substituem alert() nativo) */
   #toast-container {
     position: fixed;
@@ -2961,6 +2977,15 @@
       <button id="confirm-cancel" class="ghost" type="button">Cancelar</button>
       <button id="confirm-ok" class="primary" type="button">Confirmar</button>
     </div>
+  </div>
+</div>
+
+<!-- ============================ BUSCA GLOBAL (Cmd/Ctrl+K) ============================ -->
+<div id="cmdk" class="modal-bg" hidden style="align-items:flex-start; padding-top:12vh;">
+  <div class="cmdk-box">
+    <input id="cmdk-input" type="text" placeholder="Buscar cômodo, rotina, dispositivo, página…" autocomplete="off" spellcheck="false" />
+    <ul id="cmdk-list"></ul>
+    <div class="cmdk-hint">↑↓ navegar · ↵ abrir · esc fechar</div>
   </div>
 </div>
 
@@ -7969,6 +7994,94 @@
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setView("map"); }
     });
   }
+
+  // ===== Busca global / paleta de comandos (Cmd/Ctrl+K) =====
+  const cmdk = document.getElementById("cmdk");
+  const cmdkInput = document.getElementById("cmdk-input");
+  const cmdkList = document.getElementById("cmdk-list");
+  let cmdkItems = [], cmdkFiltered = [], cmdkActive = 0;
+
+  function cmdkBuild() {
+    const items = [];
+    const views = [
+      { v: "map", t: "Casa (mapa)", ic: "home" },
+      { v: "grocery", t: "Mercado", ic: "cart" },
+      { v: "routines", t: "Rotinas", ic: "calendar" },
+      { v: "server", t: "Servidor", ic: "server" },
+      { v: "profile", t: "Configurações", ic: "gear" },
+    ];
+    for (const x of views) items.push({ kind: "Página", icon: x.ic, title: x.t, sub: "", run: () => setView(x.v) });
+    for (const r of ((state && state.rooms) || [])) {
+      items.push({ kind: "Cômodo", icon: "home", title: r.name || "Sem nome", sub: `${(r.devices || []).length} dispositivo(s)`,
+        run: () => { setView("map"); state.selectedId = r.id; render(); } });
+    }
+    for (const r of ((state && state.routines) || [])) {
+      items.push({ kind: "Rotina", icon: "bolt", title: r.name, sub: "Executar agora",
+        run: async () => { const res = await api("POST", `/routines/${r.id}/run`); showToast(res.ok ? `Rotina "${r.name}" executada` : "Erro ao executar", res.ok ? "info" : "error"); } });
+    }
+    const roomOf = new Map();
+    for (const r of ((state && state.rooms) || [])) for (const d of (r.devices || [])) roomOf.set(devId(d), r);
+    haEntities.forEach((e, id) => {
+      const rm = roomOf.get(id);
+      items.push({ kind: "Dispositivo", icon: DOMAIN_ICON[entityDomain(id)] || "dot", title: entityFriendlyName(id), sub: rm ? `em ${rm.name}` : "não vinculado",
+        run: () => { if (rm) { setView("map"); state.selectedId = rm.id; render(); } else showToast("Dispositivo não vinculado a um cômodo", "info"); } });
+    });
+    return items;
+  }
+  function cmdkScore(it, q) {
+    const t = normalize(it.title), s = normalize(it.sub);
+    if (!q) return 1;
+    if (t.startsWith(q)) return 3;
+    if (t.includes(q)) return 2;
+    if (s.includes(q) || normalize(it.kind).includes(q)) return 1;
+    return 0;
+  }
+  function cmdkRender() {
+    const q = normalize(cmdkInput.value.trim());
+    cmdkFiltered = cmdkItems.map(it => ({ it, sc: cmdkScore(it, q) }))
+      .filter(x => x.sc > 0)
+      .sort((a, b) => b.sc - a.sc)
+      .slice(0, 40).map(x => x.it);
+    if (cmdkActive >= cmdkFiltered.length) cmdkActive = 0;
+    if (!cmdkFiltered.length) { cmdkList.innerHTML = `<li class="cmdk-empty">Nada encontrado.</li>`; return; }
+    cmdkList.innerHTML = cmdkFiltered.map((it, i) => `
+      <li class="cmdk-item ${i === cmdkActive ? "active" : ""}" data-i="${i}">
+        <span class="cmdk-ic">${svgIcon(it.icon, 17)}</span>
+        <span class="cmdk-main"><div class="cmdk-title">${escapeHtml(it.title)}</div>${it.sub ? `<div class="cmdk-sub">${escapeHtml(it.sub)}</div>` : ""}</span>
+        <span class="cmdk-kind">${escapeHtml(it.kind)}</span>
+      </li>`).join("");
+  }
+  function cmdkOpen() {
+    cmdkItems = cmdkBuild();
+    cmdkInput.value = ""; cmdkActive = 0;
+    cmdk.hidden = false;
+    cmdkRender();
+    setTimeout(() => cmdkInput.focus(), 0);
+  }
+  function cmdkClose() { cmdk.hidden = true; }
+  function cmdkActivate(i) {
+    const it = cmdkFiltered[i];
+    if (!it) return;
+    cmdkClose();
+    try { it.run(); } catch {}
+  }
+  cmdkInput?.addEventListener("input", () => { cmdkActive = 0; cmdkRender(); });
+  cmdkInput?.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); cmdkActive = Math.min(cmdkFiltered.length - 1, cmdkActive + 1); cmdkRender(); scrollActive(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); cmdkActive = Math.max(0, cmdkActive - 1); cmdkRender(); scrollActive(); }
+    else if (e.key === "Enter") { e.preventDefault(); cmdkActivate(cmdkActive); }
+    else if (e.key === "Escape") { e.preventDefault(); cmdkClose(); }
+  });
+  function scrollActive() { const el = cmdkList.querySelector(".cmdk-item.active"); if (el) el.scrollIntoView({ block: "nearest" }); }
+  cmdkList?.addEventListener("click", (e) => { const li = e.target.closest(".cmdk-item"); if (li) cmdkActivate(parseInt(li.dataset.i, 10)); });
+  cmdk?.addEventListener("click", (e) => { if (e.target === cmdk) cmdkClose(); });
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+      if (!user) return; // só logado
+      e.preventDefault();
+      if (cmdk.hidden) cmdkOpen(); else cmdkClose();
+    }
+  });
 
   // ===== Boot =====
   (async function boot() {
