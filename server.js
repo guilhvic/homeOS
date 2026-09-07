@@ -211,7 +211,9 @@ if (WALLETOS_URL) {
       method: req.method,
       path: suffix,
       headers: { ...req.headers, host: wTarget.host },
-      timeout: 30000,
+      // Timeout generoso: o /api/sync do walletOS puxa vários bancos em
+      // sequência e pode passar de 30s (o proxy responderia 502 antes).
+      timeout: 180000,
     }, (pres) => {
       res.writeHead(pres.statusCode || 502, pres.headers);
       pres.pipe(res);
