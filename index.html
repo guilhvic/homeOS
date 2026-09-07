@@ -2814,8 +2814,12 @@
         </div>
         <p class="sub">Preferências deste aparelho e integrações. O monitor do host está na aba <b>Servidor</b>.</p>
         <div class="field" style="margin: 4px 0 12px;">
-          <label for="dash-url-input" style="font-size:12px; color:var(--muted);">Painel externo (URL) — alterna com 3 dedos ou o botão ⇄</label>
+          <label for="dash-url-input" style="font-size:12px; color:var(--muted);">Painel externo "Meu Dia" (URL) — alterna com 3 dedos ou o botão ⇄</label>
           <input id="dash-url-input" type="url" inputmode="url" placeholder="https://seu-dashboard.exemplo.com" style="width:100%; border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:8px; padding:10px 12px; font:inherit; margin-top:4px;" />
+        </div>
+        <div class="field" style="margin: 4px 0 12px;">
+          <label for="wallet-url-input" style="font-size:12px; color:var(--muted);">walletOS (URL) — aparece no seletor de apps do kiosk</label>
+          <input id="wallet-url-input" type="url" inputmode="url" placeholder="https://walletos.onrender.com" style="width:100%; border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:8px; padding:10px 12px; font:inherit; margin-top:4px;" />
         </div>
         <div class="field" style="margin: 4px 0 12px;">
           <label for="tariff-input" style="font-size:12px; color:var(--muted);">Tarifa de energia (R$/kWh) — para o custo do mês</label>
@@ -3020,6 +3024,9 @@
   </button>
   <button class="app-opt" data-app="spotify" type="button" role="menuitem">
     <span class="app-ico"><svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm4.6 14.4a.62.62 0 01-.86.21c-2.35-1.44-5.3-1.76-8.79-.96a.63.63 0 01-.28-1.22c3.82-.87 7.09-.5 9.72 1.11.3.18.39.57.21.86zm1.23-2.74a.78.78 0 01-1.08.26c-2.69-1.65-6.79-2.13-9.97-1.17a.78.78 0 11-.45-1.5c3.63-1.1 8.15-.56 11.24 1.33.37.23.49.72.26 1.08zm.11-2.85C14.84 8.95 9.6 8.78 6.6 9.69a.94.94 0 11-.54-1.8c3.44-1.04 9.23-.84 12.87 1.32a.94.94 0 01-.96 1.62z"/></svg></span><span class="app-name">Spotify</span><span class="app-dot"></span>
+  </button>
+  <button class="app-opt" data-app="walletos" type="button" role="menuitem">
+    <span class="app-ico"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8a2 2 0 0 1 2-2h12l4 3H5"/><path d="M3 8v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7H6"/><circle cx="17" cy="14" r="1.2"/></svg></span><span class="app-name">walletOS</span><span class="app-dot"></span>
   </button>
 </div>
 
@@ -3470,7 +3477,7 @@
   }
 
   function emptyState() {
-    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], dailyTasks: [], dashUrl: "", energyTariff: 0, view: { tx: 0, ty: 0, scale: 1 } };
+    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], dailyTasks: [], dashUrl: "", walletUrl: "", energyTariff: 0, view: { tx: 0, ty: 0, scale: 1 } };
   }
   function normalizeState(s) {
     if (!s || typeof s !== "object") return emptyState();
@@ -3494,6 +3501,7 @@
       })) : [],
       groceries: Array.isArray(s.groceries) ? s.groceries.filter(g => g && typeof g.id === "string" && typeof g.name === "string") : [],
       dashUrl: typeof s.dashUrl === "string" ? s.dashUrl : "",
+      walletUrl: typeof s.walletUrl === "string" ? s.walletUrl : "",
       energyTariff: Math.max(0, Number(s.energyTariff) || 0),
       view: { tx: Number(v.tx) || 0, ty: Number(v.ty) || 0, scale: Math.min(4, Math.max(0.35, Number(v.scale) || 1)) },
     };
@@ -8155,9 +8163,11 @@
   // ===== Apps externos (iframe) + seletor =====
   // "Meu Dia" (URL na conta, sincroniza entre aparelhos) e "Spotify" (embutido).
   function dashUrl() { return ((state && state.dashUrl) || "").trim(); }
+  function walletUrl() { return ((state && state.walletUrl) || "").trim(); }
   function appUrl(app) {
     if (app === "spotify") return "/apps/spotify/";
     if (app === "dash") return dashUrl();
+    if (app === "walletos") return walletUrl();
     return "";
   }
   let currentApp = "home";
@@ -8190,6 +8200,8 @@
     // "Meu Dia" só aparece se houver URL configurada; Spotify é sempre embutido.
     const dashOpt = document.querySelector('#app-switcher .app-opt[data-app="dash"]');
     if (dashOpt) dashOpt.hidden = !dashUrl();
+    const walletOpt = document.querySelector('#app-switcher .app-opt[data-app="walletos"]');
+    if (walletOpt) walletOpt.hidden = !walletUrl();
   }
   function refreshDashToggle() {
     const btn = document.getElementById("dash-toggle");
@@ -8268,6 +8280,23 @@
       };
       input.addEventListener("change", save);
       input.addEventListener("blur", save);
+    }
+    const winput = document.getElementById("wallet-url-input");
+    if (winput) {
+      winput.value = walletUrl();
+      const saveW = () => {
+        const v = winput.value.trim();
+        state.walletUrl = v;
+        if (!v && currentApp === "walletos") hideDash();
+        scheduleSave();
+        if (currentApp === "walletos") {
+          const f = document.getElementById("dash-frame");
+          if (f) f.removeAttribute("src");
+        }
+        refreshDashToggle();
+      };
+      winput.addEventListener("change", saveW);
+      winput.addEventListener("blur", saveW);
     }
     // Swipe horizontal com 3 dedos alterna (funciona saindo do homeOS).
     let sw = null;
