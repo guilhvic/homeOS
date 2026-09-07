@@ -7286,8 +7286,65 @@
     };
   }
 
+  // Mapa rótulo -> id de categoria (pra ler o log de atividades)
+  const GROCERY_LABEL_TO_ID = Object.fromEntries(GROCERY_CATEGORIES.map(c => [c.label.toLowerCase(), c.id]));
+
+  // Reconstrói o histórico a partir de dados que já existiam antes deste recurso:
+  // itens já comprados na lista + o log de atividades ("Item X comprado" / "adicionado à lista (Categoria)").
+  // Roda só quando o histórico está vazio, então não sobrescreve dados novos.
+  let ghBackfilled = false;
+  function backfillGroceryHistory() {
+    if (ghBackfilled) return;
+    ghBackfilled = true;
+    state.groceryHistory = state.groceryHistory || {};
+    if (Object.keys(state.groceryHistory).length > 0) return;
+
+    const hist = {};
+    const bump = (rawName, category, when) => {
+      const name = (rawName || "").replace(/<[^>]*>/g, "").trim();
+      const key = groceryKey(name);
+      if (!key) return;
+      const prev = hist[key] || { name, category: category || "outros", count: 0, lastBought: null };
+      hist[key] = {
+        name,
+        category: category || prev.category || "outros",
+        count: prev.count + 1,
+        lastBought: when && (!prev.lastBought || when > prev.lastBought) ? when : prev.lastBought,
+      };
+    };
+
+    // 1) Categoria conhecida por item, a partir das entradas "adicionado à lista de compras (Categoria)"
+    const catByName = {};
+    // 2) Contagem de compras a partir das entradas "Item X comprado"
+    for (const h of (state.history || [])) {
+      const t = h.text || "";
+      const mAdd = t.match(/Item\s+<b>(.+?)<\/b>\s+adicionado à lista de compras\s+\((.+?)\)/i);
+      if (mAdd) {
+        const id = GROCERY_LABEL_TO_ID[mAdd[2].trim().toLowerCase()];
+        if (id) catByName[groceryKey(mAdd[1].replace(/<[^>]*>/g, ""))] = id;
+        continue;
+      }
+      const mBuy = t.match(/Item\s+<b>(.+?)<\/b>\s+comprado/i);
+      if (mBuy) {
+        const nm = mBuy[1];
+        bump(nm, catByName[groceryKey(nm.replace(/<[^>]*>/g, ""))], h.at);
+      }
+    }
+
+    // 3) Itens já marcados como comprados que ainda estão na lista atual
+    for (const it of (state.groceries || [])) {
+      if (it.bought) bump(it.name, it.category, it.boughtAt || it.addedAt);
+    }
+
+    if (Object.keys(hist).length) {
+      state.groceryHistory = hist;
+      scheduleSave();
+    }
+  }
+
   function renderGrocerySuggestions() {
     if (!grocerySuggestBox) return;
+    backfillGroceryHistory();
     const hist = state.groceryHistory || {};
     const onList = new Set((state.groceries || []).map(i => groceryKey(i.name)));
     const now = Date.now();
