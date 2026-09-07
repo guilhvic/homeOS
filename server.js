@@ -192,6 +192,36 @@ function clearSessionCookie(res) {
 // --- App ---
 const app = express();
 app.disable("x-powered-by");
+
+// Reverse-proxy same-origin do walletOS (self-hosted). /apps/walletos/* é
+// repassado para o container do walletOS (WALLETOS_URL). Assim o app roda sob a
+// MESMA origem do homeOS e o cookie de sessão dele funciona dentro do iframe do
+// kiosk (deixa de ser "third-party"). Montado ANTES do express.json para poder
+// repassar o corpo da requisição em streaming.
+const WALLETOS_URL = process.env.WALLETOS_URL || "http://localhost:3040";
+if (WALLETOS_URL) {
+  const wTarget = new URL(WALLETOS_URL);
+  const wMod = wTarget.protocol === "https:" ? require("https") : require("http");
+  app.use("/apps/walletos", (req, res) => {
+    const suffix = req.originalUrl.replace(/^\/apps\/walletos/, "") || "/";
+    const preq = wMod.request({
+      protocol: wTarget.protocol,
+      hostname: wTarget.hostname,
+      port: wTarget.port || (wTarget.protocol === "https:" ? 443 : 80),
+      method: req.method,
+      path: suffix,
+      headers: { ...req.headers, host: wTarget.host },
+      timeout: 30000,
+    }, (pres) => {
+      res.writeHead(pres.statusCode || 502, pres.headers);
+      pres.pipe(res);
+    });
+    preq.on("error", () => { try { if (!res.headersSent) res.status(502).send("walletOS indisponível"); else res.end(); } catch {} });
+    preq.on("timeout", () => preq.destroy(new Error("timeout")));
+    req.pipe(preq);
+  });
+}
+
 app.use(express.json({ limit: "1.5mb" }));
 
 function authRequired(req, res, next) {
