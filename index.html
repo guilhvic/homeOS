@@ -162,6 +162,72 @@
   #app-shell:not(.has-selection) aside { display: none; }
   #app-shell[hidden] { display: none; }
 
+  /* Home (dashboard) view replaces map+aside */
+  #app-shell.view-home {
+    grid-template-columns: 1fr;
+    grid-template-areas: "top" "home";
+  }
+  #app-shell.view-home #map-wrap,
+  #app-shell.view-home aside { display: none; }
+  #app-shell:not(.view-home) #home-view { display: none; }
+  #app-shell.view-home .map-only { display: none; }
+  #home-view {
+    grid-area: home;
+    overflow-y: auto;
+    background: var(--bg);
+    padding: 24px 16px 64px;
+  }
+  .home-shell { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+  .home-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .home-head h2 { margin: 0; font-size: 24px; }
+  .home-greeting { color: var(--muted); font-size: 14px; }
+  .home-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .home-card {
+    display: flex; flex-direction: column; gap: 12px;
+    text-align: left; width: 100%;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px 20px; cursor: pointer; color: var(--ink); font: inherit;
+    box-shadow: var(--shadow); transition: border-color .15s, transform .1s, box-shadow .15s;
+    animation: cardIn .25s ease both;
+  }
+  .home-card:hover { border-color: var(--accent); }
+  .home-card:active { transform: scale(.99); }
+  .home-card-head { display: flex; align-items: center; gap: 10px; }
+  .home-card-head .hc-ic {
+    width: 34px; height: 34px; flex: none; border-radius: 10px;
+    display: grid; place-items: center; background: var(--accent-soft); color: var(--accent);
+  }
+  .home-card-head .hc-ic svg { width: 18px; height: 18px; }
+  .home-card-head .hc-title { font-size: 14px; font-weight: 700; flex: 1; }
+  .home-card-head .hc-chev { color: var(--muted); }
+  .home-card-body { display: flex; flex-direction: column; gap: 6px; min-height: 46px; }
+  .home-metric { display: flex; align-items: baseline; gap: 8px; }
+  .home-metric .hm-big { font-size: 30px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .home-metric .hm-unit { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .home-sub { font-size: 13px; color: var(--muted); }
+  .home-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .home-chip {
+    font-size: 12px; padding: 3px 9px; border-radius: 999px;
+    background: var(--bg); border: 1px solid var(--line); color: var(--ink);
+    white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  }
+  .home-chip.done { text-decoration: line-through; color: var(--muted); }
+  .home-mini { display: flex; gap: 14px; flex-wrap: wrap; }
+  .home-mini .hmi { display: flex; flex-direction: column; gap: 1px; }
+  .home-mini .hmi-v { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .home-mini .hmi-l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+  .home-mini .hmi-v.warn { color: #b5760a; }
+  .home-mini .hmi-v.bad { color: var(--danger, #d33); }
+  .home-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; vertical-align: middle; margin-right: 5px; }
+  .home-status-dot.ok { background: #2f9e5e; }
+  .home-status-dot.bad { background: var(--danger, #d33); }
+  body.kiosk .home-card { padding: 22px 24px; }
+  body.kiosk .home-metric .hm-big { font-size: 36px; }
+
   /* Grocery view replaces map+aside */
   #app-shell.view-grocery {
     grid-template-columns: 1fr;
@@ -2538,6 +2604,7 @@
   <header>
     <h1 id="home-logo" role="button" tabindex="0" title="Ir para a casa (início)">homeOS</h1>
     <div class="view-tabs" role="tablist">
+      <button class="view-tab" data-view="map" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/></svg><span>Casa</span></button>
       <button class="view-tab" data-view="grocery" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12h11l1.9-8H6"/></svg><span>Mercado</span></button>
       <button class="view-tab" data-view="daily" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Tarefas</span></button>
       <button class="view-tab" data-view="routines" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span>Rotinas</span></button>
@@ -2653,6 +2720,16 @@
       </section>
     </div>
   </aside>
+
+  <main id="home-view">
+    <div class="home-shell">
+      <header class="home-head">
+        <h2>Início</h2>
+        <span class="home-greeting" id="home-greeting"></span>
+      </header>
+      <div class="home-grid" id="home-grid"></div>
+    </div>
+  </main>
 
   <main id="grocery-view">
     <div class="grocery-shell">
@@ -3650,6 +3727,7 @@
     door: '<rect x="6" y="3" width="12" height="18" rx="1"/><path d="M14 12h.01"/>',
     shelf: '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 10h16M4 15h16"/>',
     theme: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18" fill="currentColor"/>',
+    "chevron-right": '<path d="M9 6l6 6-6 6"/>',
   };
   function svgIcon(name, size, cls) {
     const p = ICON[name] || ICON.dot;
@@ -7242,6 +7320,126 @@
     tabDotNotes.hidden = notesLen === 0;
   }
 
+  // ===== Home (dashboard) =====
+  const homeGridEl = document.getElementById("home-grid");
+  const homeGreetingEl = document.getElementById("home-greeting");
+
+  function homeCard({ view, icon, title, bodyHtml, bodyId }) {
+    return `<button class="home-card" type="button" data-goto="${view}">
+      <div class="home-card-head">
+        <span class="hc-ic">${svgIcon(icon, 18)}</span>
+        <span class="hc-title">${escapeHtml(title)}</span>
+        <span class="hc-chev">${svgIcon("chevron-right", 18)}</span>
+      </div>
+      <div class="home-card-body"${bodyId ? ` id="${bodyId}"` : ""}>${bodyHtml}</div>
+    </button>`;
+  }
+
+  function renderHome() {
+    if (!homeGridEl) return;
+    const now = new Date();
+    const h = now.getHours();
+    const greet = h < 6 ? "Boa madrugada" : h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+    if (homeGreetingEl) {
+      const name = (user && (user.displayName || user.username)) || "";
+      homeGreetingEl.textContent = `${greet}${name ? ", " + name : ""} · ` +
+        now.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+    }
+
+    const cards = [];
+
+    // --- Tarefas do dia ---
+    (() => {
+      const tasks = state.dailyTasks || [];
+      const dow = now.getDay();
+      const tKey = dateKey(now);
+      const todays = tasks.filter(t => !t.days || !t.days.length || t.days.includes(dow));
+      const done = todays.filter(t => t.done && t.done[tKey]).length;
+      const pend = todays.filter(t => !(t.done && t.done[tKey]));
+      let body;
+      if (!todays.length) {
+        body = `<div class="home-sub">Nada para hoje. 🎉</div>`;
+      } else {
+        const chips = pend.slice(0, 3).map(t => `<span class="home-chip">${escapeHtml(t.name)}</span>`).join("");
+        body = `<div class="home-metric"><span class="hm-big">${done}/${todays.length}</span><span class="hm-unit">feitas</span></div>` +
+          (pend.length ? `<div class="home-chips">${chips}${pend.length > 3 ? `<span class="home-chip">+${pend.length - 3}</span>` : ""}</div>`
+                       : `<div class="home-sub">Tudo concluído hoje ✅</div>`);
+      }
+      cards.push(homeCard({ view: "daily", icon: "check", title: "Tarefas do dia", bodyHtml: body }));
+    })();
+
+    // --- Mercado ---
+    (() => {
+      const list = state.groceries || [];
+      const pend = list.filter(i => !i.bought);
+      let body;
+      if (!list.length) {
+        body = `<div class="home-sub">Lista vazia.</div>`;
+      } else if (!pend.length) {
+        body = `<div class="home-metric"><span class="hm-big">0</span><span class="hm-unit">pendentes</span></div><div class="home-sub">Tudo comprado ✅</div>`;
+      } else {
+        const chips = pend.slice(0, 4).map(i => `<span class="home-chip">${escapeHtml(i.name)}</span>`).join("");
+        body = `<div class="home-metric"><span class="hm-big">${pend.length}</span><span class="hm-unit">pendente${pend.length === 1 ? "" : "s"}</span></div>` +
+          `<div class="home-chips">${chips}${pend.length > 4 ? `<span class="home-chip">+${pend.length - 4}</span>` : ""}</div>`;
+      }
+      cards.push(homeCard({ view: "grocery", icon: "cart", title: "Mercado", bodyHtml: body }));
+    })();
+
+    // --- Casa ---
+    (() => {
+      const rooms = (state.rooms || []).length;
+      let onCount = null, total = 0;
+      if (haEnabled) {
+        onCount = 0;
+        for (const room of (state.rooms || [])) {
+          for (const dev of (room.devices || [])) {
+            const id = devId(dev); if (!id) continue;
+            const dom = entityDomain(id);
+            if (dom !== "light" && dom !== "switch") continue;
+            total++;
+            const e = haEntities.get(id);
+            if (e && e.state === "on") onCount++;
+          }
+        }
+      }
+      const body = `<div class="home-mini">
+        <div class="hmi"><span class="hmi-v">${rooms}</span><span class="hmi-l">Cômodos</span></div>
+        <div class="hmi"><span class="hmi-v ${onCount ? "warn" : ""}">${onCount == null ? "—" : onCount}</span><span class="hmi-l">Ligados</span></div>
+        ${total ? `<div class="hmi"><span class="hmi-v">${total}</span><span class="hmi-l">Luzes/tomadas</span></div>` : ""}
+      </div>` + (haEnabled ? "" : `<div class="home-sub">Conecte ao Home Assistant para ver os dispositivos.</div>`);
+      cards.push(homeCard({ view: "map", icon: "home", title: "Casa", bodyHtml: body }));
+    })();
+
+    // --- Servidor (assíncrono) ---
+    cards.push(homeCard({ view: "server", icon: "server", title: "Servidor",
+      bodyHtml: `<div class="home-sub">Carregando…</div>`, bodyId: "home-srv-body" }));
+
+    homeGridEl.innerHTML = cards.join("");
+    for (const btn of homeGridEl.querySelectorAll(".home-card")) {
+      btn.addEventListener("click", () => setView(btn.dataset.goto));
+    }
+    loadHomeServerCard();
+  }
+
+  async function loadHomeServerCard() {
+    const el = document.getElementById("home-srv-body");
+    if (!el) return;
+    let d = null;
+    try { const r = await api("GET", "/system/health"); if (r.ok) d = r.data; } catch {}
+    let net = null;
+    try { const r = await api("GET", "/net/status"); if (r.ok) net = r.data; } catch {}
+    if (!d) { el.innerHTML = `<div class="home-sub">Indisponível.</div>`; return; }
+    const cls = (v, warn, bad) => v == null ? "" : (v >= bad ? "bad" : v >= warn ? "warn" : "");
+    const mini = [];
+    if (typeof d.cpuPct === "number") mini.push(`<div class="hmi"><span class="hmi-v ${cls(d.cpuPct,75,90)}">${d.cpuPct}%</span><span class="hmi-l">CPU</span></div>`);
+    if (d.mem) mini.push(`<div class="hmi"><span class="hmi-v ${cls(d.mem.pct,80,92)}">${d.mem.pct}%</span><span class="hmi-l">RAM</span></div>`);
+    if (d.disk) mini.push(`<div class="hmi"><span class="hmi-v ${cls(d.disk.pct,80,90)}">${d.disk.pct}%</span><span class="hmi-l">Disco</span></div>`);
+    if (typeof d.tempC === "number") mini.push(`<div class="hmi"><span class="hmi-v ${cls(d.tempC,70,82)}">${d.tempC}°</span><span class="hmi-l">Temp</span></div>`);
+    const online = net ? net.online !== false : true;
+    const netLine = `<div class="home-sub"><span class="home-status-dot ${online ? "ok" : "bad"}"></span>Internet ${online ? "online" : "offline"}${d.uptimeSec != null ? ` · no ar ${fmtUptime(d.uptimeSec)}` : ""}</div>`;
+    el.innerHTML = `<div class="home-mini">${mini.join("")}</div>${netLine}`;
+  }
+
   // ===== Grocery =====
   const GROCERY_CATEGORIES = [
     { id: "hortifruti", label: "Hortifruti",         icon: "leaf" },
@@ -8469,13 +8667,14 @@
 
   // ===== View switcher =====
   const VIEW_KEY = "homeOS/view";
-  let currentView = localStorage.getItem(VIEW_KEY) || "map";
-  const KNOWN_VIEWS = new Set(["map", "grocery", "routines", "profile", "server", "daily"]);
+  let currentView = localStorage.getItem(VIEW_KEY) || "home";
+  const KNOWN_VIEWS = new Set(["home", "map", "grocery", "routines", "profile", "server", "daily"]);
   function setView(v) {
-    currentView = KNOWN_VIEWS.has(v) ? v : "map";
+    currentView = KNOWN_VIEWS.has(v) ? v : "home";
     localStorage.setItem(VIEW_KEY, currentView);
     if (currentView !== "server") stopHealthStream();
     if (currentView === "map") startMapWidget(); else stopMapWidget();
+    appShell.classList.toggle("view-home", currentView === "home");
     appShell.classList.toggle("view-grocery", currentView === "grocery");
     appShell.classList.toggle("view-profile", currentView === "profile");
     appShell.classList.toggle("view-routines", currentView === "routines");
@@ -8485,8 +8684,10 @@
       btn.classList.toggle("active", btn.dataset.view === currentView);
     }
     const hl = document.getElementById("home-logo");
-    if (hl) hl.classList.toggle("home-active", currentView === "map");
-    if (currentView === "grocery") {
+    if (hl) hl.classList.toggle("home-active", currentView === "home");
+    if (currentView === "home") {
+      renderHome();
+    } else if (currentView === "grocery") {
       renderGrocery();
       setTimeout(() => groceryNameInput.focus(), 0);
     } else if (currentView === "profile") {
@@ -8503,12 +8704,13 @@
   for (const btn of document.querySelectorAll(".view-tab")) {
     btn.addEventListener("click", () => setView(btn.dataset.view));
   }
-  // O logo homeOS funciona como "início": volta para a visão da casa (mapa).
+  // O logo homeOS funciona como "início": volta para a Home (dashboard).
   const homeLogo = document.getElementById("home-logo");
   if (homeLogo) {
-    homeLogo.addEventListener("click", () => setView("map"));
+    homeLogo.title = "Ir para o início";
+    homeLogo.addEventListener("click", () => setView("home"));
     homeLogo.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setView("map"); }
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setView("home"); }
     });
   }
 
@@ -8521,6 +8723,7 @@
   function cmdkBuild() {
     const items = [];
     const views = [
+      { v: "home", t: "Início", ic: "dashboard" },
       { v: "map", t: "Casa (mapa)", ic: "home" },
       { v: "grocery", t: "Mercado", ic: "cart" },
       { v: "daily", t: "Tarefas diárias", ic: "check" },
