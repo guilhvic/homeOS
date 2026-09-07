@@ -796,6 +796,31 @@
     .grocery-add button { grid-column: 1 / -1; }
   }
 
+  .grocery-suggest {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+  }
+  .grocery-suggest-head {
+    display: flex; align-items: baseline; gap: 8px;
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--muted); margin-bottom: 10px;
+  }
+  .grocery-suggest-sub { font-weight: 500; text-transform: none; letter-spacing: 0; opacity: .75; }
+  .grocery-suggest-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .grocery-suggest-chips button {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+    border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px;
+    cursor: pointer; transition: border-color .15s, background .15s, transform .1s;
+  }
+  .grocery-suggest-chips button:hover { border-color: var(--accent); background: var(--paper); }
+  .grocery-suggest-chips button:active { transform: scale(.96); }
+  .grocery-suggest-chips button .plus { color: var(--accent); font-weight: 700; }
+  .grocery-suggest-chips button .ic { color: var(--muted); }
+
   .grocery-list { display: flex; flex-direction: column; gap: 18px; }
   .grocery-cat {
     background: var(--paper);
@@ -2643,6 +2668,14 @@
         <button type="submit" class="primary">Adicionar</button>
       </form>
 
+      <div id="grocery-suggest" class="grocery-suggest" hidden>
+        <div class="grocery-suggest-head">
+          <span>Sugestões</span>
+          <span class="grocery-suggest-sub">com base nas suas compras</span>
+        </div>
+        <div id="grocery-suggest-chips" class="grocery-suggest-chips"></div>
+      </div>
+
       <div id="grocery-list" class="grocery-list"></div>
 
       <div id="grocery-empty" class="grocery-empty">
@@ -3477,7 +3510,7 @@
   }
 
   function emptyState() {
-    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], dailyTasks: [], dashUrl: "", walletUrl: "", energyTariff: 0, view: { tx: 0, ty: 0, scale: 1 } };
+    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], groceryHistory: {}, dailyTasks: [], dashUrl: "", walletUrl: "", energyTariff: 0, view: { tx: 0, ty: 0, scale: 1 } };
   }
   function normalizeState(s) {
     if (!s || typeof s !== "object") return emptyState();
@@ -3500,6 +3533,7 @@
         done: (t.done && typeof t.done === "object" && !Array.isArray(t.done)) ? t.done : {},
       })) : [],
       groceries: Array.isArray(s.groceries) ? s.groceries.filter(g => g && typeof g.id === "string" && typeof g.name === "string") : [],
+      groceryHistory: (s.groceryHistory && typeof s.groceryHistory === "object" && !Array.isArray(s.groceryHistory)) ? s.groceryHistory : {},
       dashUrl: typeof s.dashUrl === "string" ? s.dashUrl : "",
       walletUrl: typeof s.walletUrl === "string" ? s.walletUrl : "",
       energyTariff: Math.max(0, Number(s.energyTariff) || 0),
@@ -7233,6 +7267,74 @@
   const groceryEmpty = document.getElementById("grocery-empty");
   const grocerySummary = document.getElementById("grocery-summary");
   const groceryClearBtn = document.getElementById("grocery-clear-bought");
+  const grocerySuggestBox = document.getElementById("grocery-suggest");
+  const grocerySuggestChips = document.getElementById("grocery-suggest-chips");
+
+  function groceryKey(name) { return (name || "").trim().toLowerCase(); }
+
+  // Registra uma compra no histórico (frequência + recência) para alimentar sugestões
+  function recordGroceryPurchase(name, category) {
+    const key = groceryKey(name);
+    if (!key) return;
+    state.groceryHistory = state.groceryHistory || {};
+    const prev = state.groceryHistory[key] || { name: name.trim(), category, count: 0 };
+    state.groceryHistory[key] = {
+      name: name.trim(),
+      category: category || prev.category || "outros",
+      count: (prev.count || 0) + 1,
+      lastBought: new Date().toISOString(),
+    };
+  }
+
+  function renderGrocerySuggestions() {
+    if (!grocerySuggestBox) return;
+    const hist = state.groceryHistory || {};
+    const onList = new Set((state.groceries || []).map(i => groceryKey(i.name)));
+    const now = Date.now();
+    const cands = Object.entries(hist)
+      .filter(([key]) => !onList.has(key))
+      .map(([key, h]) => {
+        const days = h.lastBought ? (now - new Date(h.lastBought).getTime()) / 86400000 : 999;
+        // score: frequência + bônus de recência (comprados há pouco reaparecem)
+        const score = (h.count || 1) * 2 + Math.max(0, 30 - days) / 10;
+        return { key, ...h, score };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8);
+
+    grocerySuggestChips.innerHTML = "";
+    if (!cands.length) { grocerySuggestBox.hidden = true; return; }
+    grocerySuggestBox.hidden = false;
+    for (const c of cands) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.title = `Comprado ${c.count}x`;
+      btn.innerHTML = `<span class="plus">+</span>${svgIcon(groceryCat(c.category).icon, 14)}<span>${escapeHtml(c.name)}</span>`;
+      btn.addEventListener("click", () => {
+        addGroceryItem(c.name, null, c.category);
+        renderGrocery();
+      });
+      grocerySuggestChips.appendChild(btn);
+    }
+  }
+
+  function addGroceryItem(name, qty, category) {
+    name = (name || "").trim();
+    if (!name) return null;
+    const item = {
+      id: gid(),
+      name,
+      qty: (qty || "").trim() || null,
+      category: category || "outros",
+      bought: false,
+      addedAt: new Date().toISOString(),
+    };
+    state.groceries = state.groceries || [];
+    state.groceries.push(item);
+    logActivity(`Item <b>${escapeHtml(name)}</b> adicionado à lista de compras (${groceryCat(item.category).label})`);
+    scheduleSave();
+    return item;
+  }
 
   for (const c of GROCERY_CATEGORIES) {
     const opt = document.createElement("option");
@@ -7250,6 +7352,8 @@
     groceryEmpty.hidden = list.length > 0;
     groceryListEl.hidden = list.length === 0;
     groceryClearBtn.hidden = !list.some(i => i.bought);
+
+    renderGrocerySuggestions();
 
     groceryListEl.innerHTML = "";
     if (!list.length) return;
@@ -7308,6 +7412,7 @@
         cb.addEventListener("change", () => {
           it.bought = cb.checked;
           it.boughtAt = cb.checked ? new Date().toISOString() : null;
+          if (cb.checked) recordGroceryPurchase(it.name, it.category);
           logActivity(cb.checked
             ? `Item <b>${escapeHtml(it.name)}</b> comprado`
             : `Item <b>${escapeHtml(it.name)}</b> reaberto`);
@@ -7370,20 +7475,9 @@
     e.preventDefault();
     const name = groceryNameInput.value.trim();
     if (!name) return;
-    const item = {
-      id: gid(),
-      name,
-      qty: groceryQtyInput.value.trim() || null,
-      category: groceryCatSelect.value,
-      bought: false,
-      addedAt: new Date().toISOString(),
-    };
-    state.groceries = state.groceries || [];
-    state.groceries.push(item);
-    logActivity(`Item <b>${escapeHtml(name)}</b> adicionado à lista de compras (${groceryCat(item.category).label})`);
+    addGroceryItem(name, groceryQtyInput.value, groceryCatSelect.value);
     groceryNameInput.value = "";
     groceryQtyInput.value = "";
-    scheduleSave();
     renderGrocery();
     groceryNameInput.focus();
   });
