@@ -190,12 +190,11 @@
     display: flex; flex-direction: column; gap: 12px;
     text-align: left; width: 100%;
     background: var(--paper); border: 1px solid var(--line); border-radius: 16px;
-    padding: 18px 20px; cursor: pointer; color: var(--ink); font: inherit;
-    box-shadow: var(--shadow); transition: border-color .15s, transform .1s, box-shadow .15s;
+    padding: 16px 18px; color: var(--ink);
+    box-shadow: var(--shadow); transition: border-color .15s, box-shadow .15s;
     animation: cardIn .25s ease both;
   }
-  .home-card:hover { border-color: var(--accent); }
-  .home-card:active { transform: scale(.99); }
+  .home-card:hover { border-color: var(--line); }
   .home-card-head { display: flex; align-items: center; gap: 10px; }
   .home-card-head .hc-ic {
     width: 34px; height: 34px; flex: none; border-radius: 10px;
@@ -203,8 +202,63 @@
   }
   .home-card-head .hc-ic svg { width: 18px; height: 18px; }
   .home-card-head .hc-title { font-size: 14px; font-weight: 700; flex: 1; }
-  .home-card-head .hc-chev { color: var(--muted); }
-  .home-card-body { display: flex; flex-direction: column; gap: 6px; min-height: 46px; }
+  .home-card-head .hc-open {
+    display: inline-flex; align-items: center; gap: 3px; flex: none;
+    border: none; background: transparent; color: var(--muted); font: inherit; font-size: 12px;
+    font-weight: 600; cursor: pointer; padding: 4px 6px; border-radius: 8px;
+  }
+  .home-card-head .hc-open:hover { color: var(--accent); background: var(--bg); }
+  .home-card-head .hc-open svg { width: 15px; height: 15px; }
+  .home-card-body { display: flex; flex-direction: column; gap: 8px; min-height: 46px; }
+
+  /* Linhas de tarefa/item com check inline */
+  .home-row {
+    display: flex; align-items: center; gap: 10px; padding: 7px 9px;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
+  }
+  .home-row .hr-name { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .home-row.done .hr-name { text-decoration: line-through; color: var(--muted); }
+  .home-check {
+    width: 24px; height: 24px; flex: none; border-radius: 50%;
+    border: 2px solid var(--line); background: transparent; color: transparent;
+    display: grid; place-items: center; cursor: pointer; padding: 0; transition: .15s ease;
+  }
+  .home-check svg { width: 14px; height: 14px; }
+  .home-check.on { background: #2f9e5e; border-color: #2f9e5e; color: #fff; }
+  .home-row-btn {
+    flex: none; border: 1px solid var(--line); background: var(--bg); color: var(--muted);
+    border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .home-row-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Quick-add (mercado) */
+  .home-qadd { display: flex; gap: 8px; }
+  .home-qadd input {
+    flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+    border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px;
+  }
+  .home-qadd input:focus { outline: none; border-color: var(--accent); }
+  .home-qadd button {
+    flex: none; border: 1px solid var(--accent); background: var(--accent); color: #fff;
+    border-radius: 8px; padding: 0 14px; font: inherit; font-weight: 700; cursor: pointer;
+  }
+
+  /* Botões de ação do card */
+  .home-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .home-act {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+    border-radius: 999px; padding: 7px 13px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .home-act:hover { border-color: var(--accent); color: var(--accent); }
+  .home-act svg { width: 15px; height: 15px; }
+  .home-act:disabled { opacity: .5; cursor: default; }
+  .home-act.danger:hover { border-color: var(--danger, #d33); color: var(--danger, #d33); }
+  .home-empty-mini { font-size: 13px; color: var(--muted); padding: 4px 0; }
+  body.kiosk .home-row { padding: 10px 12px; }
+  body.kiosk .home-row .hr-name { font-size: 15px; }
+  body.kiosk .home-check { width: 30px; height: 30px; }
   .home-metric { display: flex; align-items: baseline; gap: 8px; }
   .home-metric .hm-big { font-size: 30px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
   .home-metric .hm-unit { font-size: 13px; color: var(--muted); font-weight: 600; }
@@ -7324,15 +7378,16 @@
   const homeGridEl = document.getElementById("home-grid");
   const homeGreetingEl = document.getElementById("home-greeting");
 
-  function homeCard({ view, icon, title, bodyHtml, bodyId }) {
-    return `<button class="home-card" type="button" data-goto="${view}">
+  // Casca de um card: cabeçalho (ícone + título + "Abrir") e corpo.
+  function homeCard({ view, icon, title, badge, bodyHtml, bodyId }) {
+    return `<section class="home-card">
       <div class="home-card-head">
         <span class="hc-ic">${svgIcon(icon, 18)}</span>
-        <span class="hc-title">${escapeHtml(title)}</span>
-        <span class="hc-chev">${svgIcon("chevron-right", 18)}</span>
+        <span class="hc-title">${escapeHtml(title)}${badge != null ? ` · ${badge}` : ""}</span>
+        <button type="button" class="hc-open" data-goto="${view}">Abrir ${svgIcon("chevron-right", 15)}</button>
       </div>
       <div class="home-card-body"${bodyId ? ` id="${bodyId}"` : ""}>${bodyHtml}</div>
-    </button>`;
+    </section>`;
   }
 
   function renderHome() {
@@ -7347,78 +7402,198 @@
     }
 
     const cards = [];
+    const dow = now.getDay();
+    const tKey = dateKey(now);
 
-    // --- Tarefas do dia ---
+    // --- Tarefas do dia (check inline) ---
     (() => {
       const tasks = state.dailyTasks || [];
-      const dow = now.getDay();
-      const tKey = dateKey(now);
       const todays = tasks.filter(t => !t.days || !t.days.length || t.days.includes(dow));
       const done = todays.filter(t => t.done && t.done[tKey]).length;
-      const pend = todays.filter(t => !(t.done && t.done[tKey]));
       let body;
       if (!todays.length) {
-        body = `<div class="home-sub">Nada para hoje. 🎉</div>`;
+        body = `<div class="home-empty-mini">Nada para hoje. 🎉</div>`;
       } else {
-        const chips = pend.slice(0, 3).map(t => `<span class="home-chip">${escapeHtml(t.name)}</span>`).join("");
-        body = `<div class="home-metric"><span class="hm-big">${done}/${todays.length}</span><span class="hm-unit">feitas</span></div>` +
-          (pend.length ? `<div class="home-chips">${chips}${pend.length > 3 ? `<span class="home-chip">+${pend.length - 3}</span>` : ""}</div>`
-                       : `<div class="home-sub">Tudo concluído hoje ✅</div>`);
+        const sorted = [...todays].sort((a, b) => (!!(a.done && a.done[tKey])) - (!!(b.done && b.done[tKey])));
+        const rows = sorted.slice(0, 5).map(t => {
+          const on = !!(t.done && t.done[tKey]);
+          return `<div class="home-row ${on ? "done" : ""}">
+            <button class="home-check ${on ? "on" : ""}" data-daily="${t.id}" aria-label="Concluir">${svgIcon("check", 14)}</button>
+            <span class="hr-name">${escapeHtml(t.name)}</span>
+          </div>`;
+        }).join("");
+        body = `<div class="home-metric"><span class="hm-big">${done}/${todays.length}</span><span class="hm-unit">feitas hoje</span></div>${rows}` +
+          (todays.length > 5 ? `<div class="home-empty-mini">+${todays.length - 5} tarefa(s)…</div>` : "");
       }
       cards.push(homeCard({ view: "daily", icon: "check", title: "Tarefas do dia", bodyHtml: body }));
     })();
 
-    // --- Mercado ---
+    // --- Mercado (marcar comprado + adicionar rápido) ---
     (() => {
       const list = state.groceries || [];
       const pend = list.filter(i => !i.bought);
+      const qadd = `<form class="home-qadd" data-hqadd="grocery">
+        <input type="text" placeholder="Adicionar item rápido…" maxlength="60" />
+        <button type="submit">+</button>
+      </form>`;
       let body;
-      if (!list.length) {
-        body = `<div class="home-sub">Lista vazia.</div>`;
-      } else if (!pend.length) {
-        body = `<div class="home-metric"><span class="hm-big">0</span><span class="hm-unit">pendentes</span></div><div class="home-sub">Tudo comprado ✅</div>`;
+      if (!pend.length) {
+        body = `<div class="home-empty-mini">${list.length ? "Tudo comprado ✅" : "Lista vazia."}</div>${qadd}`;
       } else {
-        const chips = pend.slice(0, 4).map(i => `<span class="home-chip">${escapeHtml(i.name)}</span>`).join("");
-        body = `<div class="home-metric"><span class="hm-big">${pend.length}</span><span class="hm-unit">pendente${pend.length === 1 ? "" : "s"}</span></div>` +
-          `<div class="home-chips">${chips}${pend.length > 4 ? `<span class="home-chip">+${pend.length - 4}</span>` : ""}</div>`;
+        const rows = pend.slice(0, 5).map(i => `<div class="home-row">
+            <button class="home-check" data-grocery="${i.id}" aria-label="Marcar comprado">${svgIcon("check", 14)}</button>
+            <span class="hr-name">${escapeHtml(i.name)}${i.qty ? ` <span style="color:var(--muted)">· ${escapeHtml(i.qty)}</span>` : ""}</span>
+          </div>`).join("");
+        body = `<div class="home-metric"><span class="hm-big">${pend.length}</span><span class="hm-unit">pendente${pend.length === 1 ? "" : "s"}</span></div>${rows}` +
+          (pend.length > 5 ? `<div class="home-empty-mini">+${pend.length - 5} item(ns)…</div>` : "") + qadd;
       }
       cards.push(homeCard({ view: "grocery", icon: "cart", title: "Mercado", bodyHtml: body }));
     })();
 
-    // --- Casa ---
+    // --- Casa (apagar tudo + apagar por cômodo aceso) ---
     (() => {
-      const rooms = (state.rooms || []).length;
+      const rooms = (state.rooms || []);
       let onCount = null, total = 0;
+      const litRooms = [];
       if (haEnabled) {
         onCount = 0;
-        for (const room of (state.rooms || [])) {
+        for (const room of rooms) {
+          let roomOn = 0;
           for (const dev of (room.devices || [])) {
             const id = devId(dev); if (!id) continue;
             const dom = entityDomain(id);
             if (dom !== "light" && dom !== "switch") continue;
             total++;
             const e = haEntities.get(id);
-            if (e && e.state === "on") onCount++;
+            if (e && e.state === "on") { onCount++; roomOn++; }
           }
+          if (roomOn) litRooms.push({ id: room.id, name: room.name, n: roomOn });
         }
       }
-      const body = `<div class="home-mini">
-        <div class="hmi"><span class="hmi-v">${rooms}</span><span class="hmi-l">Cômodos</span></div>
+      const mini = `<div class="home-mini">
+        <div class="hmi"><span class="hmi-v">${rooms.length}</span><span class="hmi-l">Cômodos</span></div>
         <div class="hmi"><span class="hmi-v ${onCount ? "warn" : ""}">${onCount == null ? "—" : onCount}</span><span class="hmi-l">Ligados</span></div>
         ${total ? `<div class="hmi"><span class="hmi-v">${total}</span><span class="hmi-l">Luzes/tomadas</span></div>` : ""}
-      </div>` + (haEnabled ? "" : `<div class="home-sub">Conecte ao Home Assistant para ver os dispositivos.</div>`);
-      cards.push(homeCard({ view: "map", icon: "home", title: "Casa", bodyHtml: body }));
+      </div>`;
+      let extra;
+      if (!haEnabled) {
+        extra = `<div class="home-empty-mini">Conecte ao Home Assistant para controlar os dispositivos.</div>`;
+      } else if (!onCount) {
+        extra = `<div class="home-empty-mini">Tudo apagado. 🌙</div>`;
+      } else {
+        const litRows = litRooms.slice(0, 4).map(r => `<div class="home-row">
+            <span class="hr-name">${svgIcon("bulb", 14)} ${escapeHtml(r.name)} <span style="color:var(--muted)">· ${r.n}</span></span>
+            <button class="home-row-btn" data-room-off="${r.id}">Apagar</button>
+          </div>`).join("");
+        extra = litRows + `<div class="home-actions"><button class="home-act danger" data-all-off="1">${svgIcon("power", 15)} Apagar tudo</button></div>`;
+      }
+      cards.push(homeCard({ view: "map", icon: "home", title: "Casa", bodyHtml: mini + extra }));
+    })();
+
+    // --- Rotinas (executar rápido) ---
+    (() => {
+      const routines = (state.routines || []);
+      let body;
+      if (!routines.length) {
+        body = `<div class="home-empty-mini">Nenhuma rotina criada ainda.</div>`;
+      } else {
+        const rows = routines.slice(0, 5).map(r => `<div class="home-row">
+            <span class="hr-name">${svgIcon("bolt", 14)} ${escapeHtml(r.name)}</span>
+            <button class="home-row-btn" data-run-routine="${r.id}">Executar</button>
+          </div>`).join("");
+        body = rows + (routines.length > 5 ? `<div class="home-empty-mini">+${routines.length - 5} rotina(s)…</div>` : "");
+      }
+      cards.push(homeCard({ view: "routines", icon: "calendar", title: "Rotinas", badge: routines.length || null, bodyHtml: body }));
     })();
 
     // --- Servidor (assíncrono) ---
     cards.push(homeCard({ view: "server", icon: "server", title: "Servidor",
-      bodyHtml: `<div class="home-sub">Carregando…</div>`, bodyId: "home-srv-body" }));
+      bodyHtml: `<div class="home-empty-mini">Carregando…</div>`, bodyId: "home-srv-body" }));
 
     homeGridEl.innerHTML = cards.join("");
-    for (const btn of homeGridEl.querySelectorAll(".home-card")) {
-      btn.addEventListener("click", () => setView(btn.dataset.goto));
-    }
+    bindHomeActions();
     loadHomeServerCard();
+  }
+
+  function bindHomeActions() {
+    // Abrir página
+    for (const b of homeGridEl.querySelectorAll(".hc-open"))
+      b.addEventListener("click", () => setView(b.dataset.goto));
+
+    // Tarefa diária: concluir/reabrir
+    for (const b of homeGridEl.querySelectorAll("[data-daily]"))
+      b.addEventListener("click", () => {
+        const t = (state.dailyTasks || []).find(x => x.id === b.dataset.daily);
+        if (!t) return;
+        const k = dateKey(new Date());
+        t.done = t.done || {};
+        if (t.done[k]) delete t.done[k]; else t.done[k] = true;
+        scheduleSave();
+        renderHome();
+      });
+
+    // Mercado: marcar comprado (registra no histórico de sugestões)
+    for (const b of homeGridEl.querySelectorAll("[data-grocery]"))
+      b.addEventListener("click", () => {
+        const it = (state.groceries || []).find(x => x.id === b.dataset.grocery);
+        if (!it) return;
+        it.bought = true;
+        it.boughtAt = new Date().toISOString();
+        recordGroceryPurchase(it.name, it.category);
+        logActivity(`Item <b>${escapeHtml(it.name)}</b> comprado`);
+        scheduleSave();
+        renderHome();
+      });
+
+    // Mercado: adicionar rápido
+    const qform = homeGridEl.querySelector('[data-hqadd="grocery"]');
+    if (qform) qform.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const inp = qform.querySelector("input");
+      const name = inp.value.trim();
+      if (!name) return;
+      addGroceryItem(name, null, "outros");
+      inp.value = "";
+      renderHome();
+    });
+
+    // Casa: apagar cômodo
+    for (const b of homeGridEl.querySelectorAll("[data-room-off]"))
+      b.addEventListener("click", () => {
+        const room = (state.rooms || []).find(r => r.id === b.dataset.roomOff);
+        if (!room) return;
+        const ids = (room.devices || []).map(devId).filter(id => { const d = entityDomain(id); return d === "light" || d === "switch"; });
+        turnOffLightsSwitches(ids, room.name);
+        b.disabled = true; b.textContent = "…";
+        setTimeout(renderHome, 1200);
+      });
+
+    // Casa: apagar tudo
+    const allOff = homeGridEl.querySelector("[data-all-off]");
+    if (allOff) allOff.addEventListener("click", async () => {
+      const ids = [...haEntities.keys()].filter(id => { const d = entityDomain(id); return d === "light" || d === "switch"; });
+      if (!ids.length) return;
+      if (!await customConfirm(`Apagar todas as luzes e tomadas da casa (${ids.length})?`)) return;
+      turnOffLightsSwitches(ids, "casa");
+      allOff.disabled = true;
+      setTimeout(renderHome, 1200);
+    });
+
+    // Rotinas: executar
+    for (const b of homeGridEl.querySelectorAll("[data-run-routine]"))
+      b.addEventListener("click", async () => {
+        b.disabled = true; const label = b.textContent; b.textContent = "…";
+        const res = await api("POST", `/routines/${b.dataset.runRoutine}/run`);
+        if (res.ok) {
+          const r = (state.routines || []).find(x => x.id === b.dataset.runRoutine);
+          if (r) { r.lastRunAt = new Date().toISOString(); logActivity(`Rotina <b>${escapeHtml(r.name)}</b> executada`); scheduleSave(); }
+          b.textContent = "✓"; showToast("Rotina executada", "info");
+          setTimeout(renderHome, 1500);
+        } else {
+          b.disabled = false; b.textContent = label;
+          showToast("Erro ao executar rotina", "error");
+        }
+      });
   }
 
   async function loadHomeServerCard() {
@@ -7428,7 +7603,8 @@
     try { const r = await api("GET", "/system/health"); if (r.ok) d = r.data; } catch {}
     let net = null;
     try { const r = await api("GET", "/net/status"); if (r.ok) net = r.data; } catch {}
-    if (!d) { el.innerHTML = `<div class="home-sub">Indisponível.</div>`; return; }
+    if (!el.isConnected) return;
+    if (!d) { el.innerHTML = `<div class="home-empty-mini">Indisponível.</div>`; return; }
     const cls = (v, warn, bad) => v == null ? "" : (v >= bad ? "bad" : v >= warn ? "warn" : "");
     const mini = [];
     if (typeof d.cpuPct === "number") mini.push(`<div class="hmi"><span class="hmi-v ${cls(d.cpuPct,75,90)}">${d.cpuPct}%</span><span class="hmi-l">CPU</span></div>`);
@@ -7436,8 +7612,18 @@
     if (d.disk) mini.push(`<div class="hmi"><span class="hmi-v ${cls(d.disk.pct,80,90)}">${d.disk.pct}%</span><span class="hmi-l">Disco</span></div>`);
     if (typeof d.tempC === "number") mini.push(`<div class="hmi"><span class="hmi-v ${cls(d.tempC,70,82)}">${d.tempC}°</span><span class="hmi-l">Temp</span></div>`);
     const online = net ? net.online !== false : true;
-    const netLine = `<div class="home-sub"><span class="home-status-dot ${online ? "ok" : "bad"}"></span>Internet ${online ? "online" : "offline"}${d.uptimeSec != null ? ` · no ar ${fmtUptime(d.uptimeSec)}` : ""}</div>`;
-    el.innerHTML = `<div class="home-mini">${mini.join("")}</div>${netLine}`;
+    const upTxt = (net && net.uptimePct != null) ? ` · uptime ${net.uptimePct}%` : (d.uptimeSec != null ? ` · no ar ${fmtUptime(d.uptimeSec)}` : "");
+    const netLine = `<div class="home-sub"><span class="home-status-dot ${online ? "ok" : "bad"}"></span>Internet ${online ? "online" : "offline"}${upTxt}</div>`;
+    const actions = `<div class="home-actions">
+      <button class="home-act" data-srv-refresh="1">${svgIcon("refresh", 15)} Atualizar</button>
+      <button class="home-act" data-srv-speed="1">${svgIcon("bolt", 15)} Testar velocidade</button>
+    </div>`;
+    el.innerHTML = `<div class="home-mini">${mini.join("")}</div>${netLine}${actions}`;
+    el.querySelector("[data-srv-refresh]")?.addEventListener("click", () => {
+      el.innerHTML = `<div class="home-empty-mini">Atualizando…</div>`;
+      loadHomeServerCard();
+    });
+    el.querySelector("[data-srv-speed]")?.addEventListener("click", () => setView("server"));
   }
 
   // ===== Grocery =====
