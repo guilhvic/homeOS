@@ -317,6 +317,19 @@
   .st-tile.run .st-val { opacity: .45; }
   @media (max-width: 560px) { .st-val { font-size: 21px; } }
 
+  /* Quedas (Internet / Energia) — conciso */
+  .outage-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-weight: 600; font-size: 13px; }
+  .outage-head .sub { font-weight: 400; margin: 0; }
+  .outage-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .outage-list { margin-top: 8px; display: flex; flex-direction: column; gap: 1px; }
+  .outage-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); padding: 3px 0; }
+  .outage-row .rl-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .outage-row .rl-dot.bad { background: var(--danger, #d33); }
+  .outage-when { flex: 1; min-width: 0; font-variant-numeric: tabular-nums; }
+  .outage-dur { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .outage-move { flex: none; border: none; background: none; cursor: pointer; font-size: 13px; opacity: .5; padding: 2px 5px; border-radius: 6px; line-height: 1; }
+  .outage-move:hover { opacity: 1; background: var(--accent-soft); }
+
   /* Config de alertas */
   .alert-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
   .alert-row:first-child { border-top: none; }
@@ -7697,29 +7710,77 @@
     const meta = `<div class="sub" style="margin-top:6px;">${pts.length} mediç${pts.length === 1 ? "ão" : "ões"} · 7 dias${when}</div>`;
     return chart + meta;
   }
+  let outagesTab = "internet";
+  function fmtDur(ms) {
+    if (ms < 60000) return Math.round(ms / 1000) + "s";
+    if (ms < 3600000) return Math.round(ms / 60000) + " min";
+    return (ms / 3600000).toFixed(1).replace(".0", "") + "h";
+  }
+  function fmtOutageTime(t) {
+    const d = new Date(t);
+    return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " " +
+      d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  }
   async function renderNetInfo() {
     const el = document.getElementById("net-uptime");
     if (!el) return;
-    let d = null;
-    try { const r = await api("GET", "/net/outages?hours=168"); if (r.ok) d = r.data; } catch {}
-    if (!d) { el.innerHTML = ""; return; }
-    const online = d.online !== false;
-    const dot = `<span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${online ? "#2f9e5e" : "#d33"}; margin-right:6px; vertical-align:middle;"></span>`;
-    const pct = d.uptimePct;
-    const pctColor = pct == null ? "var(--muted)" : pct >= 99.5 ? "#2f9e5e" : pct >= 98 ? "#d99a2b" : "#d33";
-    const head = `<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-      <div style="font-weight:600;">${dot}${online ? "Online" : "Offline"}</div>
-      <div class="sub" style="margin:0;">${pct != null ? `<b style="color:${pctColor}">${pct}%</b> no ar · ${d.count} qued${d.count === 1 ? "a" : "as"} (7 dias)` : "coletando…"}</div>
+    const tabBar = `<div class="hh-period" style="margin-bottom:10px;">
+      <button type="button" data-otab="internet" class="${outagesTab === "internet" ? "active" : ""}">🌐 Internet</button>
+      <button type="button" data-otab="power" class="${outagesTab === "power" ? "active" : ""}">⚡ Energia</button>
     </div>`;
-    const list = (d.outages || []).slice(0, 6).map(o => {
-      const dur = o.ms < 60000 ? Math.round(o.ms / 1000) + "s" : Math.round(o.ms / 60000) + " min";
-      return `<div class="routine-log-row"><span class="rl-dot bad"></span><span>${new Date(o.start).toLocaleString("pt-BR")} · fora ${dur}</span></div>`;
-    }).join("");
-    const listWrap = list
-      ? `<div class="routine-log" style="margin-top:8px;">${list}</div>`
-      : `<div class="sub" style="margin-top:8px;">Nenhuma queda registrada. 🎉</div>`;
-    el.innerHTML = head + listWrap;
+    let body = `<div class="sub">Carregando…</div>`;
+    if (outagesTab === "internet") {
+      let d = null;
+      try { const r = await api("GET", "/net/outages?hours=168"); if (r.ok) d = r.data; } catch {}
+      if (d) {
+        const online = d.online !== false;
+        const pct = d.uptimePct;
+        const pctColor = pct == null ? "var(--muted)" : pct >= 99.5 ? "#2f9e5e" : pct >= 98 ? "#d99a2b" : "#d33";
+        const head = `<div class="outage-head">
+          <span><span class="outage-dot" style="background:${online ? "#2f9e5e" : "#d33"}"></span>${online ? "Online" : "Offline"}</span>
+          <span class="sub">${pct != null ? `<b style="color:${pctColor}">${pct}%</b> no ar · ` : ""}${d.count} qued${d.count === 1 ? "a" : "as"} · 7d</span>
+        </div>`;
+        const rows = (d.outages || []).slice(0, 8).map(o => `
+          <div class="outage-row">
+            <span class="rl-dot bad"></span>
+            <span class="outage-when">${fmtOutageTime(o.start)}</span>
+            <span class="outage-dur">${fmtDur(o.ms)}</span>
+            <button class="outage-move" data-start="${o.start}" title="Foi queda de energia — mover para a aba Energia">⚡</button>
+          </div>`).join("");
+        body = head + (rows ? `<div class="outage-list">${rows}</div>` : `<div class="sub" style="margin-top:6px;">Nenhuma queda de internet. 🎉</div>`);
+      } else body = `<div class="sub">Indisponível.</div>`;
+    } else {
+      let d = null;
+      try { const r = await api("GET", "/power/outages?hours=168"); if (r.ok) d = r.data; } catch {}
+      if (d) {
+        const onAC = d.onAC !== false;
+        const total = d.downtimeMs ? ` · ${fmtDur(d.downtimeMs)} sem luz` : "";
+        const head = `<div class="outage-head">
+          <span><span class="outage-dot" style="background:${d.onAC == null ? "var(--muted)" : onAC ? "#2f9e5e" : "#d99a2b"}"></span>${d.onAC == null ? "—" : onAC ? "Na tomada" : "Na bateria"}</span>
+          <span class="sub">${d.count} qued${d.count === 1 ? "a" : "as"}${total} · 7d</span>
+        </div>`;
+        const rows = (d.outages || []).slice(0, 8).map(o => `
+          <div class="outage-row">
+            <span class="rl-dot" style="background:#d99a2b"></span>
+            <span class="outage-when">${fmtOutageTime(o.start)}</span>
+            <span class="outage-dur">${fmtDur(o.ms)}</span>
+          </div>`).join("");
+        body = head + (rows ? `<div class="outage-list">${rows}</div>` : `<div class="sub" style="margin-top:6px;">Nenhuma queda de energia. 🎉</div>`);
+      } else body = `<div class="sub">Indisponível.</div>`;
+    }
+    el.innerHTML = tabBar + body;
   }
+  document.getElementById("net-uptime")?.addEventListener("click", async (e) => {
+    const tab = e.target.closest("button[data-otab]");
+    if (tab) { outagesTab = tab.dataset.otab; renderNetInfo(); return; }
+    const mv = e.target.closest(".outage-move");
+    if (mv) {
+      if (!confirm("Marcar esta queda como queda de ENERGIA? Ela sai do log de Internet e vai para o de Energia.")) return;
+      const r = await api("POST", "/net/outages/reclassify", { start: Number(mv.dataset.start) });
+      if (r.ok) { showToast("Movida para Energia ⚡", "info"); renderNetInfo(); }
+      else showToast((r.data && r.data.error) || "Falha ao mover", "error");
+    }
+  });
   document.getElementById("speedtest-run")?.addEventListener("click", async () => {
     const btn = document.getElementById("speedtest-run");
     const body = document.getElementById("speedtest-body");

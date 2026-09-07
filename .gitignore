@@ -11,3 +11,5 @@ health-history.json
 net-monitor.json
 net-outages.jsonl
 pihole/
+power-monitor.json
+power-outages.jsonl

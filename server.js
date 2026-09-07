@@ -646,7 +646,6 @@ const ALERT_METERS = [
   { key: "mem",  get: h => h.mem ? h.mem.pct : null, title: "🧠 Memória alta", msg: v => `RAM em ${v}% no servidor` },
 ];
 const alertActive = Object.create(null); // key -> bool (está acima do limite?)
-let powerAlertActive = false;
 function checkServerAlerts(h) {
   for (const rule of ALERT_METERS) {
     const cfg = alertConfig[rule.key] || {};
@@ -661,17 +660,34 @@ function checkServerAlerts(h) {
       alertActive[rule.key] = false;
     }
   }
-  // Queda de energia (notebook rodando na bateria).
-  const onBatt = !!(h.battery && h.battery.present && h.battery.acOnline === false);
-  const powerOn = (alertConfig.power || {}).enabled;
-  if (powerOn && onBatt && !powerAlertActive) {
-    powerAlertActive = true;
-    const pct = (h.battery && typeof h.battery.percent === "number") ? ` (${h.battery.percent}%)` : "";
-    sendPushToAll({ title: "⚡ Queda de energia", body: `Servidor rodando na bateria${pct}`, tag: "homeos-power", url: "/" }).catch(() => {});
-  } else if (!onBatt && powerAlertActive && h.battery && h.battery.acOnline === true) {
-    powerAlertActive = false;
-    if (powerOn) sendPushToAll({ title: "🔌 Energia restaurada", body: "Servidor de volta na tomada", tag: "homeos-power", url: "/" }).catch(() => {});
-  }
+  // Queda de energia agora é tratada pelo monitor dedicado (checkPower), que
+  // roda a cada 5s e registra as quedas num log próprio.
+}
+// Leitura leve só do estado de energia (AC/bateria), para o monitor de energia.
+function readPowerStatus() {
+  const out = { present: false, acOnline: null, percent: null, status: null };
+  try {
+    const base = "/sys/class/power_supply";
+    let bat = null, ac = null;
+    for (const e of fs.readdirSync(base)) {
+      let type = ""; try { type = fs.readFileSync(path.join(base, e, "type"), "utf8").trim(); } catch {}
+      if (type === "Battery" && !bat) bat = e;
+      if ((type === "Mains" || /^(AC|ADP|ACAD)/i.test(e)) && ac === null) {
+        try { ac = parseInt(fs.readFileSync(path.join(base, e, "online"), "utf8").trim(), 10); } catch {}
+      }
+    }
+    if (ac !== null) out.acOnline = ac === 1;
+    if (bat) {
+      out.present = true;
+      const rd = f => { try { return fs.readFileSync(path.join(base, bat, f), "utf8").trim(); } catch { return null; } };
+      const cap = parseInt(rd("capacity"), 10);
+      out.percent = Number.isFinite(cap) ? cap : null;
+      out.status = rd("status");
+      // Sem "online" do AC? Infere pelo status: "Discharging" = na bateria.
+      if (out.acOnline === null && out.status) out.acOnline = out.status !== "Discharging";
+    }
+  } catch {}
+  return out;
 }
 
 // ===== Histórico de saúde =====
@@ -1135,6 +1151,106 @@ app.get("/api/net/outages", authRequired, (req, res) => {
   if (netMon.online === false && netMon.downSince) { const s = Math.max(netMon.downSince, observedStart); if (now > s) downtime += now - s; }
   const uptimePct = observed > 0 ? +(100 * (1 - downtime / observed)).toFixed(3) : null;
   res.json({ hours, count: list.length, outages: list.slice(0, 100), uptimePct, downtimeMs: downtime, observedMs: observed, sinceMs: observedStart, online: netMon.online, downSince: netMon.downSince });
+});
+
+// ===== Monitor de quedas de ENERGIA (bateria/AC do notebook) =====
+// Separado do de internet: numa queda de luz o roteador também cai, então o
+// monitor de internet marcaria como "queda de internet". Aqui registramos
+// especificamente quando o notebook sai da tomada (energia cortada).
+const POWER_OUTAGE_LOG = HEALTH_DIR ? HEALTH_DIR + "/power-outages.jsonl" : null;
+const POWER_STATE_FILE = HEALTH_DIR ? HEALTH_DIR + "/power-monitor.json" : null;
+const POWER_OUTAGE_MAX = 5000;
+let powerMon = { onAC: null, downSince: null, firstCheckAt: null };
+(function loadPowerMon() {
+  if (!POWER_STATE_FILE) return;
+  try {
+    const s = JSON.parse(fs.readFileSync(POWER_STATE_FILE, "utf8"));
+    if (s && typeof s === "object") { powerMon.firstCheckAt = s.firstCheckAt || null; powerMon.downSince = s.downSince || null; powerMon.onAC = s.onAC != null ? s.onAC : null; }
+  } catch {}
+})();
+function savePowerMon() { if (!POWER_STATE_FILE) return; try { fs.writeFileSync(POWER_STATE_FILE, JSON.stringify({ firstCheckAt: powerMon.firstCheckAt, downSince: powerMon.downSince, onAC: powerMon.onAC })); } catch {} }
+function appendPowerOutage(o) {
+  if (!POWER_OUTAGE_LOG) return;
+  try {
+    fs.appendFileSync(POWER_OUTAGE_LOG, JSON.stringify(o) + "\n");
+    const lines = fs.readFileSync(POWER_OUTAGE_LOG, "utf8").split("\n").filter(Boolean);
+    if (lines.length > POWER_OUTAGE_MAX) fs.writeFileSync(POWER_OUTAGE_LOG, lines.slice(-POWER_OUTAGE_MAX).join("\n") + "\n");
+  } catch {}
+}
+function readPowerOutages(sinceMs) {
+  if (!POWER_OUTAGE_LOG) return [];
+  const out = [];
+  try {
+    for (const ln of fs.readFileSync(POWER_OUTAGE_LOG, "utf8").split("\n")) {
+      if (!ln) continue;
+      let o; try { o = JSON.parse(ln); } catch { continue; }
+      if (o && o.end >= sinceMs) out.push(o);
+    }
+  } catch {}
+  return out;
+}
+function checkPower() {
+  const p = readPowerStatus();
+  if (p.acOnline == null) return; // sem info de AC → não dá pra monitorar
+  const now = Date.now();
+  if (powerMon.firstCheckAt == null) powerMon.firstCheckAt = now;
+  // Primeira leitura: só estabelece a linha de base (não dispara/loga).
+  if (powerMon.onAC == null) { powerMon.onAC = p.acOnline; if (!p.acOnline) powerMon.downSince = now; savePowerMon(); return; }
+  const cfg = alertConfig.power || {};
+  if (p.acOnline) {
+    if (powerMon.onAC === false && powerMon.downSince) {
+      const outage = { start: powerMon.downSince, end: now, ms: now - powerMon.downSince };
+      appendPowerOutage(outage);
+      const dur = outage.ms < 60000 ? Math.round(outage.ms / 1000) + "s" : Math.round(outage.ms / 60000) + " min";
+      if (cfg.enabled) sendPushToAll({ title: "🔌 Energia restaurada", body: `Ficou sem energia por ${dur}`, tag: "homeos-power", url: "/" }).catch(() => {});
+    }
+    powerMon.onAC = true; powerMon.downSince = null;
+  } else if (powerMon.onAC !== false) {
+    powerMon.onAC = false; powerMon.downSince = now;
+    const pct = p.percent != null ? ` (bateria ${p.percent}%)` : "";
+    if (cfg.enabled) sendPushToAll({ title: "⚡ Queda de energia", body: `Servidor na bateria${pct}`, tag: "homeos-power", url: "/" }).catch(() => {});
+  }
+  savePowerMon();
+}
+setTimeout(() => { try { checkPower(); } catch {} }, 5000).unref?.();
+setInterval(() => { try { checkPower(); } catch {} }, 5000).unref?.();
+
+app.get("/api/power/status", authRequired, (req, res) => {
+  res.json({ onAC: powerMon.onAC, downSince: powerMon.downSince, firstCheckAt: powerMon.firstCheckAt });
+});
+app.get("/api/power/outages", authRequired, (req, res) => {
+  const hours = Math.min(24 * 400, Math.max(1, parseInt(req.query.hours, 10) || 168));
+  const now = Date.now();
+  const since = now - hours * 3600 * 1000;
+  const list = readPowerOutages(since).sort((a, b) => b.start - a.start);
+  let downtime = 0;
+  for (const o of list) { const s = Math.max(o.start, since), e = Math.min(o.end, now); if (e > s) downtime += e - s; }
+  if (powerMon.onAC === false && powerMon.downSince) { const s = Math.max(powerMon.downSince, since); if (now > s) downtime += now - s; }
+  res.json({ hours, count: list.length, outages: list.slice(0, 100), downtimeMs: downtime, onAC: powerMon.onAC, downSince: powerMon.downSince });
+});
+
+// Reclassifica uma queda de INTERNET como queda de ENERGIA (move de log).
+// Usado pelo botão "foi queda de energia" na interface.
+app.post("/api/net/outages/reclassify", authRequired, (req, res) => {
+  const start = Number(req.body && req.body.start);
+  if (!Number.isFinite(start)) return res.status(400).json({ error: "start inválido" });
+  if (!NET_OUTAGE_LOG || !POWER_OUTAGE_LOG) return res.status(503).json({ error: "logs indisponíveis" });
+  try {
+    const lines = fs.readFileSync(NET_OUTAGE_LOG, "utf8").split("\n").filter(Boolean);
+    const kept = [];
+    let moved = null;
+    for (const ln of lines) {
+      let o; try { o = JSON.parse(ln); } catch { kept.push(ln); continue; }
+      if (!moved && o && o.start === start) { moved = o; continue; }
+      kept.push(ln);
+    }
+    if (!moved) return res.status(404).json({ error: "queda não encontrada" });
+    fs.writeFileSync(NET_OUTAGE_LOG, kept.length ? kept.join("\n") + "\n" : "");
+    appendPowerOutage({ ...moved, source: "reclassified" });
+    res.json({ ok: true, moved });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
 });
 
 // Proxy de snapshot de câmera: repassa o JPEG do HA (camera_proxy) já autenticado.
