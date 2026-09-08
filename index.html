@@ -7866,12 +7866,20 @@
           const temp = e.attributes?.temperature;
           const icon = WEATHER_ICON[e.state] || "cloud";
           const desc = WEATHER_PT[e.state] || e.state;
-          const amb = (typeof indoorTempText === "function") ? (indoorTempText() || "") : "";
+          // Temperatura interna (média de sensores/climate) — valor limpo, sem HTML.
+          let ambT = null;
+          const temps = [];
+          haEntities.forEach((ent, eid) => {
+            const dm = eid.split(".")[0], at = ent.attributes || {};
+            if (dm === "sensor" && at.device_class === "temperature") { const v = parseFloat(ent.state); if (Number.isFinite(v)) temps.push(v); }
+            else if (dm === "climate" && typeof at.current_temperature === "number") temps.push(at.current_temperature);
+          });
+          if (temps.length) ambT = temps.reduce((s, x) => s + x, 0) / temps.length;
           wxHtml = `<div class="hero-wx">
             <div class="h-ic">${svgIcon(icon, 42)}</div>
             <div class="h-t">${temp != null ? Math.round(temp) + "°" : "—"}</div>
             <div class="h-desc">${escapeHtml(desc)}</div>
-            ${amb ? `<div class="hero-amb">dentro ${escapeHtml(amb)}</div>` : ""}
+            ${ambT != null ? `<div class="hero-amb">${svgIcon("thermometer", 13)} ${Math.round(ambT)}° dentro</div>` : ""}
           </div>`;
         }
         const top = `<div class="hero-top">
