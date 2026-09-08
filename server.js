@@ -1575,6 +1575,18 @@ async function runRoutineFor(u, routine, opts = {}) {
     t: Date.now(), uid: u.id, rid: routine.id, ok: allOk, source, nOk, nTotal,
     error: allOk ? undefined : (results.find(r => !r.ok) || {}).error || "falha em alguma ação",
   });
+  // Notificação (Web Push) quando a rotina roda — útil como alerta:
+  // ex.: gatilho "quando umidade > 70%" + rotina só com notificação.
+  if (routine.notify && routine.notify.enabled) {
+    const msg = (routine.notify.message && String(routine.notify.message).trim())
+      || `Rotina "${routine.name}" executada`;
+    sendPushToUser(u.id, {
+      title: "🔔 " + routine.name, body: msg,
+      tag: "homeos-routine-" + routine.id, url: "/",
+      actions: [{ action: "alloff", title: "💡 Apagar tudo" }],
+      actionEndpoints: { alloff: "/api/scenes/all-off" },
+    }).catch(() => {});
+  }
   // Stamp lastRunAt in user state
   const st = loadUserState(u);
   if (Array.isArray(st.routines)) {
@@ -1619,6 +1631,102 @@ app.get("/api/routines/last-runs", authRequired, (req, res) => {
   }
   res.json({ runs: out });
 });
+
+// ===== Cenas rápidas (apagar tudo) — usado pela UI, pelo webhook e pelas
+// ações das notificações push. =====
+async function allOffFor(u) {
+  const map = await loadStatesMap(u);
+  if (!map) return { ok: false, n: 0 };
+  const byDom = { light: [], switch: [] };
+  for (const id of map.keys()) {
+    const d = id.split(".")[0];
+    if (d === "light" || d === "switch") byDom[d].push(id);
+  }
+  let n = 0;
+  for (const dom of ["light", "switch"]) {
+    if (!byDom[dom].length) continue;
+    try {
+      await haFetch(u, `/api/services/${dom}/turn_off`, { method: "POST", body: JSON.stringify({ entity_id: byDom[dom] }) });
+      n += byDom[dom].length;
+    } catch {}
+  }
+  return { ok: true, n };
+}
+app.post("/api/scenes/all-off", authRequired, async (req, res) => {
+  if (!userHaEnabled(req.user)) return res.status(400).json({ error: "HA não configurado" });
+  try { res.json(await allOffFor(req.user)); }
+  catch (e) { res.status(502).json({ error: String(e.message || e) }); }
+});
+
+// ===== Webhook (Atalhos iOS / Siri) — dispara cena ou rotina sem login,
+// autenticado por um token secreto na URL. Feito para uso na tailnet. =====
+function findUserByHookToken(token) {
+  if (!token) return null;
+  for (const u of db.prepare("SELECT * FROM users").all()) {
+    const st = loadUserState(u);
+    if (st && st.webhookToken && st.webhookToken === token) return u;
+  }
+  return null;
+}
+app.all("/api/hook/:token", async (req, res) => {
+  const u = findUserByHookToken(req.params.token);
+  if (!u) return res.status(404).json({ error: "token inválido" });
+  const action = String(req.query.action || (req.body && req.body.action) || "").toLowerCase();
+  const target = String(req.query.routine || (req.body && req.body.routine) || "");
+  try {
+    if (action === "all-off" || action === "alloff") {
+      if (!userHaEnabled(u)) return res.status(400).json({ error: "HA não configurado" });
+      return res.json(await allOffFor(u));
+    }
+    if (action === "run" || target) {
+      const st = loadUserState(u);
+      const routine = (st.routines || []).find(r => r.id === target || (r.name || "").toLowerCase() === target.toLowerCase());
+      if (!routine) return res.status(404).json({ error: "rotina não encontrada" });
+      const out = await runRoutineFor(u, routine, { source: "webhook", checkConditions: false });
+      return res.json({ ok: true, skipped: out.skipped });
+    }
+    res.status(400).json({ error: "use ?action=all-off ou ?routine=<nome>" });
+  } catch (e) { res.status(502).json({ error: String(e.message || e) }); }
+});
+app.get("/api/webhook/token", authRequired, (req, res) => {
+  res.json({ token: loadUserState(req.user).webhookToken || null });
+});
+app.post("/api/webhook/token", authRequired, (req, res) => {
+  const st = loadUserState(req.user);
+  st.webhookToken = crypto.randomBytes(24).toString("hex");
+  saveUserState(req.user.id, st);
+  res.json({ token: st.webhookToken });
+});
+app.delete("/api/webhook/token", authRequired, (req, res) => {
+  const st = loadUserState(req.user);
+  delete st.webhookToken;
+  saveUserState(req.user.id, st);
+  res.json({ ok: true });
+});
+
+// ===== Atualizações disponíveis (entidades update.* do HA) — avisa por push
+// na borda em que uma atualização passa a estar disponível. =====
+const updateEdge = new Map(); // `${uid}:${entityId}` -> bool
+async function scanUpdates() {
+  const users = db.prepare("SELECT * FROM users WHERE ha_url <> '' AND ha_token <> ''").all();
+  for (const u of users) {
+    let map; try { map = await loadStatesMap(u); } catch { continue; }
+    if (!map) continue;
+    for (const [id, e] of map) {
+      if (!id.startsWith("update.")) continue;
+      const on = e.state === "on";
+      const key = `${u.id}:${id}`;
+      const prev = updateEdge.get(key);
+      updateEdge.set(key, on);
+      if (on && prev === false) {
+        const nm = (e.attributes && e.attributes.friendly_name) || id;
+        sendPushToUser(u.id, { title: "⬆️ Atualização disponível", body: nm, tag: "homeos-update-" + id, url: "/" }).catch(() => {});
+      }
+    }
+  }
+}
+setInterval(() => scanUpdates().catch(() => {}), 3 * 60 * 60 * 1000).unref();
+setTimeout(() => scanUpdates().catch(() => {}), 60 * 1000).unref();
 
 // Scheduler — a cada minuto, checa rotinas com gatilho de horário OU de sol.
 // lastFiredKey guarda o último "marcador" já disparado por rotina (dedup por minuto).

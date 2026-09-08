@@ -259,6 +259,44 @@
   body.kiosk .home-row { padding: 10px 12px; }
   body.kiosk .home-row .hr-name { font-size: 15px; }
   body.kiosk .home-check { width: 30px; height: 30px; }
+
+  /* Edição da Home: arrastar/ocultar widgets */
+  .home-head { align-items: flex-start; }
+  #home-edit-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .home-grid.editing .home-card { border-style: dashed; cursor: grab; }
+  .home-grid.editing .home-card.dragging { opacity: .45; }
+  .home-grid.editing .home-card.drop-target { border-color: var(--accent); border-style: solid; }
+  .home-card.is-hidden { opacity: .5; }
+  .hc-grip { flex: none; color: var(--muted); cursor: grab; display: none; }
+  .home-grid.editing .hc-grip { display: inline-flex; }
+  .home-grid.editing .hc-open { display: none; }
+  .hc-eye {
+    flex: none; border: none; background: transparent; color: var(--muted);
+    cursor: pointer; padding: 4px 6px; border-radius: 8px; display: none;
+  }
+  .hc-eye:hover { color: var(--accent); background: var(--bg); }
+  .home-grid.editing .hc-eye { display: inline-flex; }
+  .home-grid.editing .home-card-body { pointer-events: none; }
+
+  /* Widget de clima expandido */
+  .home-wx-now { display: flex; align-items: center; gap: 12px; }
+  .home-wx-now .wx-ic { color: var(--accent); }
+  .home-wx-now .wx-t { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .home-wx-now .wx-desc { font-size: 13px; color: var(--muted); }
+  .home-wx-days { display: flex; gap: 6px; margin-top: 4px; }
+  .home-wx-day {
+    flex: 1; text-align: center; border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px 4px; background: var(--bg); min-width: 0;
+  }
+  .home-wx-day.today { border-color: var(--accent); }
+  .home-wx-day .d { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+  .home-wx-day .i { color: var(--accent); margin: 4px 0; }
+  .home-wx-day .hi { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .home-wx-day .lo { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* Widget de atualizações */
+  .home-upd-row { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 0; }
+  .home-upd-row .up-badge { flex: none; color: var(--accent); }
   .home-metric { display: flex; align-items: baseline; gap: 8px; }
   .home-metric .hm-big { font-size: 30px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
   .home-metric .hm-unit { font-size: 13px; color: var(--muted); font-weight: 600; }
@@ -2778,8 +2816,11 @@
   <main id="home-view">
     <div class="home-shell">
       <header class="home-head">
-        <h2>Início</h2>
-        <span class="home-greeting" id="home-greeting"></span>
+        <div>
+          <h2>Início</h2>
+          <span class="home-greeting" id="home-greeting"></span>
+        </div>
+        <button id="home-edit-btn" class="home-act" type="button">Personalizar</button>
       </header>
       <div class="home-grid" id="home-grid"></div>
     </div>
@@ -3008,6 +3049,13 @@
         <button id="push-toggle" class="ghost" type="button" style="border:1px solid var(--line); padding:10px 12px; border-radius:8px; font-weight:600;">Ativar</button>
       </div>
 
+      <!-- Bento Card 9b: Atalhos / Siri (webhook) -->
+      <div class="profile-card" id="webhook-card">
+        <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a4 4 0 0 1 4-4h3v2H8a2 2 0 0 0 0 4h3v2H8a4 4 0 0 1-4-4z"/><path d="M20 12a4 4 0 0 1-4 4h-3v-2h3a2 2 0 0 0 0-4h-3V8h3a4 4 0 0 1 4 4z"/><path d="M8 12h8"/></svg> Atalhos / Siri (webhook)</h3>
+        <p class="sub">Crie um link secreto para acionar por Atalhos do iOS / Siri (ex.: "apagar tudo").</p>
+        <div id="webhook-body"><div class="sub">Carregando…</div></div>
+      </div>
+
       <!-- Bento Card 10: Alertas do servidor (Span 2) -->
       <div class="profile-card bento-2" id="alerts-card">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -3142,6 +3190,15 @@
           <label style="display:block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 600;">Ações</label>
           <ul id="routine-actions-list" style="list-style:none; padding:0; margin:0 0 8px; display:flex; flex-direction:column; gap:6px;"></ul>
           <button id="add-action-btn" class="ghost" type="button" style="font-size: 12px; padding: 4px 8px;">+ Adicionar ação</button>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <label style="display:flex; align-items:center; gap:8px; font-size: 13px; font-weight: 600; cursor:pointer;">
+            <input type="checkbox" id="routine-notify-enabled" style="width:16px; height:16px;" />
+            🔔 Enviar notificação quando executar
+          </label>
+          <input id="routine-notify-msg" type="text" maxlength="120" placeholder="Mensagem (opcional) — ex: Umidade do quarto alta"
+            style="width:100%; margin-top:8px; border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:8px; padding:8px 10px; font:inherit; display:none;" />
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
@@ -3641,7 +3698,7 @@
   }
 
   function emptyState() {
-    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], groceryHistory: {}, dailyTasks: [], dashUrl: "", walletUrl: "", energyTariff: 0, view: { tx: 0, ty: 0, scale: 1 } };
+    return { rooms: [], selectedId: null, seq: 1, history: [], routines: [], groceries: [], groceryHistory: {}, dailyTasks: [], homeLayout: { order: [], hidden: [] }, dashUrl: "", walletUrl: "", energyTariff: 0, view: { tx: 0, ty: 0, scale: 1 } };
   }
   function normalizeState(s) {
     if (!s || typeof s !== "object") return emptyState();
@@ -3665,6 +3722,9 @@
       })) : [],
       groceries: Array.isArray(s.groceries) ? s.groceries.filter(g => g && typeof g.id === "string" && typeof g.name === "string") : [],
       groceryHistory: (s.groceryHistory && typeof s.groceryHistory === "object" && !Array.isArray(s.groceryHistory)) ? s.groceryHistory : {},
+      homeLayout: (s.homeLayout && typeof s.homeLayout === "object" && !Array.isArray(s.homeLayout))
+        ? { order: Array.isArray(s.homeLayout.order) ? s.homeLayout.order : [], hidden: Array.isArray(s.homeLayout.hidden) ? s.homeLayout.hidden : [] }
+        : { order: [], hidden: [] },
       dashUrl: typeof s.dashUrl === "string" ? s.dashUrl : "",
       walletUrl: typeof s.walletUrl === "string" ? s.walletUrl : "",
       energyTariff: Math.max(0, Number(s.energyTariff) || 0),
@@ -4144,6 +4204,11 @@
   const routineStateValue = document.getElementById("routine-state-value");
   const routineConditionsList = document.getElementById("routine-conditions-list");
   const addConditionBtn = document.getElementById("add-condition-btn");
+  const routineNotifyEnabled = document.getElementById("routine-notify-enabled");
+  const routineNotifyMsg = document.getElementById("routine-notify-msg");
+  if (routineNotifyEnabled) routineNotifyEnabled.addEventListener("change", () => {
+    routineNotifyMsg.style.display = routineNotifyEnabled.checked ? "block" : "none";
+  });
   const nameInput = document.getElementById("name");
   const notesInput = document.getElementById("notes");
   const itemsList = document.getElementById("items");
@@ -6416,6 +6481,7 @@
     renderEnergyChart();
     renderAlertsConfig();
     refreshPushUI();
+    renderWebhookCard();
 
     const themeSelect = document.getElementById("theme-select");
     if (themeSelect) {
@@ -6613,16 +6679,19 @@
       trigger = { type: "state", entityId: routineStateEntity.value, op: routineStateOp.value, value: routineStateValue.value.trim() };
     }
 
+    const notify = { enabled: !!routineNotifyEnabled.checked, message: routineNotifyMsg.value.trim() };
+
     state.routines = state.routines || [];
     let routine = state.routines.find(x => x.id === id);
     if (!routine) {
-      routine = { id, name, enabled: true, actions, trigger, conditions };
+      routine = { id, name, enabled: true, actions, trigger, conditions, notify };
       state.routines.push(routine);
     } else {
       routine.name = name;
       routine.actions = actions;
       routine.trigger = trigger;
       routine.conditions = conditions;
+      routine.notify = notify;
     }
 
     logActivity(`Rotina <b>${escapeHtml(name)}</b> ${isNew ? "criada" : "atualizada"}`);
@@ -6984,6 +7053,10 @@
       if (Array.isArray(routine.actions)) {
         for (const action of routine.actions) addRoutineActionRow(action);
       }
+      const nt = routine.notify || {};
+      routineNotifyEnabled.checked = !!nt.enabled;
+      routineNotifyMsg.value = nt.message || "";
+      routineNotifyMsg.style.display = nt.enabled ? "block" : "none";
     } else {
       routineFormTitle.textContent = "Criar Rotina";
       routineEditId.value = "";
@@ -6993,6 +7066,9 @@
       setSelectedDays([]);
       applyTriggerType();
       addRoutineActionRow();
+      routineNotifyEnabled.checked = false;
+      routineNotifyMsg.value = "";
+      routineNotifyMsg.style.display = "none";
     }
   }
 
@@ -7377,19 +7453,242 @@
   // ===== Home (dashboard) =====
   const homeGridEl = document.getElementById("home-grid");
   const homeGreetingEl = document.getElementById("home-greeting");
+  const homeEditBtn = document.getElementById("home-edit-btn");
+  let homeEditMode = false;
 
-  // Casca de um card: cabeçalho (ícone + título + "Abrir") e corpo.
-  function homeCard({ view, icon, title, badge, bodyHtml, bodyId }) {
-    return `<section class="home-card">
-      <div class="home-card-head">
-        <span class="hc-ic">${svgIcon(icon, 18)}</span>
-        <span class="hc-title">${escapeHtml(title)}${badge != null ? ` · ${badge}` : ""}</span>
-        <button type="button" class="hc-open" data-goto="${view}">Abrir ${svgIcon("chevron-right", 15)}</button>
-      </div>
-      <div class="home-card-body"${bodyId ? ` id="${bodyId}"` : ""}>${bodyHtml}</div>
-    </section>`;
+  // Helpers de ação reaproveitados pelos widgets.
+  function homeToggleDaily(id) {
+    const t = (state.dailyTasks || []).find(x => x.id === id);
+    if (!t) return;
+    const k = dateKey(new Date());
+    t.done = t.done || {};
+    if (t.done[k]) delete t.done[k]; else t.done[k] = true;
+    scheduleSave(); renderHome();
+  }
+  function homeBuyGrocery(id) {
+    const it = (state.groceries || []).find(x => x.id === id);
+    if (!it) return;
+    it.bought = true; it.boughtAt = new Date().toISOString();
+    recordGroceryPurchase(it.name, it.category);
+    logActivity(`Item <b>${escapeHtml(it.name)}</b> comprado`);
+    scheduleSave(); renderHome();
   }
 
+  // Registro de widgets. Cada build() devolve { body, mount? }.
+  const HOME_WIDGETS = {
+    tarefas: {
+      title: "Tarefas do dia", icon: "check", view: "daily",
+      build() {
+        const now = new Date(), dow = now.getDay(), tKey = dateKey(now);
+        const todays = (state.dailyTasks || []).filter(t => !t.days || !t.days.length || t.days.includes(dow));
+        if (!todays.length) return { body: `<div class="home-empty-mini">Nada para hoje. 🎉</div>` };
+        const done = todays.filter(t => t.done && t.done[tKey]).length;
+        const sorted = [...todays].sort((a, b) => (!!(a.done && a.done[tKey])) - (!!(b.done && b.done[tKey])));
+        const rows = sorted.slice(0, 5).map(t => {
+          const on = !!(t.done && t.done[tKey]);
+          return `<div class="home-row ${on ? "done" : ""}">
+            <button class="home-check ${on ? "on" : ""}" data-daily="${t.id}" aria-label="Concluir">${svgIcon("check", 14)}</button>
+            <span class="hr-name">${escapeHtml(t.name)}</span></div>`;
+        }).join("");
+        const body = `<div class="home-metric"><span class="hm-big">${done}/${todays.length}</span><span class="hm-unit">feitas hoje</span></div>${rows}` +
+          (todays.length > 5 ? `<div class="home-empty-mini">+${todays.length - 5} tarefa(s)…</div>` : "");
+        return { body, mount(el) { for (const b of el.querySelectorAll("[data-daily]")) b.addEventListener("click", () => homeToggleDaily(b.dataset.daily)); } };
+      },
+    },
+    casa: {
+      title: "Casa", icon: "home", view: "map",
+      build() {
+        const rooms = state.rooms || [];
+        let onCount = null, total = 0; const litRooms = [];
+        if (haEnabled) {
+          onCount = 0;
+          for (const room of rooms) {
+            let roomOn = 0;
+            for (const dev of (room.devices || [])) {
+              const id = devId(dev); if (!id) continue;
+              const dom = entityDomain(id);
+              if (dom !== "light" && dom !== "switch") continue;
+              total++;
+              const e = haEntities.get(id);
+              if (e && e.state === "on") { onCount++; roomOn++; }
+            }
+            if (roomOn) litRooms.push({ id: room.id, name: room.name, n: roomOn });
+          }
+        }
+        const mini = `<div class="home-mini">
+          <div class="hmi"><span class="hmi-v">${rooms.length}</span><span class="hmi-l">Cômodos</span></div>
+          <div class="hmi"><span class="hmi-v ${onCount ? "warn" : ""}">${onCount == null ? "—" : onCount}</span><span class="hmi-l">Ligados</span></div>
+          ${total ? `<div class="hmi"><span class="hmi-v">${total}</span><span class="hmi-l">Luzes/tomadas</span></div>` : ""}
+        </div>`;
+        let extra;
+        if (!haEnabled) extra = `<div class="home-empty-mini">Conecte ao Home Assistant para controlar os dispositivos.</div>`;
+        else {
+          const litRows = litRooms.slice(0, 3).map(r => `<div class="home-row">
+              <span class="hr-name">${svgIcon("bulb", 14)} ${escapeHtml(r.name)} <span style="color:var(--muted)">· ${r.n}</span></span>
+              <button class="home-row-btn" data-room-off="${r.id}">Apagar</button></div>`).join("");
+          const allBtn = onCount ? `<div class="home-actions"><button class="home-act danger" data-all-off="1">${svgIcon("power", 15)} Apagar tudo</button></div>` : `<div class="home-empty-mini">Tudo apagado. 🌙</div>`;
+          extra = litRows + allBtn + `<ul class="devices" data-casa-devices style="margin-top:10px"></ul>`;
+        }
+        return {
+          body: mini + extra,
+          mount(el) {
+            for (const b of el.querySelectorAll("[data-room-off]"))
+              b.addEventListener("click", () => {
+                const room = (state.rooms || []).find(r => r.id === b.dataset.roomOff);
+                if (!room) return;
+                const ids = (room.devices || []).map(devId).filter(id => { const d = entityDomain(id); return d === "light" || d === "switch"; });
+                turnOffLightsSwitches(ids, room.name);
+                b.disabled = true; b.textContent = "…"; setTimeout(renderHome, 1200);
+              });
+            const allOff = el.querySelector("[data-all-off]");
+            if (allOff) allOff.addEventListener("click", async () => {
+              const ids = [...haEntities.keys()].filter(id => { const d = entityDomain(id); return d === "light" || d === "switch"; });
+              if (!ids.length) return;
+              if (!await customConfirm(`Apagar todas as luzes e tomadas da casa (${ids.length})?`)) return;
+              turnOffLightsSwitches(ids, "casa"); allOff.disabled = true; setTimeout(renderHome, 1200);
+            });
+            // Controles por dispositivo (dimmer/cor/AC) reaproveitando os builders do mapa.
+            const ul = el.querySelector("[data-casa-devices]");
+            if (ul && haEnabled) {
+              let count = 0;
+              for (const room of (state.rooms || [])) {
+                for (const dev of (room.devices || [])) {
+                  const id = devId(dev); if (!id || !haEntities.has(id)) continue;
+                  const dom = entityDomain(id);
+                  if (!["light", "climate", "switch", "fan"].includes(dom)) continue;
+                  let li;
+                  if (dom === "climate") li = buildClimateRow(id, room);
+                  else if (dom === "light") li = buildLightCard(id, room);
+                  else li = buildSimpleDeviceRow(id, room);
+                  ul.appendChild(li);
+                  if (++count >= 12) break;
+                }
+                if (count >= 12) break;
+              }
+              if (!count) ul.remove();
+            }
+          },
+        };
+      },
+    },
+    mercado: {
+      title: "Mercado", icon: "cart", view: "grocery",
+      build() {
+        const list = state.groceries || [];
+        const pend = list.filter(i => !i.bought);
+        const qadd = `<form class="home-qadd" data-hqadd="grocery"><input type="text" placeholder="Adicionar item rápido…" maxlength="60" /><button type="submit">+</button></form>`;
+        let body;
+        if (!pend.length) body = `<div class="home-empty-mini">${list.length ? "Tudo comprado ✅" : "Lista vazia."}</div>${qadd}`;
+        else {
+          const rows = pend.slice(0, 5).map(i => `<div class="home-row">
+              <button class="home-check" data-grocery="${i.id}" aria-label="Marcar comprado">${svgIcon("check", 14)}</button>
+              <span class="hr-name">${escapeHtml(i.name)}${i.qty ? ` <span style="color:var(--muted)">· ${escapeHtml(i.qty)}</span>` : ""}</span></div>`).join("");
+          body = `<div class="home-metric"><span class="hm-big">${pend.length}</span><span class="hm-unit">pendente${pend.length === 1 ? "" : "s"}</span></div>${rows}` +
+            (pend.length > 5 ? `<div class="home-empty-mini">+${pend.length - 5} item(ns)…</div>` : "") + qadd;
+        }
+        return {
+          body,
+          mount(el) {
+            for (const b of el.querySelectorAll("[data-grocery]")) b.addEventListener("click", () => homeBuyGrocery(b.dataset.grocery));
+            const qform = el.querySelector('[data-hqadd="grocery"]');
+            if (qform) qform.addEventListener("submit", (e) => {
+              e.preventDefault();
+              const inp = qform.querySelector("input"); const name = inp.value.trim();
+              if (!name) return;
+              addGroceryItem(name, null, "outros"); inp.value = ""; renderHome();
+            });
+          },
+        };
+      },
+    },
+    rotinas: {
+      title: "Rotinas", icon: "calendar", view: "routines",
+      build() {
+        const routines = state.routines || [];
+        if (!routines.length) return { body: `<div class="home-empty-mini">Nenhuma rotina criada ainda.</div>` };
+        const rows = routines.slice(0, 5).map(r => `<div class="home-row">
+            <span class="hr-name">${svgIcon("bolt", 14)} ${escapeHtml(r.name)}${r.notify && r.notify.enabled ? " 🔔" : ""}</span>
+            <button class="home-row-btn" data-run-routine="${r.id}">Executar</button></div>`).join("");
+        const body = rows + (routines.length > 5 ? `<div class="home-empty-mini">+${routines.length - 5} rotina(s)…</div>` : "");
+        return {
+          body,
+          mount(el) {
+            for (const b of el.querySelectorAll("[data-run-routine]"))
+              b.addEventListener("click", async () => {
+                b.disabled = true; const label = b.textContent; b.textContent = "…";
+                const res = await api("POST", `/routines/${b.dataset.runRoutine}/run`);
+                if (res.ok) {
+                  const r = (state.routines || []).find(x => x.id === b.dataset.runRoutine);
+                  if (r) { r.lastRunAt = new Date().toISOString(); logActivity(`Rotina <b>${escapeHtml(r.name)}</b> executada`); scheduleSave(); }
+                  b.textContent = "✓"; showToast("Rotina executada", "info"); setTimeout(renderHome, 1500);
+                } else { b.disabled = false; b.textContent = label; showToast("Erro ao executar rotina", "error"); }
+              });
+          },
+        };
+      },
+    },
+    clima: {
+      title: "Clima", icon: "cloud", view: "map",
+      build() {
+        const id = findWeatherEntity();
+        const e = id && haEntities.get(id);
+        if (!haEnabled || !e) return { body: `<div class="home-empty-mini">Clima indisponível (precisa de uma entidade weather.* no HA).</div>` };
+        const temp = e.attributes?.temperature;
+        const icon = WEATHER_ICON[e.state] || "cloud";
+        const desc = WEATHER_PT[e.state] || e.state;
+        const nowHtml = `<div class="home-wx-now">${svgIcon(icon, 34, "wx-ic")}<div><div class="wx-t">${temp != null ? Math.round(temp) + "°" : "—"}</div><div class="wx-desc">${escapeHtml(desc)}</div></div></div>`;
+        let daysHtml = "";
+        if (wxForecast.byDate) {
+          const today = new Date(); const cards = [];
+          for (let i = 0; i < 5; i++) {
+            const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+            const it = wxForecast.byDate[dateKey(d)];
+            const wd = i === 0 ? "Hoje" : d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
+            const ic = it ? (WEATHER_ICON[it.condition] || "cloud") : "cloud";
+            const hi = it && it.temperature != null ? Math.round(it.temperature) + "°" : "—";
+            const lo = it && it.templow != null ? Math.round(it.templow) + "°" : "";
+            cards.push(`<div class="home-wx-day ${i === 0 ? "today" : ""}"><div class="d">${escapeHtml(wd)}</div><div class="i">${svgIcon(ic, 22)}</div><div class="hi">${hi}</div>${lo ? `<div class="lo">${lo}</div>` : ""}</div>`);
+          }
+          daysHtml = `<div class="home-wx-days">${cards.join("")}</div>`;
+        } else {
+          daysHtml = `<div class="home-empty-mini">Carregando previsão…</div>`;
+          fetchWeeklyForecast().then(() => { if (currentView === "home" && wxForecast.byDate) renderHome(); });
+        }
+        return { body: nowHtml + daysHtml };
+      },
+    },
+    servidor: {
+      title: "Servidor", icon: "server", view: "server",
+      build() {
+        return { body: `<div class="home-empty-mini">Carregando…</div>`, mount(el) { loadHomeServerCard(el); } };
+      },
+    },
+    updates: {
+      title: "Atualizações", icon: "refresh", view: "server",
+      build() {
+        if (!haEnabled) return { body: `<div class="home-empty-mini">Conecte ao Home Assistant.</div>` };
+        const ups = [];
+        for (const [id, e] of haEntities) if (id.startsWith("update.") && e.state === "on") ups.push((e.attributes && e.attributes.friendly_name) || id);
+        if (!ups.length) return { body: `<div class="home-empty-mini">Tudo atualizado ✅</div>` };
+        const rows = ups.slice(0, 6).map(n => `<div class="home-upd-row"><span class="up-badge">${svgIcon("bolt", 15)}</span>${escapeHtml(n)}</div>`).join("");
+        return { body: `<div class="home-metric"><span class="hm-big">${ups.length}</span><span class="hm-unit">disponíve${ups.length === 1 ? "l" : "is"}</span></div>${rows}` };
+      },
+    },
+  };
+
+  function homeLayout() {
+    const all = Object.keys(HOME_WIDGETS);
+    const saved = (state.homeLayout && Array.isArray(state.homeLayout.order)) ? state.homeLayout.order : [];
+    const order = saved.filter(id => HOME_WIDGETS[id]).concat(all.filter(id => !saved.includes(id)));
+    const hidden = new Set((state.homeLayout && Array.isArray(state.homeLayout.hidden)) ? state.homeLayout.hidden : []);
+    return { order, hidden };
+  }
+  function saveHomeLayout(order, hidden) {
+    state.homeLayout = { order, hidden: [...hidden] };
+    scheduleSave();
+  }
+
+  let homeDragId = null;
   function renderHome() {
     if (!homeGridEl) return;
     const now = new Date();
@@ -7400,204 +7699,65 @@
       homeGreetingEl.textContent = `${greet}${name ? ", " + name : ""} · ` +
         now.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
     }
+    if (homeEditBtn) { homeEditBtn.textContent = homeEditMode ? "Concluir" : "Personalizar"; homeEditBtn.classList.toggle("active", homeEditMode); }
 
-    const cards = [];
-    const dow = now.getDay();
-    const tKey = dateKey(now);
+    const { order, hidden } = homeLayout();
+    homeGridEl.classList.toggle("editing", homeEditMode);
+    homeGridEl.innerHTML = "";
 
-    // --- Tarefas do dia (check inline) ---
-    (() => {
-      const tasks = state.dailyTasks || [];
-      const todays = tasks.filter(t => !t.days || !t.days.length || t.days.includes(dow));
-      const done = todays.filter(t => t.done && t.done[tKey]).length;
-      let body;
-      if (!todays.length) {
-        body = `<div class="home-empty-mini">Nada para hoje. 🎉</div>`;
-      } else {
-        const sorted = [...todays].sort((a, b) => (!!(a.done && a.done[tKey])) - (!!(b.done && b.done[tKey])));
-        const rows = sorted.slice(0, 5).map(t => {
-          const on = !!(t.done && t.done[tKey]);
-          return `<div class="home-row ${on ? "done" : ""}">
-            <button class="home-check ${on ? "on" : ""}" data-daily="${t.id}" aria-label="Concluir">${svgIcon("check", 14)}</button>
-            <span class="hr-name">${escapeHtml(t.name)}</span>
-          </div>`;
-        }).join("");
-        body = `<div class="home-metric"><span class="hm-big">${done}/${todays.length}</span><span class="hm-unit">feitas hoje</span></div>${rows}` +
-          (todays.length > 5 ? `<div class="home-empty-mini">+${todays.length - 5} tarefa(s)…</div>` : "");
-      }
-      cards.push(homeCard({ view: "daily", icon: "check", title: "Tarefas do dia", bodyHtml: body }));
-    })();
+    for (const id of order) {
+      const w = HOME_WIDGETS[id];
+      if (!w) continue;
+      const isHidden = hidden.has(id);
+      if (isHidden && !homeEditMode) continue;
 
-    // --- Mercado (marcar comprado + adicionar rápido) ---
-    (() => {
-      const list = state.groceries || [];
-      const pend = list.filter(i => !i.bought);
-      const qadd = `<form class="home-qadd" data-hqadd="grocery">
-        <input type="text" placeholder="Adicionar item rápido…" maxlength="60" />
-        <button type="submit">+</button>
-      </form>`;
-      let body;
-      if (!pend.length) {
-        body = `<div class="home-empty-mini">${list.length ? "Tudo comprado ✅" : "Lista vazia."}</div>${qadd}`;
-      } else {
-        const rows = pend.slice(0, 5).map(i => `<div class="home-row">
-            <button class="home-check" data-grocery="${i.id}" aria-label="Marcar comprado">${svgIcon("check", 14)}</button>
-            <span class="hr-name">${escapeHtml(i.name)}${i.qty ? ` <span style="color:var(--muted)">· ${escapeHtml(i.qty)}</span>` : ""}</span>
-          </div>`).join("");
-        body = `<div class="home-metric"><span class="hm-big">${pend.length}</span><span class="hm-unit">pendente${pend.length === 1 ? "" : "s"}</span></div>${rows}` +
-          (pend.length > 5 ? `<div class="home-empty-mini">+${pend.length - 5} item(ns)…</div>` : "") + qadd;
-      }
-      cards.push(homeCard({ view: "grocery", icon: "cart", title: "Mercado", bodyHtml: body }));
-    })();
+      const built = w.build();
+      const card = document.createElement("section");
+      card.className = "home-card" + (isHidden ? " is-hidden" : "");
+      card.dataset.wid = id;
+      card.draggable = homeEditMode;
+      card.innerHTML =
+        `<div class="home-card-head">
+          <span class="hc-grip">${svgIcon("dashboard", 15)}</span>
+          <span class="hc-ic">${svgIcon(w.icon, 18)}</span>
+          <span class="hc-title">${escapeHtml(w.title)}</span>
+          <button type="button" class="hc-eye" title="${isHidden ? "Mostrar" : "Ocultar"}">${svgIcon(isHidden ? "dot" : "check", 15)}</button>
+          <button type="button" class="hc-open">Abrir ${svgIcon("chevron-right", 15)}</button>
+        </div>
+        <div class="home-card-body"></div>`;
+      const bodyEl = card.querySelector(".home-card-body");
+      bodyEl.innerHTML = built.body || "";
+      homeGridEl.appendChild(card);
 
-    // --- Casa (apagar tudo + apagar por cômodo aceso) ---
-    (() => {
-      const rooms = (state.rooms || []);
-      let onCount = null, total = 0;
-      const litRooms = [];
-      if (haEnabled) {
-        onCount = 0;
-        for (const room of rooms) {
-          let roomOn = 0;
-          for (const dev of (room.devices || [])) {
-            const id = devId(dev); if (!id) continue;
-            const dom = entityDomain(id);
-            if (dom !== "light" && dom !== "switch") continue;
-            total++;
-            const e = haEntities.get(id);
-            if (e && e.state === "on") { onCount++; roomOn++; }
-          }
-          if (roomOn) litRooms.push({ id: room.id, name: room.name, n: roomOn });
-        }
-      }
-      const mini = `<div class="home-mini">
-        <div class="hmi"><span class="hmi-v">${rooms.length}</span><span class="hmi-l">Cômodos</span></div>
-        <div class="hmi"><span class="hmi-v ${onCount ? "warn" : ""}">${onCount == null ? "—" : onCount}</span><span class="hmi-l">Ligados</span></div>
-        ${total ? `<div class="hmi"><span class="hmi-v">${total}</span><span class="hmi-l">Luzes/tomadas</span></div>` : ""}
-      </div>`;
-      let extra;
-      if (!haEnabled) {
-        extra = `<div class="home-empty-mini">Conecte ao Home Assistant para controlar os dispositivos.</div>`;
-      } else if (!onCount) {
-        extra = `<div class="home-empty-mini">Tudo apagado. 🌙</div>`;
-      } else {
-        const litRows = litRooms.slice(0, 4).map(r => `<div class="home-row">
-            <span class="hr-name">${svgIcon("bulb", 14)} ${escapeHtml(r.name)} <span style="color:var(--muted)">· ${r.n}</span></span>
-            <button class="home-row-btn" data-room-off="${r.id}">Apagar</button>
-          </div>`).join("");
-        extra = litRows + `<div class="home-actions"><button class="home-act danger" data-all-off="1">${svgIcon("power", 15)} Apagar tudo</button></div>`;
-      }
-      cards.push(homeCard({ view: "map", icon: "home", title: "Casa", bodyHtml: mini + extra }));
-    })();
-
-    // --- Rotinas (executar rápido) ---
-    (() => {
-      const routines = (state.routines || []);
-      let body;
-      if (!routines.length) {
-        body = `<div class="home-empty-mini">Nenhuma rotina criada ainda.</div>`;
-      } else {
-        const rows = routines.slice(0, 5).map(r => `<div class="home-row">
-            <span class="hr-name">${svgIcon("bolt", 14)} ${escapeHtml(r.name)}</span>
-            <button class="home-row-btn" data-run-routine="${r.id}">Executar</button>
-          </div>`).join("");
-        body = rows + (routines.length > 5 ? `<div class="home-empty-mini">+${routines.length - 5} rotina(s)…</div>` : "");
-      }
-      cards.push(homeCard({ view: "routines", icon: "calendar", title: "Rotinas", badge: routines.length || null, bodyHtml: body }));
-    })();
-
-    // --- Servidor (assíncrono) ---
-    cards.push(homeCard({ view: "server", icon: "server", title: "Servidor",
-      bodyHtml: `<div class="home-empty-mini">Carregando…</div>`, bodyId: "home-srv-body" }));
-
-    homeGridEl.innerHTML = cards.join("");
-    bindHomeActions();
-    loadHomeServerCard();
-  }
-
-  function bindHomeActions() {
-    // Abrir página
-    for (const b of homeGridEl.querySelectorAll(".hc-open"))
-      b.addEventListener("click", () => setView(b.dataset.goto));
-
-    // Tarefa diária: concluir/reabrir
-    for (const b of homeGridEl.querySelectorAll("[data-daily]"))
-      b.addEventListener("click", () => {
-        const t = (state.dailyTasks || []).find(x => x.id === b.dataset.daily);
-        if (!t) return;
-        const k = dateKey(new Date());
-        t.done = t.done || {};
-        if (t.done[k]) delete t.done[k]; else t.done[k] = true;
-        scheduleSave();
+      card.querySelector(".hc-open").addEventListener("click", () => setView(w.view));
+      card.querySelector(".hc-eye").addEventListener("click", () => {
+        const nh = new Set(hidden);
+        if (nh.has(id)) nh.delete(id); else nh.add(id);
+        saveHomeLayout(order, nh);
         renderHome();
       });
+      if (!homeEditMode && built.mount) built.mount(bodyEl, card);
 
-    // Mercado: marcar comprado (registra no histórico de sugestões)
-    for (const b of homeGridEl.querySelectorAll("[data-grocery]"))
-      b.addEventListener("click", () => {
-        const it = (state.groceries || []).find(x => x.id === b.dataset.grocery);
-        if (!it) return;
-        it.bought = true;
-        it.boughtAt = new Date().toISOString();
-        recordGroceryPurchase(it.name, it.category);
-        logActivity(`Item <b>${escapeHtml(it.name)}</b> comprado`);
-        scheduleSave();
+      // Drag & drop para reordenar (só no modo edição)
+      card.addEventListener("dragstart", (e) => { if (!homeEditMode) return; homeDragId = id; card.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
+      card.addEventListener("dragend", () => { homeDragId = null; homeGridEl.querySelectorAll(".dragging,.drop-target").forEach(c => c.classList.remove("dragging", "drop-target")); });
+      card.addEventListener("dragover", (e) => { if (!homeEditMode || !homeDragId || homeDragId === id) return; e.preventDefault(); card.classList.add("drop-target"); });
+      card.addEventListener("dragleave", () => card.classList.remove("drop-target"));
+      card.addEventListener("drop", (e) => {
+        if (!homeEditMode || !homeDragId || homeDragId === id) return;
+        e.preventDefault();
+        const ord = order.slice();
+        ord.splice(ord.indexOf(homeDragId), 1);
+        ord.splice(ord.indexOf(id), 0, homeDragId);
+        saveHomeLayout(ord, hidden);
         renderHome();
       });
-
-    // Mercado: adicionar rápido
-    const qform = homeGridEl.querySelector('[data-hqadd="grocery"]');
-    if (qform) qform.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const inp = qform.querySelector("input");
-      const name = inp.value.trim();
-      if (!name) return;
-      addGroceryItem(name, null, "outros");
-      inp.value = "";
-      renderHome();
-    });
-
-    // Casa: apagar cômodo
-    for (const b of homeGridEl.querySelectorAll("[data-room-off]"))
-      b.addEventListener("click", () => {
-        const room = (state.rooms || []).find(r => r.id === b.dataset.roomOff);
-        if (!room) return;
-        const ids = (room.devices || []).map(devId).filter(id => { const d = entityDomain(id); return d === "light" || d === "switch"; });
-        turnOffLightsSwitches(ids, room.name);
-        b.disabled = true; b.textContent = "…";
-        setTimeout(renderHome, 1200);
-      });
-
-    // Casa: apagar tudo
-    const allOff = homeGridEl.querySelector("[data-all-off]");
-    if (allOff) allOff.addEventListener("click", async () => {
-      const ids = [...haEntities.keys()].filter(id => { const d = entityDomain(id); return d === "light" || d === "switch"; });
-      if (!ids.length) return;
-      if (!await customConfirm(`Apagar todas as luzes e tomadas da casa (${ids.length})?`)) return;
-      turnOffLightsSwitches(ids, "casa");
-      allOff.disabled = true;
-      setTimeout(renderHome, 1200);
-    });
-
-    // Rotinas: executar
-    for (const b of homeGridEl.querySelectorAll("[data-run-routine]"))
-      b.addEventListener("click", async () => {
-        b.disabled = true; const label = b.textContent; b.textContent = "…";
-        const res = await api("POST", `/routines/${b.dataset.runRoutine}/run`);
-        if (res.ok) {
-          const r = (state.routines || []).find(x => x.id === b.dataset.runRoutine);
-          if (r) { r.lastRunAt = new Date().toISOString(); logActivity(`Rotina <b>${escapeHtml(r.name)}</b> executada`); scheduleSave(); }
-          b.textContent = "✓"; showToast("Rotina executada", "info");
-          setTimeout(renderHome, 1500);
-        } else {
-          b.disabled = false; b.textContent = label;
-          showToast("Erro ao executar rotina", "error");
-        }
-      });
+    }
   }
+  if (homeEditBtn) homeEditBtn.addEventListener("click", () => { homeEditMode = !homeEditMode; renderHome(); });
 
-  async function loadHomeServerCard() {
-    const el = document.getElementById("home-srv-body");
+  async function loadHomeServerCard(el) {
+    if (!el) el = homeGridEl && homeGridEl.querySelector('[data-wid="servidor"] .home-card-body');
     if (!el) return;
     let d = null;
     try { const r = await api("GET", "/system/health"); if (r.ok) d = r.data; } catch {}
@@ -7612,17 +7772,14 @@
     if (d.disk) mini.push(`<div class="hmi"><span class="hmi-v ${cls(d.disk.pct,80,90)}">${d.disk.pct}%</span><span class="hmi-l">Disco</span></div>`);
     if (typeof d.tempC === "number") mini.push(`<div class="hmi"><span class="hmi-v ${cls(d.tempC,70,82)}">${d.tempC}°</span><span class="hmi-l">Temp</span></div>`);
     const online = net ? net.online !== false : true;
-    const upTxt = (net && net.uptimePct != null) ? ` · uptime ${net.uptimePct}%` : (d.uptimeSec != null ? ` · no ar ${fmtUptime(d.uptimeSec)}` : "");
+    const upTxt = d.uptimeSec != null ? ` · no ar ${fmtUptime(d.uptimeSec)}` : "";
     const netLine = `<div class="home-sub"><span class="home-status-dot ${online ? "ok" : "bad"}"></span>Internet ${online ? "online" : "offline"}${upTxt}</div>`;
     const actions = `<div class="home-actions">
       <button class="home-act" data-srv-refresh="1">${svgIcon("refresh", 15)} Atualizar</button>
       <button class="home-act" data-srv-speed="1">${svgIcon("bolt", 15)} Testar velocidade</button>
     </div>`;
     el.innerHTML = `<div class="home-mini">${mini.join("")}</div>${netLine}${actions}`;
-    el.querySelector("[data-srv-refresh]")?.addEventListener("click", () => {
-      el.innerHTML = `<div class="home-empty-mini">Atualizando…</div>`;
-      loadHomeServerCard();
-    });
+    el.querySelector("[data-srv-refresh]")?.addEventListener("click", () => { el.innerHTML = `<div class="home-empty-mini">Atualizando…</div>`; loadHomeServerCard(el); });
     el.querySelector("[data-srv-speed]")?.addEventListener("click", () => setView("server"));
   }
 
@@ -8096,6 +8253,41 @@
     if (r.ok) { showToast("Alertas salvos", "info"); renderAlertsConfig(); }
     else showToast((r.data && r.data.error) || "Erro ao salvar", "error");
   });
+
+  // ===== Webhook (Atalhos iOS / Siri) =====
+  async function renderWebhookCard() {
+    const el = document.getElementById("webhook-body");
+    if (!el) return;
+    el.innerHTML = `<div class="sub">Carregando…</div>`;
+    let token = null;
+    try { const r = await api("GET", "/webhook/token"); if (r.ok) token = r.data.token; } catch {}
+    if (!token) {
+      el.innerHTML = `<button id="wh-create" class="ghost" type="button" style="border:1px solid var(--line); padding:10px 12px; border-radius:8px; font-weight:600;">Gerar link</button>`;
+      el.querySelector("#wh-create").addEventListener("click", async () => {
+        const r = await api("POST", "/webhook/token");
+        if (r.ok) renderWebhookCard(); else showToast("Erro ao gerar", "error");
+      });
+      return;
+    }
+    const urlAllOff = `${location.origin}/api/hook/${token}?action=all-off`;
+    el.innerHTML = `
+      <p class="sub" style="margin:0 0 6px;">Link para "apagar tudo" (GET ou POST):</p>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <input id="wh-url" type="text" readonly value="${escapeHtml(urlAllOff)}" style="flex:1; min-width:0; font-size:12px; border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:8px; padding:8px 10px;" />
+        <button id="wh-copy" class="ghost" type="button" style="border:1px solid var(--line); padding:8px 10px; border-radius:8px;">Copiar</button>
+      </div>
+      <p class="sub" style="margin:10px 0 0;">Para rodar uma rotina, troque o final por <code>?routine=NOME</code>. No app Atalhos do iOS: ação "Obter conteúdo da URL". Não compartilhe — este link controla sua casa.</p>
+      <button id="wh-revoke" class="ghost danger" type="button" style="margin-top:10px; font-size:12px; padding:4px 10px;">Gerar novo (revoga o atual)</button>`;
+    el.querySelector("#wh-copy").addEventListener("click", () => {
+      const inp = el.querySelector("#wh-url"); inp.select();
+      if (navigator.clipboard) navigator.clipboard.writeText(inp.value).then(() => showToast("Link copiado", "info")).catch(() => {});
+    });
+    el.querySelector("#wh-revoke").addEventListener("click", async () => {
+      if (!await customConfirm("Gerar um link novo? O atual para de funcionar imediatamente.")) return;
+      const r = await api("POST", "/webhook/token");
+      if (r.ok) { showToast("Novo link gerado", "info"); renderWebhookCard(); }
+    });
+  }
 
   // ===== Widget de status do servidor no mapa =====
   let mapWidgetTimer = null;

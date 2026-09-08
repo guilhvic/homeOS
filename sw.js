@@ -1,5 +1,5 @@
 // homeOS service worker — shell offline básico, sem tocar em /api.
-const CACHE = "homeos-v40";
+const CACHE = "homeos-v41";
 const SHELL = [
   "/", "/index.html", "/manifest.webmanifest",
   "/icon-192.png", "/icon-512.png",
@@ -69,26 +69,51 @@ self.addEventListener("push", (event) => {
   try { data = event.data ? event.data.json() : {}; }
   catch { data = { body: event.data && event.data.text() }; }
   const title = data.title || "homeOS";
+  // Ações no próprio push (ex.: "Apagar tudo"). O mapa action->endpoint vem no
+  // payload; guardamos junto pra usar no clique.
+  const actions = Array.isArray(data.actions) ? data.actions.slice(0, 2) : [];
   event.waitUntil(self.registration.showNotification(title, {
     body: data.body || "",
     tag: data.tag || "homeos",
     renotify: true,
     icon: "/icon-192.png",
     badge: "/icon-192.png",
-    data: { url: data.url || "/" },
+    actions,
+    data: { url: data.url || "/", actionEndpoints: data.actionEndpoints || {} },
   }));
 });
 
-// Clicar na notificação foca (ou abre) o homeOS na URL indicada.
+function openApp(url) {
+  return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+    for (const c of clients) {
+      if ("focus" in c) { try { c.navigate(url); } catch {} return c.focus(); }
+    }
+    if (self.clients.openWindow) return self.clients.openWindow(url);
+  });
+}
+
+// Clicar: se for uma ação com endpoint (ex.: "Apagar tudo"), dispara direto pelo
+// SW (com o cookie de sessão) sem abrir a janela. Senão, foca/abre o homeOS.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/";
-  event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      for (const c of clients) {
-        if ("focus" in c) { try { c.navigate(url); } catch {} return c.focus(); }
-      }
-      if (self.clients.openWindow) return self.clients.openWindow(url);
-    })
-  );
+  const d = event.notification.data || {};
+  const endpoints = d.actionEndpoints || {};
+  const endpoint = event.action && endpoints[event.action];
+  if (endpoint) {
+    event.waitUntil(
+      fetch(endpoint, { method: "POST", credentials: "include" })
+        .then((r) => {
+          if (self.registration.showNotification) {
+            const ok = r.ok;
+            return self.registration.showNotification("homeOS", {
+              body: ok ? "Feito ✅" : "Falhou — abra o app",
+              tag: "homeos-action-result", icon: "/icon-192.png", badge: "/icon-192.png",
+            });
+          }
+        })
+        .catch(() => openApp(d.url || "/"))
+    );
+    return;
+  }
+  event.waitUntil(openApp(d.url || "/"));
 });
