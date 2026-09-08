@@ -297,6 +297,19 @@
   /* Widget de atualizações */
   .home-upd-row { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 0; }
   .home-upd-row .up-badge { flex: none; color: var(--accent); }
+
+  /* Controles rápidos (colapsável) no widget Casa */
+  .home-controls { margin-top: 6px; }
+  .home-controls > summary {
+    list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 600; color: var(--muted);
+    border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 7px 13px;
+  }
+  .home-controls > summary::-webkit-details-marker { display: none; }
+  .home-controls > summary:hover { color: var(--accent); border-color: var(--accent); }
+  .home-controls > summary::after { content: "▾"; margin-left: auto; transition: transform .15s; }
+  .home-controls[open] > summary::after { transform: rotate(180deg); }
+  .home-controls > .devices { margin-top: 10px; }
   .home-metric { display: flex; align-items: baseline; gap: 8px; }
   .home-metric .hm-big { font-size: 30px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
   .home-metric .hm-unit { font-size: 13px; color: var(--muted); font-weight: 600; }
@@ -7527,7 +7540,7 @@
               <span class="hr-name">${svgIcon("bulb", 14)} ${escapeHtml(r.name)} <span style="color:var(--muted)">· ${r.n}</span></span>
               <button class="home-row-btn" data-room-off="${r.id}">Apagar</button></div>`).join("");
           const allBtn = onCount ? `<div class="home-actions"><button class="home-act danger" data-all-off="1">${svgIcon("power", 15)} Apagar tudo</button></div>` : `<div class="home-empty-mini">Tudo apagado. 🌙</div>`;
-          extra = litRows + allBtn + `<ul class="devices" data-casa-devices style="margin-top:10px"></ul>`;
+          extra = litRows + allBtn + `<details class="home-controls"><summary>${svgIcon("gear", 15)} Controles rápidos<span data-casa-count></span></summary><ul class="devices" data-casa-devices></ul></details>`;
         }
         return {
           body: mini + extra,
@@ -7565,7 +7578,9 @@
                 }
                 if (count >= 12) break;
               }
-              if (!count) ul.remove();
+              const det = ul.closest("details");
+              if (!count) { if (det) det.remove(); }
+              else { const c = el.querySelector("[data-casa-count]"); if (c) c.textContent = ` (${count})`; }
             }
           },
         };
