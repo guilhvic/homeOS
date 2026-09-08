@@ -201,20 +201,20 @@
   .home-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    grid-auto-rows: 184px;
+    grid-auto-rows: minmax(184px, auto);
     gap: 16px;
+    align-items: stretch;
   }
-  /* Tamanhos bento */
+  /* Tamanhos bento (só largura; a altura acompanha o conteúdo, sem scroll interno) */
   .home-card.span-hero { grid-column: span 2; grid-row: span 2; }
-  .home-card.span-tall { grid-row: span 2; }
   .home-card.span-wide { grid-column: span 2; }
   @media (max-width: 1080px) {
     .home-grid { grid-template-columns: repeat(2, 1fr); }
-    .home-card.span-hero { grid-column: span 2; }
+    .home-card.span-hero { grid-column: span 2; grid-row: auto; }
   }
   @media (max-width: 640px) {
     .home-grid { grid-template-columns: 1fr; grid-auto-rows: auto; }
-    .home-card, .home-card.span-hero, .home-card.span-tall, .home-card.span-wide { grid-column: auto; grid-row: auto; min-height: 168px; }
+    .home-card, .home-card.span-hero, .home-card.span-wide { grid-column: auto; grid-row: auto; }
   }
 
   .home-card {
@@ -256,9 +256,7 @@
   }
   .home-card-head .hc-open:hover { color: #fff; background: rgba(255,255,255,.12); }
   .home-card-head .hc-open svg { width: 15px; height: 15px; }
-  .home-card-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; overflow: auto; }
-  .home-card.span-hero .home-card-body, .home-card.span-tall .home-card-body { overflow: auto; }
-  .home-card-body::-webkit-scrollbar { width: 6px; }
+  .home-card-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; overflow: visible; }
 
   /* Linhas de tarefa/item com check inline */
   .home-row {
