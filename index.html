@@ -171,45 +171,94 @@
   #app-shell.view-home aside { display: none; }
   #app-shell:not(.view-home) #home-view { display: none; }
   #app-shell.view-home .map-only { display: none; }
+  /* ===== Home dark premium — a Home tem visual próprio (glass + glow),
+     independente do tema claro/escuro do resto do app. Tokens redefinidos
+     localmente pra todos os componentes reaproveitados herdarem o dark. ===== */
   #home-view {
     grid-area: home;
     overflow-y: auto;
-    background: var(--bg);
-    padding: 24px 16px 64px;
+    color: #eef0f6;
+    --ink: #eef0f6;
+    --muted: #9aa2ba;
+    --line: rgba(255,255,255,.10);
+    --paper: rgba(255,255,255,.045);
+    --bg: rgba(255,255,255,.04);
+    --accent: #8ea6ff;
+    --accent-soft: rgba(142,166,255,.16);
+    background:
+      radial-gradient(1100px 560px at 12% -10%, rgba(142,166,255,.16), transparent 55%),
+      radial-gradient(900px 520px at 100% 0%, rgba(224,122,71,.12), transparent 50%),
+      radial-gradient(800px 800px at 60% 120%, rgba(64,196,160,.10), transparent 55%),
+      #0a0b10;
+    padding: 22px 18px 72px;
   }
-  .home-shell { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
-  .home-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  .home-head h2 { margin: 0; font-size: 24px; }
+  .home-shell { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+  .home-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .home-head h2 { margin: 0; font-size: 24px; letter-spacing: -.01em; }
   .home-greeting { color: var(--muted); font-size: 14px; }
+  .home-greeting::first-letter { text-transform: uppercase; }
+
   .home-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 168px;
     gap: 16px;
   }
+  /* Tamanhos bento */
+  .home-card.span-hero { grid-column: span 2; grid-row: span 2; }
+  .home-card.span-tall { grid-row: span 2; }
+  .home-card.span-wide { grid-column: span 2; }
+  @media (max-width: 1080px) {
+    .home-grid { grid-template-columns: repeat(2, 1fr); }
+    .home-card.span-hero { grid-column: span 2; }
+  }
+  @media (max-width: 640px) {
+    .home-grid { grid-template-columns: 1fr; grid-auto-rows: auto; }
+    .home-card, .home-card.span-hero, .home-card.span-tall, .home-card.span-wide { grid-column: auto; grid-row: auto; min-height: 168px; }
+  }
+
   .home-card {
+    position: relative; overflow: hidden;
     display: flex; flex-direction: column; gap: 12px;
     text-align: left; width: 100%;
-    background: var(--paper); border: 1px solid var(--line); border-radius: 16px;
+    background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    border: 1px solid rgba(255,255,255,.09); border-radius: 20px;
     padding: 16px 18px; color: var(--ink);
-    box-shadow: var(--shadow); transition: border-color .15s, box-shadow .15s;
-    animation: cardIn .25s ease both;
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 18px 40px -24px rgba(0,0,0,.8);
+    transition: transform .2s cubic-bezier(.2,.8,.2,1), border-color .2s, box-shadow .2s;
   }
-  .home-card:hover { border-color: var(--line); }
+  /* Cascata só quando a Home é (re)aberta — não a cada interação. */
+  .home-grid.anim .home-card { animation: homeCardIn .5s cubic-bezier(.2,.8,.2,1) both; }
+  /* Glow de canto com a cor do widget */
+  .home-card::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .8;
+    background: radial-gradient(340px 200px at 100% 0%, var(--card-accent, transparent), transparent 60%);
+    -webkit-mask-image: none;
+  }
+  .home-card > * { position: relative; z-index: 1; }
+  .home-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,.18); box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 26px 60px -28px rgba(0,0,0,.9); }
+  @keyframes homeCardIn { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+
   .home-card-head { display: flex; align-items: center; gap: 10px; }
   .home-card-head .hc-ic {
-    width: 34px; height: 34px; flex: none; border-radius: 10px;
-    display: grid; place-items: center; background: var(--accent-soft); color: var(--accent);
+    width: 34px; height: 34px; flex: none; border-radius: 11px;
+    display: grid; place-items: center; color: #fff;
+    background: var(--card-accent-solid, rgba(142,166,255,.25));
+    box-shadow: 0 6px 18px -8px var(--card-accent-solid, rgba(142,166,255,.6));
   }
   .home-card-head .hc-ic svg { width: 18px; height: 18px; }
-  .home-card-head .hc-title { font-size: 14px; font-weight: 700; flex: 1; }
+  .home-card-head .hc-title { font-size: 14px; font-weight: 700; flex: 1; letter-spacing: -.01em; }
   .home-card-head .hc-open {
     display: inline-flex; align-items: center; gap: 3px; flex: none;
-    border: none; background: transparent; color: var(--muted); font: inherit; font-size: 12px;
-    font-weight: 600; cursor: pointer; padding: 4px 6px; border-radius: 8px;
+    border: none; background: rgba(255,255,255,.05); color: var(--muted); font: inherit; font-size: 12px;
+    font-weight: 600; cursor: pointer; padding: 5px 9px; border-radius: 999px; transition: .15s;
   }
-  .home-card-head .hc-open:hover { color: var(--accent); background: var(--bg); }
+  .home-card-head .hc-open:hover { color: #fff; background: rgba(255,255,255,.12); }
   .home-card-head .hc-open svg { width: 15px; height: 15px; }
-  .home-card-body { display: flex; flex-direction: column; gap: 8px; min-height: 46px; }
+  .home-card-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; overflow: auto; }
+  .home-card.span-hero .home-card-body, .home-card.span-tall .home-card-body { overflow: auto; }
+  .home-card-body::-webkit-scrollbar { width: 6px; }
 
   /* Linhas de tarefa/item com check inline */
   .home-row {
@@ -331,7 +380,65 @@
   .home-status-dot.ok { background: #2f9e5e; }
   .home-status-dot.bad { background: var(--danger, #d33); }
   body.kiosk .home-card { padding: 22px 24px; }
-  body.kiosk .home-metric .hm-big { font-size: 36px; }
+
+  /* ===== Premium: números com gradiente, gauges, herói clima ===== */
+  .home-metric .hm-big {
+    font-size: 34px; letter-spacing: -.02em;
+    background: linear-gradient(180deg, #fff, #c7ccdd);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  body.kiosk .home-metric .hm-big { font-size: 40px; }
+  .home-row { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.07); backdrop-filter: blur(4px); }
+  .home-chip { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.09); }
+  .home-mini .hmi-v { font-size: 19px; }
+  .home-mini .hmi-v.warn { color: #f0b429; }
+
+  /* Anéis radiais (servidor) */
+  .home-gauges { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 8px; align-content: center; flex: 1; }
+  .span-wide .home-gauges { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 1080px) { .span-wide .home-gauges { grid-template-columns: repeat(2, 1fr); } }
+  .gauge { display: flex; align-items: center; gap: 10px; }
+  .gauge svg { width: 52px; height: 52px; flex: none; transform: rotate(-90deg); }
+  .gauge .g-track { fill: none; stroke: rgba(255,255,255,.10); stroke-width: 5; }
+  .gauge .g-arc { fill: none; stroke-width: 5; stroke-linecap: round; stroke: var(--g-col, #8ea6ff);
+    transition: stroke-dashoffset 1.1s cubic-bezier(.2,.8,.2,1); filter: drop-shadow(0 0 5px var(--g-col, #8ea6ff)); }
+  .gauge .g-meta { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
+  .gauge .g-val { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .gauge .g-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+
+  /* Herói: clima + relógio */
+  .home-hero { justify-content: space-between; }
+  .hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .hero-clock { font-size: 54px; font-weight: 800; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums;
+    background: linear-gradient(180deg,#fff,#b9c0d6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero-clock .sec { font-size: 22px; opacity: .55; margin-left: 2px; }
+  .hero-date { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .hero-date::first-letter { text-transform: uppercase; }
+  .hero-wx { text-align: right; }
+  .hero-wx .h-t { font-size: 40px; font-weight: 800; line-height: 1; letter-spacing: -.02em; }
+  .hero-wx .h-ic { color: #fff; opacity: .95; }
+  .hero-wx .h-desc { font-size: 12px; color: var(--muted); }
+  .hero-amb { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  body.kiosk .hero-clock { font-size: 72px; }
+  body.kiosk .hero-wx .h-t { font-size: 52px; }
+  .hero-days { display: flex; gap: 8px; margin-top: auto; }
+  .hero-day { flex: 1; text-align: center; border: 1px solid rgba(255,255,255,.08); border-radius: 14px;
+    padding: 10px 4px; background: rgba(255,255,255,.03); min-width: 0; transition: .15s; }
+  .hero-day.today { background: rgba(142,166,255,.14); border-color: rgba(142,166,255,.35); }
+  .hero-day .d { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+  .hero-day .i { margin: 5px 0; color: #cdd4ea; }
+  .hero-day .hi { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .hero-day .lo { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* Entrada em cascata */
+  .home-grid.anim .home-card:nth-child(1) { animation-delay: .02s; }
+  .home-grid.anim .home-card:nth-child(2) { animation-delay: .07s; }
+  .home-grid.anim .home-card:nth-child(3) { animation-delay: .12s; }
+  .home-grid.anim .home-card:nth-child(4) { animation-delay: .17s; }
+  .home-grid.anim .home-card:nth-child(5) { animation-delay: .22s; }
+  .home-grid.anim .home-card:nth-child(6) { animation-delay: .27s; }
+  .home-grid.anim .home-card:nth-child(7) { animation-delay: .32s; }
+  @media (prefers-reduced-motion: reduce) { .home-card { animation: none; } .gauge .g-arc { transition: none; } }
 
   /* Grocery view replaces map+aside */
   #app-shell.view-grocery {
@@ -7469,6 +7576,63 @@
   const homeEditBtn = document.getElementById("home-edit-btn");
   let homeEditMode = false;
 
+  // Ordem padrão (herói primeiro) e metadados visuais por widget.
+  const HOME_ORDER = ["clima", "servidor", "casa", "tarefas", "mercado", "rotinas", "updates"];
+  const HOME_META = {
+    clima:    { span: "span-hero", accent: "rgba(142,166,255,.22)", solid: "#6b8bff" },
+    servidor: { span: "span-wide", accent: "rgba(64,196,160,.20)",  solid: "#28b487" },
+    casa:     { span: "",          accent: "rgba(224,122,71,.20)",  solid: "#e07a47" },
+    tarefas:  { span: "",          accent: "rgba(47,158,94,.20)",   solid: "#2f9e5e" },
+    mercado:  { span: "",          accent: "rgba(224,73,161,.20)",  solid: "#e049a1" },
+    rotinas:  { span: "",          accent: "rgba(168,120,255,.20)", solid: "#a878ff" },
+    updates:  { span: "",          accent: "rgba(240,180,41,.20)",  solid: "#f0b429" },
+  };
+
+  // Anima um número de 0 até `to` dentro do elemento (efeito count-up).
+  function countUp(el, to, suffix) {
+    if (!el) return;
+    const dur = 700, t0 = performance.now();
+    const int = Number.isInteger(to);
+    (function tick(t) {
+      const k = Math.min(1, (t - t0) / dur);
+      const e = 1 - Math.pow(1 - k, 3);
+      const v = to * e;
+      el.textContent = (int ? Math.round(v) : v.toFixed(1)) + (suffix || "");
+      if (k < 1) requestAnimationFrame(tick);
+    })(t0);
+  }
+
+  // SVG de anel radial (gauge) com animação de preenchimento.
+  function gaugeSvg(pct, value, label, color) {
+    const p = Math.max(0, Math.min(100, pct || 0));
+    const r = 21, c = 2 * Math.PI * r, off = c * (1 - p / 100);
+    return `<div class="gauge" style="--g-col:${color}">
+      <svg viewBox="0 0 52 52">
+        <circle class="g-track" cx="26" cy="26" r="${r}"></circle>
+        <circle class="g-arc" cx="26" cy="26" r="${r}" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${c.toFixed(1)}" data-off="${off.toFixed(1)}"></circle>
+      </svg>
+      <div class="g-meta"><span class="g-val">${value}</span><span class="g-lbl">${escapeHtml(label)}</span></div>
+    </div>`;
+  }
+  function animateGauges(scope) {
+    requestAnimationFrame(() => {
+      for (const arc of (scope || document).querySelectorAll(".g-arc[data-off]"))
+        arc.style.strokeDashoffset = arc.dataset.off;
+    });
+  }
+
+  // Relógio do herói — tica enquanto a Home está visível.
+  let homeClockTimer = null;
+  function homeClockTick() {
+    const el = document.getElementById("home-clock");
+    if (!el) { if (homeClockTimer) { clearInterval(homeClockTimer); homeClockTimer = null; } return; }
+    const n = new Date();
+    const hh = String(n.getHours()).padStart(2, "0");
+    const mm = String(n.getMinutes()).padStart(2, "0");
+    const ss = String(n.getSeconds()).padStart(2, "0");
+    el.innerHTML = `${hh}:${mm}<span class="sec">${ss}</span>`;
+  }
+
   // Helpers de ação reaproveitados pelos widgets.
   function homeToggleDaily(id) {
     const t = (state.dailyTasks || []).find(x => x.id === id);
@@ -7643,33 +7807,48 @@
       },
     },
     clima: {
-      title: "Clima", icon: "cloud", view: "map",
+      title: "Agora", icon: "sun", view: "map",
       build() {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
         const id = findWeatherEntity();
-        const e = id && haEntities.get(id);
-        if (!haEnabled || !e) return { body: `<div class="home-empty-mini">Clima indisponível (precisa de uma entidade weather.* no HA).</div>` };
-        const temp = e.attributes?.temperature;
-        const icon = WEATHER_ICON[e.state] || "cloud";
-        const desc = WEATHER_PT[e.state] || e.state;
-        const nowHtml = `<div class="home-wx-now">${svgIcon(icon, 34, "wx-ic")}<div><div class="wx-t">${temp != null ? Math.round(temp) + "°" : "—"}</div><div class="wx-desc">${escapeHtml(desc)}</div></div></div>`;
+        const e = id && haEnabled && haEntities.get(id);
+        let wxHtml = "";
+        if (e) {
+          const temp = e.attributes?.temperature;
+          const icon = WEATHER_ICON[e.state] || "cloud";
+          const desc = WEATHER_PT[e.state] || e.state;
+          const amb = (typeof indoorTempText === "function") ? (indoorTempText() || "") : "";
+          wxHtml = `<div class="hero-wx">
+            <div class="h-ic">${svgIcon(icon, 42)}</div>
+            <div class="h-t">${temp != null ? Math.round(temp) + "°" : "—"}</div>
+            <div class="h-desc">${escapeHtml(desc)}</div>
+            ${amb ? `<div class="hero-amb">dentro ${escapeHtml(amb)}</div>` : ""}
+          </div>`;
+        }
+        const top = `<div class="hero-top">
+          <div><div class="hero-clock" id="home-clock">--:--</div><div class="hero-date">${escapeHtml(dateStr)}</div></div>
+          ${wxHtml}
+        </div>`;
         let daysHtml = "";
-        if (wxForecast.byDate) {
-          const today = new Date(); const cards = [];
+        if (e && wxForecast.byDate) {
+          const cards = [];
           for (let i = 0; i < 5; i++) {
-            const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+            const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
             const it = wxForecast.byDate[dateKey(d)];
             const wd = i === 0 ? "Hoje" : d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
             const ic = it ? (WEATHER_ICON[it.condition] || "cloud") : "cloud";
             const hi = it && it.temperature != null ? Math.round(it.temperature) + "°" : "—";
             const lo = it && it.templow != null ? Math.round(it.templow) + "°" : "";
-            cards.push(`<div class="home-wx-day ${i === 0 ? "today" : ""}"><div class="d">${escapeHtml(wd)}</div><div class="i">${svgIcon(ic, 22)}</div><div class="hi">${hi}</div>${lo ? `<div class="lo">${lo}</div>` : ""}</div>`);
+            cards.push(`<div class="hero-day ${i === 0 ? "today" : ""}"><div class="d">${escapeHtml(wd)}</div><div class="i">${svgIcon(ic, 24)}</div><div class="hi">${hi}</div>${lo ? `<div class="lo">${lo}</div>` : ""}</div>`);
           }
-          daysHtml = `<div class="home-wx-days">${cards.join("")}</div>`;
-        } else {
-          daysHtml = `<div class="home-empty-mini">Carregando previsão…</div>`;
+          daysHtml = `<div class="hero-days">${cards.join("")}</div>`;
+        } else if (e && !wxForecast.byDate) {
           fetchWeeklyForecast().then(() => { if (currentView === "home" && wxForecast.byDate) renderHome(); });
+        } else if (!e) {
+          daysHtml = `<div class="hero-amb" style="margin-top:auto">Conecte uma entidade weather.* no HA para ver o clima.</div>`;
         }
-        return { body: nowHtml + daysHtml };
+        return { body: top + daysHtml, mount() { homeClockTick(); } };
       },
     },
     servidor: {
@@ -7692,7 +7871,7 @@
   };
 
   function homeLayout() {
-    const all = Object.keys(HOME_WIDGETS);
+    const all = HOME_ORDER.filter(id => HOME_WIDGETS[id]).concat(Object.keys(HOME_WIDGETS).filter(id => !HOME_ORDER.includes(id)));
     const saved = (state.homeLayout && Array.isArray(state.homeLayout.order)) ? state.homeLayout.order : [];
     const order = saved.filter(id => HOME_WIDGETS[id]).concat(all.filter(id => !saved.includes(id)));
     const hidden = new Set((state.homeLayout && Array.isArray(state.homeLayout.hidden)) ? state.homeLayout.hidden : []);
@@ -7704,8 +7883,10 @@
   }
 
   let homeDragId = null;
+  let homeAnimate = false; // true só na 1ª render após entrar na Home
   function renderHome() {
     if (!homeGridEl) return;
+    const animate = homeAnimate; homeAnimate = false;
     const now = new Date();
     const h = now.getHours();
     const greet = h < 6 ? "Boa madrugada" : h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
@@ -7718,6 +7899,7 @@
 
     const { order, hidden } = homeLayout();
     homeGridEl.classList.toggle("editing", homeEditMode);
+    homeGridEl.classList.toggle("anim", animate);
     homeGridEl.innerHTML = "";
 
     for (const id of order) {
@@ -7727,9 +7909,12 @@
       if (isHidden && !homeEditMode) continue;
 
       const built = w.build();
+      const meta = HOME_META[id] || {};
       const card = document.createElement("section");
-      card.className = "home-card" + (isHidden ? " is-hidden" : "");
+      card.className = "home-card" + (meta.span ? " " + meta.span : "") + (isHidden ? " is-hidden" : "");
       card.dataset.wid = id;
+      if (meta.accent) card.style.setProperty("--card-accent", meta.accent);
+      if (meta.solid) card.style.setProperty("--card-accent-solid", meta.solid);
       card.draggable = homeEditMode;
       card.innerHTML =
         `<div class="home-card-head">
@@ -7768,6 +7953,16 @@
         renderHome();
       });
     }
+
+    // Count-up nos números-herói que são um valor puro (ex.: mercado, updates).
+    if (animate && !homeEditMode) for (const el of homeGridEl.querySelectorAll(".hm-big")) {
+      const n = Number(el.textContent);
+      if (Number.isFinite(n) && el.textContent.trim() !== "") { el.textContent = "0"; countUp(el, n); }
+    }
+    // Relógio do herói tica enquanto a Home está aberta.
+    if (homeClockTimer) { clearInterval(homeClockTimer); homeClockTimer = null; }
+    homeClockTick();
+    if (document.getElementById("home-clock")) homeClockTimer = setInterval(homeClockTick, 1000);
   }
   if (homeEditBtn) homeEditBtn.addEventListener("click", () => { homeEditMode = !homeEditMode; renderHome(); });
 
@@ -7780,20 +7975,22 @@
     try { const r = await api("GET", "/net/status"); if (r.ok) net = r.data; } catch {}
     if (!el.isConnected) return;
     if (!d) { el.innerHTML = `<div class="home-empty-mini">Indisponível.</div>`; return; }
-    const cls = (v, warn, bad) => v == null ? "" : (v >= bad ? "bad" : v >= warn ? "warn" : "");
-    const mini = [];
-    if (typeof d.cpuPct === "number") mini.push(`<div class="hmi"><span class="hmi-v ${cls(d.cpuPct,75,90)}">${d.cpuPct}%</span><span class="hmi-l">CPU</span></div>`);
-    if (d.mem) mini.push(`<div class="hmi"><span class="hmi-v ${cls(d.mem.pct,80,92)}">${d.mem.pct}%</span><span class="hmi-l">RAM</span></div>`);
-    if (d.disk) mini.push(`<div class="hmi"><span class="hmi-v ${cls(d.disk.pct,80,90)}">${d.disk.pct}%</span><span class="hmi-l">Disco</span></div>`);
-    if (typeof d.tempC === "number") mini.push(`<div class="hmi"><span class="hmi-v ${cls(d.tempC,70,82)}">${d.tempC}°</span><span class="hmi-l">Temp</span></div>`);
+    // Cor do anel por severidade (verde→âmbar→vermelho).
+    const col = (v, warn, bad) => v == null ? "#28b487" : (v >= bad ? "#f0506e" : v >= warn ? "#f0b429" : "#28b487");
+    const gauges = [];
+    if (typeof d.cpuPct === "number") gauges.push(gaugeSvg(d.cpuPct, d.cpuPct + "%", "CPU", col(d.cpuPct, 75, 90)));
+    if (d.mem) gauges.push(gaugeSvg(d.mem.pct, d.mem.pct + "%", "RAM", col(d.mem.pct, 80, 92)));
+    if (d.disk) gauges.push(gaugeSvg(d.disk.pct, d.disk.pct + "%", "Disco", col(d.disk.pct, 80, 90)));
+    if (typeof d.tempC === "number") gauges.push(gaugeSvg(Math.min(100, d.tempC), d.tempC + "°", "Temp", col(d.tempC, 70, 82)));
     const online = net ? net.online !== false : true;
     const upTxt = d.uptimeSec != null ? ` · no ar ${fmtUptime(d.uptimeSec)}` : "";
     const netLine = `<div class="home-sub"><span class="home-status-dot ${online ? "ok" : "bad"}"></span>Internet ${online ? "online" : "offline"}${upTxt}</div>`;
     const actions = `<div class="home-actions">
       <button class="home-act" data-srv-refresh="1">${svgIcon("refresh", 15)} Atualizar</button>
-      <button class="home-act" data-srv-speed="1">${svgIcon("bolt", 15)} Testar velocidade</button>
+      <button class="home-act" data-srv-speed="1">${svgIcon("bolt", 15)} Velocidade</button>
     </div>`;
-    el.innerHTML = `<div class="home-mini">${mini.join("")}</div>${netLine}${actions}`;
+    el.innerHTML = `<div class="home-gauges">${gauges.join("")}</div>${netLine}${actions}`;
+    animateGauges(el);
     el.querySelector("[data-srv-refresh]")?.addEventListener("click", () => { el.innerHTML = `<div class="home-empty-mini">Atualizando…</div>`; loadHomeServerCard(el); });
     el.querySelector("[data-srv-speed]")?.addEventListener("click", () => setView("server"));
   }
@@ -9067,6 +9264,7 @@
     localStorage.setItem(VIEW_KEY, currentView);
     if (currentView !== "server") stopHealthStream();
     if (currentView === "map") startMapWidget(); else stopMapWidget();
+    if (currentView !== "home" && homeClockTimer) { clearInterval(homeClockTimer); homeClockTimer = null; }
     appShell.classList.toggle("view-home", currentView === "home");
     appShell.classList.toggle("view-grocery", currentView === "grocery");
     appShell.classList.toggle("view-profile", currentView === "profile");
@@ -9079,6 +9277,7 @@
     const hl = document.getElementById("home-logo");
     if (hl) hl.classList.toggle("home-active", currentView === "home");
     if (currentView === "home") {
+      homeAnimate = true;
       renderHome();
     } else if (currentView === "grocery") {
       renderGrocery();
