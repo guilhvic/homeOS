@@ -1730,10 +1730,9 @@ async function toggleRoomLights(u, roomId) {
     try { await haFetch(u, `/api/services/${d}/turn_${anyOn ? "off" : "on"}`, { method: "POST", body: JSON.stringify({ entity_id: byDom[d] }) }); } catch {}
   }
 }
-function kindlePage(u, map, token) {
+function kindlePage(u, map) {
   const st = loadUserState(u);
   const rooms = Array.isArray(st.rooms) ? st.rooms : [];
-  const t = encodeURIComponent(token);
   const onNames = []; const temps = [];
   if (map) for (const [id, e] of map) {
     const d = id.split(".")[0], a = e.attributes || {};
@@ -1747,7 +1746,7 @@ function kindlePage(u, map, token) {
     const ids = kindleRoomIds(room).filter(id => { const d = id.split(".")[0]; return d === "light" || d === "switch"; });
     if (!ids.length) return "";
     let on = 0; for (const id of ids) { const e = map && map.get(id); if (e && e.state === "on") on++; }
-    return `<form method="post" action="/kindle/action?token=${t}"><input type="hidden" name="room" value="${kEsc(room.id)}">`
+    return `<form method="post" action="/kindle/action"><input type="hidden" name="room" value="${kEsc(room.id)}">`
       + `<button class="room">${kEsc(room.name || "Cômodo")} <span class="st">${on ? on + " ligada(s)" : "apagado"}</span> <b>${on ? "Desligar" : "Ligar"}</b></button></form>`;
   }).join("");
   const noHa = !userHaEnabled(u);
@@ -1774,7 +1773,7 @@ function kindlePage(u, map, token) {
   <h1>Controle da Casa</h1>
   <div class="sub">${kEsc(u.display_name || u.username || "")}</div>
   ${noHa ? `<div class="note">Home Assistant não configurado nesta conta.</div>` : `
-  <form method="post" action="/kindle/action?token=${t}"><input type="hidden" name="act" value="all-off"><button class="alloff">APAGAR TUDO</button></form>
+  <form method="post" action="/kindle/action"><input type="hidden" name="act" value="all-off"><button class="alloff">APAGAR TUDO</button></form>
   ${roomBtns ? `<h2>Cômodos</h2>${roomBtns}` : ""}
   <h2>Status</h2>
   <div class="status">
@@ -1783,25 +1782,52 @@ function kindlePage(u, map, token) {
     <div class="row">Internet: <b>${net}</b></div>
     ${onNames.length ? `<div class="row note">${onNames.slice(0, 8).map(kEsc).join(" &middot; ")}</div>` : ""}
   </div>`}
-  <a class="refresh" href="/kindle?token=${t}">&#8635; Atualizar</a>
+  <a class="refresh" href="/kindle">&#8635; Atualizar</a>
 </body></html>`;
 }
+// Token do Kindle: da query (1ª vez) ou do cookie khome (visitas seguintes).
+function kindleTokenFromReq(req) {
+  return (req.query && req.query.token) || (req.body && req.body.token) || parseCookies(req).khome || null;
+}
+function setKindleCookie(res, token) {
+  res.setHeader("Set-Cookie", `khome=${token}; Max-Age=31536000; Path=/; SameSite=Lax`);
+}
 app.get("/kindle", async (req, res) => {
-  const u = findUserByHookToken(req.query.token);
-  if (!u) return res.status(404).type("html").send('<meta charset="utf-8"><h1>Token inv&aacute;lido</h1><p>Gere o link em Perfil &rarr; Atalhos/Siri e acesse /kindle?token=SEU_TOKEN.</p>');
+  const token = kindleTokenFromReq(req);
+  const u = findUserByHookToken(token);
+  if (!u) return res.status(404).type("html").send('<meta charset="utf-8"><h1>N&atilde;o pareado</h1><p>Gere um c&oacute;digo em Perfil &rarr; Painel Kindle e acesse /k/CODIGO neste Kindle.</p>');
+  if (req.query && req.query.token) setKindleCookie(res, token); // memoriza no dispositivo
   let map = null;
   if (userHaEnabled(u)) { try { map = await loadStatesMap(u); } catch {} }
-  res.type("html").send(kindlePage(u, map, req.query.token));
+  res.type("html").send(kindlePage(u, map));
 });
 app.post("/kindle/action", async (req, res) => {
-  const token = req.query.token || (req.body && req.body.token);
-  const u = findUserByHookToken(token);
-  if (!u) return res.status(404).send("token inválido");
+  const u = findUserByHookToken(kindleTokenFromReq(req));
+  if (!u) return res.status(404).send("não pareado");
   try {
     if (req.body.act === "all-off") { if (userHaEnabled(u)) await allOffFor(u); }
     else if (req.body.room) { if (userHaEnabled(u)) await toggleRoomLights(u, req.body.room); }
   } catch {}
-  res.redirect(303, "/kindle?token=" + encodeURIComponent(token || ""));
+  res.redirect(303, "/kindle");
+});
+
+// ===== Pareamento por código curto (evita digitar o token no Kindle) =====
+const kindlePairs = new Map(); // code -> { token, exp }
+app.post("/api/kindle/pair", authRequired, (req, res) => {
+  const st = loadUserState(req.user);
+  if (!st.webhookToken) { st.webhookToken = crypto.randomBytes(24).toString("hex"); saveUserState(req.user.id, st); }
+  const now = Date.now();
+  for (const [c, v] of kindlePairs) if (v.exp < now) kindlePairs.delete(c);
+  let code; do { code = String(Math.floor(100000 + Math.random() * 900000)); } while (kindlePairs.has(code));
+  kindlePairs.set(code, { token: st.webhookToken, exp: now + 10 * 60000 });
+  res.json({ code, expiresInSec: 600 });
+});
+app.get("/k/:code", (req, res) => {
+  const v = kindlePairs.get(String(req.params.code));
+  if (!v || v.exp < Date.now()) return res.status(404).type("html").send('<meta charset="utf-8"><h1>C&oacute;digo inv&aacute;lido ou expirado</h1><p>Gere um novo em Perfil &rarr; Painel Kindle.</p>');
+  setKindleCookie(res, v.token);
+  kindlePairs.delete(String(req.params.code)); // uso único
+  res.redirect(302, "/kindle");
 });
 
 // ===== Atualizações disponíveis (entidades update.* do HA) — avisa por push

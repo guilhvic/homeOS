@@ -8602,20 +8602,26 @@
         <button id="wh-copy" class="ghost" type="button" style="border:1px solid var(--line); padding:8px 10px; border-radius:8px;">Copiar</button>
       </div>
       <p class="sub" style="margin:10px 0 0;">Para rodar uma rotina, troque o final por <code>?routine=NOME</code>. No app Atalhos do iOS: ação "Obter conteúdo da URL". Não compartilhe — este link controla sua casa.</p>
-      <p class="sub" style="margin:12px 0 6px;">📖 Painel Kindle (rede local, sem login):</p>
-      <div style="display:flex; gap:6px; align-items:center;">
-        <input id="wh-kindle" type="text" readonly value="http://IP-DO-SERVIDOR:3030/kindle?token=${escapeHtml(token)}" style="flex:1; min-width:0; font-size:12px; border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:8px; padding:8px 10px;" />
-        <button id="wh-kcopy" class="ghost" type="button" style="border:1px solid var(--line); padding:8px 10px; border-radius:8px;">Copiar</button>
+      <div style="margin:14px 0 0; padding-top:12px; border-top:1px solid var(--line);">
+        <p class="sub" style="margin:0 0 8px;">📖 <b>Painel Kindle</b> (rede local, sem digitar o token):</p>
+        <button id="wh-pair" class="ghost" type="button" style="border:1px solid var(--line); padding:8px 12px; border-radius:8px; font-weight:600;">Parear Kindle</button>
+        <div id="wh-pair-out" style="margin-top:10px;"></div>
       </div>
-      <p class="sub" style="margin:6px 0 0;">Troque <code>IP-DO-SERVIDOR</code> pelo IP do servidor na rede (ex: 192.168.0.60). Abra essa URL no navegador do Kindle.</p>
-      <button id="wh-revoke" class="ghost danger" type="button" style="margin-top:10px; font-size:12px; padding:4px 10px;">Gerar novo (revoga o atual)</button>`;
+      <button id="wh-revoke" class="ghost danger" type="button" style="margin-top:12px; font-size:12px; padding:4px 10px;">Gerar novo token (revoga o atual)</button>`;
     el.querySelector("#wh-copy").addEventListener("click", () => {
       const inp = el.querySelector("#wh-url"); inp.select();
       if (navigator.clipboard) navigator.clipboard.writeText(inp.value).then(() => showToast("Link copiado", "info")).catch(() => {});
     });
-    el.querySelector("#wh-kcopy")?.addEventListener("click", () => {
-      const inp = el.querySelector("#wh-kindle"); inp.select();
-      if (navigator.clipboard) navigator.clipboard.writeText(inp.value).then(() => showToast("Link do Kindle copiado", "info")).catch(() => {});
+    el.querySelector("#wh-pair")?.addEventListener("click", async () => {
+      const out = el.querySelector("#wh-pair-out");
+      out.innerHTML = `<span class="sub">Gerando…</span>`;
+      const r = await api("POST", "/kindle/pair");
+      if (!r.ok || !r.data || !r.data.code) { out.innerHTML = `<span class="sub">Erro ao parear.</span>`; return; }
+      const code = r.data.code;
+      out.innerHTML = `
+        <div style="font-size:13px; color:var(--muted); margin-bottom:4px;">No navegador do Kindle, digite:</div>
+        <div style="font-size:20px; font-weight:800; letter-spacing:.5px; font-variant-numeric:tabular-nums;">http://IP:3030/k/${code}</div>
+        <div class="sub" style="margin-top:6px;">Troque <code>IP</code> pelo IP do servidor na rede. Válido por 10 min e uso único — depois é só favoritar <code>/kindle</code> no Kindle (ele memoriza).</div>`;
     });
     el.querySelector("#wh-revoke").addEventListener("click", async () => {
       if (!await customConfirm("Gerar um link novo? O atual para de funcionar imediatamente.")) return;
