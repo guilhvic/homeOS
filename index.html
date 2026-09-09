@@ -435,7 +435,7 @@
       radial-gradient(600px 380px at 100% -8%, var(--card-accent, transparent), transparent 60%),
       radial-gradient(420px 300px at 0% 108%, var(--card-accent2, transparent), transparent 62%);
   }
-  .home-hero { justify-content: space-between; }
+  .home-card.span-hero .home-card-body { justify-content: space-between; gap: 12px; }
   .hero-dots { position: absolute; inset: -1px; z-index: 0; pointer-events: none;
     background-image: radial-gradient(rgba(255,255,255,.11) 1px, transparent 1.5px);
     background-size: 20px 20px;
@@ -443,7 +443,7 @@
             mask-image: radial-gradient(130% 95% at 12% 8%, #000, transparent 72%);
     opacity: .55; }
   .hero-top, .hero-summary, .hero-hours, .hero-days { position: relative; z-index: 1; }
-  .hero-hours { display: flex; gap: 6px; margin-top: 16px; }
+  .hero-hours { display: flex; gap: 6px; }
   .hero-hour { flex: 1; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px;
     padding: 8px 2px; border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.05); min-width: 0; }
   .hero-hour .hh { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
@@ -460,12 +460,12 @@
   .hero-wx .h-ic { color: #fff; opacity: .95; }
   .hero-wx .h-desc { font-size: 12px; color: var(--muted); }
   .hero-amb { font-size: 12px; color: var(--muted); margin-top: 6px; }
-  .hero-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  .hero-summary { display: flex; flex-wrap: wrap; gap: 8px; }
   .hero-summary .home-pill { font-size: 13px; }
   .hero-summary .home-pill svg { width: 14px; height: 14px; }
   body.kiosk .hero-clock { font-size: 72px; }
   body.kiosk .hero-wx .h-t { font-size: 52px; }
-  .hero-days { display: flex; gap: 8px; margin-top: auto; }
+  .hero-days { display: flex; gap: 8px; }
   .hero-day { flex: 1; text-align: center; border: 1px solid rgba(255,255,255,.08); border-radius: 14px;
     padding: 10px 4px; background: rgba(255,255,255,.03); min-width: 0; transition: .15s; }
   .hero-day.today { background: rgba(142,166,255,.14); border-color: rgba(142,166,255,.35); }
