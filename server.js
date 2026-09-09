@@ -225,6 +225,7 @@ if (WALLETOS_URL) {
 }
 
 app.use(express.json({ limit: "1.5mb" }));
+app.use(express.urlencoded({ extended: false })); // forms do painel Kindle (e-ink, sem JS)
 
 function authRequired(req, res, next) {
   const cookies = parseCookies(req);
@@ -1702,6 +1703,105 @@ app.delete("/api/webhook/token", authRequired, (req, res) => {
   delete st.webhookToken;
   saveUserState(req.user.id, st);
   res.json({ ok: true });
+});
+
+// ===== Painel Kindle (e-ink) — controle simples por token, sem login nem JS.
+// HTML de alto contraste, botões grandes, ações via form POST + redirect.
+// Pensado para o navegador antigo do Kindle na rede local. =====
+function kindleRoomIds(room) {
+  return (room && Array.isArray(room.devices) ? room.devices : [])
+    .map(d => (typeof d === "string" ? d : (d && d.entityId)))
+    .filter(Boolean);
+}
+function kEsc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+async function toggleRoomLights(u, roomId) {
+  const st = loadUserState(u);
+  const room = (st.rooms || []).find(r => r.id === roomId);
+  if (!room) return;
+  const ids = kindleRoomIds(room).filter(id => { const d = id.split(".")[0]; return d === "light" || d === "switch"; });
+  if (!ids.length) return;
+  const map = await loadStatesMap(u);
+  const anyOn = ids.some(id => { const e = map && map.get(id); return e && e.state === "on"; });
+  const byDom = {};
+  for (const id of ids) { const d = id.split(".")[0]; (byDom[d] = byDom[d] || []).push(id); }
+  for (const d of Object.keys(byDom)) {
+    try { await haFetch(u, `/api/services/${d}/turn_${anyOn ? "off" : "on"}`, { method: "POST", body: JSON.stringify({ entity_id: byDom[d] }) }); } catch {}
+  }
+}
+function kindlePage(u, map, token) {
+  const st = loadUserState(u);
+  const rooms = Array.isArray(st.rooms) ? st.rooms : [];
+  const t = encodeURIComponent(token);
+  const onNames = []; const temps = [];
+  if (map) for (const [id, e] of map) {
+    const d = id.split(".")[0], a = e.attributes || {};
+    if ((d === "light" || d === "switch") && e.state === "on") onNames.push(a.friendly_name || id);
+    if (d === "sensor" && a.device_class === "temperature") { const v = parseFloat(e.state); if (Number.isFinite(v)) temps.push(v); }
+    else if (d === "climate" && typeof a.current_temperature === "number") temps.push(a.current_temperature);
+  }
+  const avgT = temps.length ? Math.round(temps.reduce((s, x) => s + x, 0) / temps.length) : null;
+  const net = netMon.online === false ? "OFFLINE" : "online";
+  const roomBtns = rooms.map(room => {
+    const ids = kindleRoomIds(room).filter(id => { const d = id.split(".")[0]; return d === "light" || d === "switch"; });
+    if (!ids.length) return "";
+    let on = 0; for (const id of ids) { const e = map && map.get(id); if (e && e.state === "on") on++; }
+    return `<form method="post" action="/kindle/action?token=${t}"><input type="hidden" name="room" value="${kEsc(room.id)}">`
+      + `<button class="room">${kEsc(room.name || "Cômodo")} <span class="st">${on ? on + " ligada(s)" : "apagado"}</span> <b>${on ? "Desligar" : "Ligar"}</b></button></form>`;
+  }).join("");
+  const noHa = !userHaEnabled(u);
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>homeOS · Controle</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Helvetica, Arial, sans-serif; background:#fff; color:#000; margin:0; padding:16px 14px 40px; }
+  h1 { font-size:26px; margin:0 0 2px; }
+  .sub { font-size:15px; color:#333; margin:0 0 16px; }
+  h2 { font-size:15px; text-transform:uppercase; letter-spacing:1px; margin:22px 0 8px; border-bottom:2px solid #000; padding-bottom:4px; }
+  form { margin:0 0 10px; }
+  button { display:block; width:100%; text-align:left; background:#fff; color:#000; border:3px solid #000; border-radius:8px; padding:16px 18px; font-size:22px; font-weight:bold; }
+  button.alloff { background:#000; color:#fff; text-align:center; font-size:26px; letter-spacing:1px; }
+  button.room .st { font-size:14px; font-weight:normal; color:#333; }
+  button.room b { float:right; font-size:18px; text-decoration:underline; }
+  .status { border:3px solid #000; border-radius:8px; padding:14px 16px; font-size:18px; }
+  .status .big { font-size:30px; font-weight:bold; }
+  .row { padding:4px 0; }
+  .note { font-size:15px; color:#333; }
+  .refresh { text-align:center; display:block; margin-top:18px; font-size:20px; color:#000; }
+</style></head><body>
+  <h1>Controle da Casa</h1>
+  <div class="sub">${kEsc(u.display_name || u.username || "")}</div>
+  ${noHa ? `<div class="note">Home Assistant não configurado nesta conta.</div>` : `
+  <form method="post" action="/kindle/action?token=${t}"><input type="hidden" name="act" value="all-off"><button class="alloff">APAGAR TUDO</button></form>
+  ${roomBtns ? `<h2>Cômodos</h2>${roomBtns}` : ""}
+  <h2>Status</h2>
+  <div class="status">
+    <div class="row"><span class="big">${onNames.length}</span> dispositivo(s) ligado(s)</div>
+    ${avgT != null ? `<div class="row">Temperatura: <b>${avgT}&deg;C</b></div>` : ""}
+    <div class="row">Internet: <b>${net}</b></div>
+    ${onNames.length ? `<div class="row note">${onNames.slice(0, 8).map(kEsc).join(" &middot; ")}</div>` : ""}
+  </div>`}
+  <a class="refresh" href="/kindle?token=${t}">&#8635; Atualizar</a>
+</body></html>`;
+}
+app.get("/kindle", async (req, res) => {
+  const u = findUserByHookToken(req.query.token);
+  if (!u) return res.status(404).type("html").send('<meta charset="utf-8"><h1>Token inv&aacute;lido</h1><p>Gere o link em Perfil &rarr; Atalhos/Siri e acesse /kindle?token=SEU_TOKEN.</p>');
+  let map = null;
+  if (userHaEnabled(u)) { try { map = await loadStatesMap(u); } catch {} }
+  res.type("html").send(kindlePage(u, map, req.query.token));
+});
+app.post("/kindle/action", async (req, res) => {
+  const token = req.query.token || (req.body && req.body.token);
+  const u = findUserByHookToken(token);
+  if (!u) return res.status(404).send("token inválido");
+  try {
+    if (req.body.act === "all-off") { if (userHaEnabled(u)) await allOffFor(u); }
+    else if (req.body.room) { if (userHaEnabled(u)) await toggleRoomLights(u, req.body.room); }
+  } catch {}
+  res.redirect(303, "/kindle?token=" + encodeURIComponent(token || ""));
 });
 
 // ===== Atualizações disponíveis (entidades update.* do HA) — avisa por push
