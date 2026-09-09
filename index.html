@@ -4087,6 +4087,7 @@
     try {
       const r = await api("GET", "/ha/states");
       if (!r.ok) { setHaOnline(false); return; }
+      const hadNone = haEntities.size === 0;
       haEntities.clear();
       for (const e of (r.data.entities || [])) haEntities.set(e.entity_id, e);
       // re-render the affected bits without disturbing inputs/scroll
@@ -4095,6 +4096,10 @@
       applyRoomLiveStates();
       renderEnergyPill();
       renderWeatherPill();
+      // Quando o HA carrega pela 1ª vez e estamos na Home, redesenha para
+      // preencher clima/dispositivos (evita ficar no "conecte weather.*").
+      if (hadNone && haEntities.size > 0 && currentView === "home"
+          && !homeGridEl.contains(document.activeElement)) renderHome();
       setHaOnline(true);
     } catch { setHaOnline(false); }
   }
