@@ -442,7 +442,13 @@
     -webkit-mask-image: radial-gradient(130% 95% at 12% 8%, #000, transparent 72%);
             mask-image: radial-gradient(130% 95% at 12% 8%, #000, transparent 72%);
     opacity: .55; }
-  .hero-top, .hero-summary, .hero-days { position: relative; z-index: 1; }
+  .hero-top, .hero-summary, .hero-hours, .hero-days { position: relative; z-index: 1; }
+  .hero-hours { display: flex; gap: 6px; margin-top: 16px; }
+  .hero-hour { flex: 1; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 8px 2px; border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.05); min-width: 0; }
+  .hero-hour .hh { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+  .hero-hour .hi2 { color: #cdd4ea; }
+  .hero-hour .ht { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
   .hero-clock { font-size: 54px; font-weight: 800; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums;
     background: linear-gradient(180deg,#fff,#b9c0d6); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -7902,6 +7908,24 @@
           <span class="home-pill">${svgIcon("cart", 13)} ${pendMkt} no mercado</span>
           ${haEnabled ? `<span class="home-pill ${lit ? "warn" : "good"}"><span class="p-dot"></span>${lit} ligado${lit === 1 ? "" : "s"}</span>` : ""}
         </div>`;
+        // Faixa por hora (próximas ~7h) — preenche o meio do herói.
+        let hoursHtml = "";
+        if (e && wxHourly.list) {
+          const nowMs = Date.now();
+          const up = wxHourly.list.filter(it => it && it.datetime && new Date(it.datetime).getTime() >= nowMs - 30 * 60000).slice(0, 7);
+          if (up.length) {
+            const cells = up.map((it, i) => {
+              const d = new Date(it.datetime);
+              const hh = i === 0 ? "agora" : String(d.getHours()).padStart(2, "0") + "h";
+              const ic = WEATHER_ICON[it.condition] || "cloud";
+              const t = it.temperature != null ? Math.round(it.temperature) + "°" : "—";
+              return `<div class="hero-hour"><div class="hh">${hh}</div><div class="hi2">${svgIcon(ic, 18)}</div><div class="ht">${t}</div></div>`;
+            }).join("");
+            hoursHtml = `<div class="hero-hours">${cells}</div>`;
+          }
+        } else if (e && !wxHourly.list) {
+          fetchHourlyForecast();
+        }
         let daysHtml = "";
         if (e && wxForecast.byDate) {
           const cards = [];
@@ -7921,7 +7945,7 @@
           daysHtml = `<div class="hero-amb" style="margin-top:auto">Conecte uma entidade weather.* no HA para ver o clima.</div>`;
         }
         return {
-          body: `<div class="hero-dots"></div>` + top + summary + daysHtml,
+          body: `<div class="hero-dots"></div>` + top + summary + hoursHtml + daysHtml,
           mount(el, card) {
             homeClockTick();
             if (card) {
@@ -8009,14 +8033,12 @@
           <span class="hc-ic">${svgIcon(w.icon, 18)}</span>
           <span class="hc-title">${escapeHtml(w.title)}</span>
           <button type="button" class="hc-eye" title="${isHidden ? "Mostrar" : "Ocultar"}">${svgIcon(isHidden ? "dot" : "check", 15)}</button>
-          <button type="button" class="hc-open">Abrir ${svgIcon("chevron-right", 15)}</button>
         </div>
         <div class="home-card-body"></div>`;
       const bodyEl = card.querySelector(".home-card-body");
       bodyEl.innerHTML = built.body || "";
       homeGridEl.appendChild(card);
 
-      card.querySelector(".hc-open").addEventListener("click", () => setView(w.view));
       card.querySelector(".hc-eye").addEventListener("click", () => {
         const nh = new Set(hidden);
         if (nh.has(id)) nh.delete(id); else nh.add(id);
@@ -9024,6 +9046,23 @@
   // ===== Previsão da semana (modo descanso) =====
   let wxForecast = { fetchedMs: 0, byDate: null };
   let wxFetching = false;
+  let wxHourly = { fetchedMs: 0, list: null };
+  let wxHourlyFetching = false;
+  async function fetchHourlyForecast() {
+    const id = findWeatherEntity();
+    if (!id || wxHourlyFetching) return;
+    if (wxHourly.list && (Date.now() - wxHourly.fetchedMs) < 30 * 60000) return;
+    wxHourlyFetching = true;
+    try {
+      const r = await api("POST", "/ha/services/weather/get_forecasts?return_response=true", { entity_id: id, type: "hourly" });
+      const resp = r.ok && r.data && (r.data.service_response || r.data);
+      const list = resp && resp[id] && resp[id].forecast;
+      if (Array.isArray(list) && list.length) {
+        wxHourly = { fetchedMs: Date.now(), list };
+        if (currentView === "home" && typeof renderHome === "function") renderHome();
+      }
+    } catch {} finally { wxHourlyFetching = false; }
+  }
   function dateKey(d) {
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
