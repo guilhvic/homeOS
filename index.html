@@ -193,8 +193,15 @@
     padding: 22px 18px 72px;
   }
   .home-shell { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
-  .home-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  .home-head h2 { margin: 0; font-size: 24px; letter-spacing: -.01em; }
+  /* Cabecalho da Home. Anula o estilo global de <header> (a barra do topo do
+     app), que senao vaza aqui e vira uma faixa solta sobre o conteudo. */
+  .home-head {
+    grid-area: auto; background: none; border: none; padding: 0;
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 10px 16px; flex-wrap: wrap; margin: 2px 2px 0;
+  }
+  .home-head .hh-text { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+  .home-head h2 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
   .home-greeting { color: var(--muted); font-size: 14px; }
   .home-greeting::first-letter { text-transform: uppercase; }
 
@@ -308,7 +315,6 @@
   body.kiosk .home-check { width: 30px; height: 30px; }
 
   /* Edição da Home: arrastar/ocultar widgets */
-  .home-head { align-items: flex-start; }
   #home-edit-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
   .home-grid.editing .home-card { border-style: dashed; cursor: grab; }
   .home-grid.editing .home-card.dragging { opacity: .45; }
@@ -2981,7 +2987,7 @@
   <main id="home-view">
     <div class="home-shell">
       <header class="home-head">
-        <div>
+        <div class="hh-text">
           <h2>Início</h2>
           <span class="home-greeting" id="home-greeting"></span>
         </div>
