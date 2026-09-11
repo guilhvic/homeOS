@@ -404,14 +404,11 @@
   .gauge { display: flex; flex-direction: column; align-items: center; gap: 5px; }
   .g-ring { position: relative; width: 74px; height: 74px; }
   .g-ring svg { width: 74px; height: 74px; display: block; }
-  .g-ticks { fill: none; stroke: rgba(255,255,255,.14); stroke-width: 5; stroke-dasharray: 1 6.55; stroke-linecap: round; }
-  .g-track { fill: none; stroke: rgba(255,255,255,.07); stroke-width: 5; }
-  .g-arc { fill: none; stroke: var(--g-col, #8ea6ff); stroke-width: 5; stroke-linecap: round;
-    transition: stroke-dashoffset 1.2s cubic-bezier(.2,.8,.2,1); filter: drop-shadow(0 0 6px var(--g-col, #8ea6ff)); }
-  .g-dot { fill: #fff; transform-origin: 37px 37px; transition: transform 1.2s cubic-bezier(.2,.8,.2,1);
-    filter: drop-shadow(0 0 5px var(--g-col, #8ea6ff)); }
+  .g-track { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 2.5; }
+  .g-arc { fill: none; stroke: var(--g-col, #8ea6ff); stroke-width: 2.5; stroke-linecap: round;
+    transition: stroke-dashoffset 1.2s cubic-bezier(.2,.8,.2,1); }
   .g-center { position: absolute; inset: 0; display: grid; place-items: center; }
-  .g-center .g-val { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: #fff; }
+  .g-center .g-val { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--ink); }
   .gauge .g-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
 
   /* Barra de progresso (tarefas) */
@@ -7662,15 +7659,13 @@
   // valor no centro. Anima o arco e o ponto ao aparecer.
   function gaugeSvg(pct, value, label, color) {
     const p = Math.max(0, Math.min(100, pct || 0));
-    const cx = 37, cy = 37, r = 30, c = 2 * Math.PI * r, off = c * (1 - p / 100), ang = p * 3.6;
+    const cx = 37, cy = 37, r = 31, c = 2 * Math.PI * r, off = c * (1 - p / 100);
     return `<div class="gauge" style="--g-col:${color}">
       <div class="g-ring">
         <svg viewBox="0 0 74 74">
-          <circle class="g-ticks" cx="${cx}" cy="${cy}" r="34"></circle>
           <circle class="g-track" cx="${cx}" cy="${cy}" r="${r}"></circle>
           <circle class="g-arc" cx="${cx}" cy="${cy}" r="${r}" transform="rotate(-90 ${cx} ${cy})"
             stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${c.toFixed(1)}" data-off="${off.toFixed(1)}"></circle>
-          <circle class="g-dot" cx="${cx}" cy="${cy - r}" r="3.2" data-ang="${ang.toFixed(1)}"></circle>
         </svg>
         <div class="g-center"><span class="g-val">${value}</span></div>
       </div>
@@ -7681,7 +7676,6 @@
     requestAnimationFrame(() => {
       const s = scope || document;
       for (const arc of s.querySelectorAll(".g-arc[data-off]")) arc.style.strokeDashoffset = arc.dataset.off;
-      for (const dot of s.querySelectorAll(".g-dot[data-ang]")) dot.style.transform = `rotate(${dot.dataset.ang}deg)`;
     });
   }
 
