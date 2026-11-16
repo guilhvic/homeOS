@@ -224,6 +224,37 @@ if (WALLETOS_URL) {
   });
 }
 
+// Reverse-proxy same-origin da assistente de voz (Ollama + página com rosto, outro
+// compose em /home/home/assistente). Mesma origem = herda o HTTPS do homeOS (o
+// microfone só funciona em contexto seguro) e o login dele. A página usa caminhos
+// relativos (api/chat), então tudo cai aqui embaixo de /apps/assistente/.
+// Exige sessão: a porta 3030 também é acessível pela rede local.
+const ASSISTENTE_URL = process.env.ASSISTENTE_URL || "http://localhost:3050";
+if (ASSISTENTE_URL) {
+  const aTarget = new URL(ASSISTENTE_URL);
+  const aMod = aTarget.protocol === "https:" ? require("https") : require("http");
+  app.use("/apps/assistente", (req, res, next) => authRequired(req, res, next), (req, res) => {
+    if (req.originalUrl === "/apps/assistente") return res.redirect(301, "/apps/assistente/");
+    const suffix = req.originalUrl.replace(/^\/apps\/assistente/, "") || "/";
+    const { cookie, ...headers } = req.headers;        // a sessão do homeOS não sai daqui
+    const preq = aMod.request({
+      protocol: aTarget.protocol,
+      hostname: aTarget.hostname,
+      port: aTarget.port || (aTarget.protocol === "https:" ? 443 : 80),
+      method: req.method,
+      path: suffix,
+      headers: { ...headers, host: aTarget.host },
+      timeout: 600000,                                 // respostas do LLM nesse CPU levam ~1 min
+    }, (pres) => {
+      res.writeHead(pres.statusCode || 502, pres.headers);
+      pres.pipe(res);                                  // streaming token a token
+    });
+    preq.on("error", () => { try { if (!res.headersSent) res.status(502).send("Assistente indisponível"); else res.end(); } catch {} });
+    preq.on("timeout", () => preq.destroy(new Error("timeout")));
+    req.pipe(preq);
+  });
+}
+
 app.use(express.json({ limit: "1.5mb" }));
 app.use(express.urlencoded({ extended: false })); // forms do painel Kindle (e-ink, sem JS)
 
